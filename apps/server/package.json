@@ -10,7 +10,8 @@
     "test": "pnpm run build && tsc --noEmit -p tsconfig.test.json && node ../../scripts/test-server.mjs",
     "db:migrate": "node dist/platform/database/migrate-cli.js",
     "secrets:rotate": "node dist/platform/secrets/rotate-cli.js",
-    "auth:operator": "node dist/platform/auth/operator-cli.js"
+    "auth:operator": "node dist/platform/auth/operator-cli.js",
+    "start": "node dist/start.js"
   },
   "dependencies": {
     "@bitsentry-escalator/features": "workspace:*",

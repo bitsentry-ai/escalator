@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: escalator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+      - migrator_password
+      - app_password
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./deploy/roles.sh:/docker-entrypoint-initdb.d/10-escalator-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d escalator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  app:
+    build:
+      context: .
+    image: escalator:local
+    env_file: ./app.env
+    environment:
+      PORT: "3000"
+      ESCALATOR_SECRET_KEY_FILE: /run/escalator/keyring.json
+      ESCALATOR_AUTH_GRANT_FILE: /run/escalator/operator/bootstrap.txt
+    volumes:
+      - ./secrets/keyring.json:/run/escalator/keyring.json:ro
+      - ./operator:/run/escalator/operator
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 90s
+    restart: unless-stopped
+secrets:
+  postgres_password:
+    file: ./secrets/postgres-password
+  migrator_password:
+    file: ./secrets/migrator-password
+  app_password:
+    file: ./secrets/app-password
+volumes:
+  database:

@@ -20,6 +20,16 @@ function fixture(
   const client = {
     async query(sql: string, values?: unknown[]) {
       queries.push({ sql, values });
+      if (sql.includes("FROM escalator_compatibility"))
+        return {
+          rows: [
+            {
+              schemaVersion: 1,
+              minimumContractVersion: 1,
+              maximumContractVersion: 1,
+            },
+          ],
+        };
       return { rows: sql.includes("AS database_now") ? rows : [] };
     },
     release(destroy?: boolean) {
@@ -159,4 +169,33 @@ test("immediate cancellation prevents a queued pool acquisition", async () => {
   controller.abort();
   await assert.rejects(result);
   assert.equal(acquired, false);
+});
+
+test("missing or incompatible metadata cannot produce a healthy queue snapshot", async () => {
+  for (const rows of [
+    [],
+    [
+      {
+        schemaVersion: 2,
+        minimumContractVersion: 1,
+        maximumContractVersion: 1,
+      },
+    ],
+  ]) {
+    const f = fixture(),
+      original = f.client.query.bind(f.client);
+    f.client.query = async (sql, values) =>
+      sql.includes("FROM escalator_compatibility")
+        ? { rows }
+        : original(sql, values);
+    await assert.rejects(
+      f.reader.read(scope, new AbortController().signal),
+      /Operational health database unavailable/,
+    );
+    assert.equal(
+      f.queries.some((q) => q.sql.includes("AS database_now")),
+      false,
+    );
+    assert.deepEqual(f.released, [true]);
+  }
 });

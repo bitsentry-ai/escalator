@@ -3,3 +3,15 @@ dist/
 *.tsbuildinfo
 
 .test-dist/
+
+# Operator state belongs outside version control.
+/secrets/
+/operator/
+/app.env
+/.deploy/
+/backups/
+/*.dump
+/*.backup
+/.env
+/.env.*
+!/.env.example

@@ -11,6 +11,16 @@ function fixture() {
   const client = {
     query: async (sql: string) => {
       statements.push(sql);
+      if (sql.includes("FROM escalator_compatibility"))
+        return {
+          rows: [
+            {
+              schemaVersion: 1,
+              minimumContractVersion: 1,
+              maximumContractVersion: 1,
+            },
+          ],
+        };
       return { rows: [{ now: new Date("2026-10-07T00:00:00Z") }] };
     },
     release: (destroy = false) => {

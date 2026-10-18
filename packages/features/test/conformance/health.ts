@@ -18,6 +18,9 @@ interface HealthFixture {
   repository: FoundationRepository;
   reader: OperationalHealthReader;
   store: DurableWorkStore;
+  setSchemaVersion(version: number): Promise<unknown>;
+  writeSchemaVersion(version: number): Promise<unknown>;
+  withCompatibilityLock(work: () => Promise<void>): Promise<void>;
   dispose(): Promise<void>;
 }
 /** Identical queue-age and scope cases for both production database adapters. */
@@ -185,6 +188,50 @@ export function healthConformance(
         await tx.work.cancel("job", ["cancelled"]);
       });
       assert.equal((await read(f, a)).oldestDueJobAt, null);
+    },
+  );
+  scenario(
+    "incompatible metadata blocks reads and claims without consuming pending work",
+    async (f, a) => {
+      await enqueue(f, a, "job", "paging.step");
+      await read(f, a);
+      await assert.rejects(f.writeSchemaVersion(2));
+      await f.setSchemaVersion(2);
+      const claim = () =>
+        f.store.claim({
+          workspaceId: a,
+          queue: "job",
+          kinds: ["paging.step"],
+          token: randomUUID(),
+          leaseMs: 30000,
+        });
+      await assert.rejects(read(f, a));
+      await assert.rejects(claim());
+      await assert.rejects(
+        f.repository.transaction(a, (tx) => tx.workspace.get()),
+      );
+      await f.setSchemaVersion(1);
+      await read(f, a);
+      const recovered = await claim();
+      assert.equal(recovered?.attempt, 1);
+    },
+  );
+  scenario(
+    "an operator metadata lock prevents claims until the rollout transaction ends",
+    async (f, a) => {
+      await enqueue(f, a, "job", "paging.step");
+      const claim = () =>
+        f.store.claim({
+          workspaceId: a,
+          queue: "job",
+          kinds: ["paging.step"],
+          token: randomUUID(),
+          leaseMs: 30000,
+        });
+      await f.withCompatibilityLock(async () => {
+        await assert.rejects(claim());
+      });
+      assert.equal((await claim())?.attempt, 1);
     },
   );
 }

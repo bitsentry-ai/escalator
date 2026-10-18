@@ -1,3 +1,4 @@
+import { checkPostgresCompatibility } from "../database/compatibility.js";
 import type { Pool, PoolClient } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -48,6 +49,7 @@ export class PostgresWorkStore implements DurableWorkStore {
     const relation = table(input.queue);
     if (!input.kinds.length) return undefined;
     return this.scoped(input.workspaceId, async (client) => {
+      await checkPostgresCompatibility(client, true);
       const result = await client.query<{
         id: string;
         kind: string;

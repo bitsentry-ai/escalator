@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import {
@@ -100,6 +102,24 @@ export async function postgresFixture(
     await admin.query(
       `GRANT USAGE ON SCHEMA ${identifier(schema)} TO ${identifier(current.role)}`,
     );
+    // Historical upgrade fixtures need metadata without reordering their migration journal.
+    // This test-only table is removed before the real compatibility migration is applied.
+    let temporaryCompatibility = false;
+    const prepareCompatibility = async () => {
+      const exists = await admin.query(
+        "SELECT to_regclass('escalator_compatibility') AS relation",
+      );
+      if (!exists.rows[0].relation) {
+        await admin.query(
+          await readFile(resolve("migrations/0032_compatibility.sql"), "utf8"),
+        );
+        temporaryCompatibility = true;
+      }
+      await admin.query(
+        `GRANT SELECT, UPDATE(id) ON escalator_compatibility TO ${identifier(current.role)}`,
+      );
+    };
+    await prepareCompatibility();
     for (const table of [
       "escalator_workspace",
       "escalator_service",
@@ -116,6 +136,10 @@ export async function postgresFixture(
         `GRANT SELECT, INSERT ON ${identifier(table)} TO ${identifier(current.role)}`,
       );
     }
+    // Mirrors deploy/runtime-grants.sql: row locks on the scope parents need UPDATE(id).
+    await admin.query(
+      `GRANT UPDATE(id) ON escalator_workspace, escalator_environment TO ${identifier(current.role)}`,
+    );
     for (const table of [
       "escalator_detection_binding",
       "escalator_probe",
@@ -330,8 +354,37 @@ export async function postgresFixture(
     return {
       repository: new PostgresFoundationRepository(app),
       app,
+      setSchemaVersion: (version: number) =>
+        admin.query(
+          "UPDATE escalator_compatibility SET schema_version=$1 WHERE id=1",
+          [version],
+        ),
+      writeSchemaVersion: (version: number) =>
+        app.query(
+          "UPDATE escalator_compatibility SET schema_version=$1 WHERE id=1",
+          [version],
+        ),
+      async withCompatibilityLock(work: () => Promise<void>) {
+        const db = await admin.connect();
+        try {
+          await db.query("BEGIN");
+          await db.query("UPDATE escalator_compatibility SET id=id WHERE id=1");
+          await work();
+        } finally {
+          try {
+            await db.query("ROLLBACK");
+          } finally {
+            db.release();
+          }
+        }
+      },
       async upgrade(next: readonly Migration[]) {
+        if (temporaryCompatibility) {
+          await admin.query("DROP TABLE escalator_compatibility");
+          temporaryCompatibility = false;
+        }
         await migrate(admin, next);
+        await prepareCompatibility();
         await grantCoverage(next);
         await grantBaselines(next);
         await grantWatches(next);

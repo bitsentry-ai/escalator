@@ -125,3 +125,5 @@ export * from "./rule-results.js";
 export * from "./rule-management.js";
 
 export * from "./rule-report-detail.js";
+
+export * from "./compatibility.js";

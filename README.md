@@ -15,6 +15,8 @@ WorkOS, Encore, database, or server process is required for these checks.
 The server exports an app factory with local authentication; see
 [authentication configuration and operator procedures](docs/authentication.md).
 Importing the factory never starts a listener.
+For deployment, follow the [isolated installation guide](docs/install/README.md)
+and [backup/upgrade procedures](docs/operations.md).
 The package exports compiled CommonJS and ESM only. React is a peer dependency.
 
 ## Mounted secret keys

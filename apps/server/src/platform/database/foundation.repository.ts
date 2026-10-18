@@ -1,3 +1,4 @@
+import { checkPostgresCompatibility } from "./compatibility.js";
 import { postgresWorkWriter } from "../jobs/postgres-work.writer.js";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import {
@@ -97,6 +98,8 @@ export class PostgresFoundationRepository implements FoundationRepository {
         "SELECT set_config('app.workspace_id', $1, true)",
         [scope],
       );
+      await connection.query("SET LOCAL lock_timeout = '1s'");
+      await checkPostgresCompatibility(connection, true);
       const time = await query("SELECT transaction_timestamp() AS now");
       const entity = <E extends Service | Environment | Responder>(
         table: string,

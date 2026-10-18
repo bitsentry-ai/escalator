@@ -1,3 +1,4 @@
+import { checkPostgresCompatibility } from "../database/compatibility.js";
 import type { Pool, PoolClient } from "pg";
 import {
   workspaceIdSchema,
@@ -88,6 +89,7 @@ export class PostgresHealthReader implements OperationalHealthReader {
         scope,
       ]);
       bounded.throwIfAborted();
+      await checkPostgresCompatibility(client);
       const { rows } = await client.query<{
         database_now: Date;
         oldest_job: Date | null;

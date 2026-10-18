@@ -1,3 +1,4 @@
+import { checkPostgresCompatibility } from "./compatibility.js";
 import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import {
   readRepositoryBinding,
@@ -245,6 +246,7 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
     )
       throw new Error("Invalid investigation lease");
     return this.scoped(input.workspaceId, async (db) => {
+      await checkPostgresCompatibility(db, true);
       if (
         !(await this.policy.authorizeRuntime(
           db,
