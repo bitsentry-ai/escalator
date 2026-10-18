@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import {
   createSignalSourceSchema,
+  createProviderSourceSchema,
+  updateProviderSourceSchema,
   updateSignalSourceSchema,
   signalSourceIdSchema,
   signalSourcePageSchema,
@@ -8,7 +10,34 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import { authenticated } from "../../platform/trpc/authenticated.js";
 import { t } from "../../platform/trpc/context.js";
+async function ingestionGrant<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (
+      ["source_disabled", "source_kind"].includes(
+        (error as { code?: string })?.code ?? "",
+      )
+    )
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Source cannot accept ingestion grants",
+      });
+    throw error;
+  }
+}
 export const signalsRouter = t.router({
+  createProvider: authenticated
+    .input(createProviderSourceSchema)
+    .mutation(({ ctx, input }) => ctx.signals.createProvider(ctx.actor, input)),
+  updateProvider: authenticated
+    .input(updateProviderSourceSchema)
+    .mutation(({ ctx, input }) => ctx.signals.updateProvider(ctx.actor, input)),
+  issueReceiver: authenticated
+    .input(issueSignalTokenSchema)
+    .mutation(({ ctx, input }) =>
+      ingestionGrant(() => ctx.signals.issueReceiver(ctx.actor, input)),
+    ),
   list: authenticated
     .input(signalSourcePageSchema)
     .query(({ ctx, input }) => ctx.signals.list(ctx.actor, input)),
@@ -24,20 +53,7 @@ export const signalsRouter = t.router({
   issueToken: authenticated
     .input(issueSignalTokenSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.signals.issueToken(ctx.actor, input);
-      } catch (error) {
-        if (
-          ["source_disabled", "source_kind"].includes(
-            (error as { code?: string })?.code ?? "",
-          )
-        )
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "Source cannot accept ingestion grants",
-          });
-        throw error;
-      }
+      return ingestionGrant(() => ctx.signals.issueToken(ctx.actor, input));
     }),
   revokeToken: authenticated
     .input(signalSourceIdSchema)

@@ -3,6 +3,8 @@ import { Module } from "@nestjs/common";
 import {
   SignalHttp,
   SignalManagement,
+  ProviderIntake,
+  ProviderHttp,
 } from "@bitsentry-escalator/features/application";
 import {
   DatabaseModule,
@@ -10,10 +12,31 @@ import {
 } from "../../platform/database/database.module.js";
 import { PostgresSignalRepository } from "../../platform/database/signals.repository.js";
 import { SignalIngestController } from "../../platform/http/ingest/ingest.controller.js";
+import { SecretKeysModule } from "../../platform/secrets/secrets.module.js";
+import { SecretKeyRing } from "../../platform/secrets/keyring.js";
+import { PostgresSourceVerificationSecrets } from "../../platform/secrets/source-verification.store.js";
+import { ProviderIngestController } from "../../platform/http/ingest/provider.controller.js";
 @Module({
-  imports: [DatabaseModule],
-  controllers: [SignalIngestController],
+  imports: [DatabaseModule, SecretKeysModule],
+  controllers: [SignalIngestController, ProviderIngestController],
   providers: [
+    {
+      provide: ProviderHttp,
+      inject: [PostgresSignalRepository, StandaloneDatabase, SecretKeyRing],
+      useFactory: (
+        repository: PostgresSignalRepository,
+        db: StandaloneDatabase,
+        keys: SecretKeyRing,
+      ) =>
+        new ProviderHttp(
+          new ProviderIntake(
+            repository,
+            new PostgresSourceVerificationSecrets(db.pool, keys),
+            (scope) => scope === db.workspaceId,
+            randomUUID,
+          ),
+        ),
+    },
     {
       provide: PostgresSignalRepository,
       inject: [StandaloneDatabase],

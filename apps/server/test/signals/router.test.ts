@@ -24,6 +24,14 @@ function fixture() {
       actors.push(actor);
       return { items: [], next: null };
     },
+    async createProvider(actor: Actor) {
+      actors.push(actor);
+      return { id: "provider" };
+    },
+    async issueReceiver(actor: Actor) {
+      actors.push(actor);
+      return { receiverId: "a".repeat(64) };
+    },
     async create(actor: Actor) {
       actors.push(actor);
       return { id: "source" };
@@ -92,5 +100,29 @@ test("disabled sources, missing grants and revoked sessions have safe applicatio
     });
   };
   await assert.rejects(f.caller.list({}), { code: "UNAUTHORIZED" });
+  assert.equal(f.actors.length, 2);
+});
+
+test("provider administration derives local identity and rejects client-selected scope", async () => {
+  const f = fixture();
+  const input = {
+    name: "Sentry",
+    serviceId: "service",
+    environmentId: "production",
+    intake: { mode: "sentry-hmac" as const },
+    authSecretId: "opaque-secret",
+  };
+  await f.caller.createProvider(input);
+  await f.caller.issueReceiver({ sourceId: "provider" });
+  assert.equal(f.actors.length, 2);
+  assert.ok(f.actors.every((actor) => actor.workspaceId === "local"));
+  await assert.rejects(
+    f.caller.createProvider({ ...input, workspaceId: "foreign" } as never),
+    { code: "BAD_REQUEST" },
+  );
+  delete f.req.session.account;
+  await assert.rejects(f.caller.issueReceiver({ sourceId: "provider" }), {
+    code: "UNAUTHORIZED",
+  });
   assert.equal(f.actors.length, 2);
 });
