@@ -185,3 +185,6 @@ export * from "./deploy/watch-correlation.js";
 export * from "./deploy/cadence.js";
 
 export * from "./deploy/cadence-persistence.js";
+
+export * from "./deploy/cadence-coordinator.js";
+export * from "./deploy/cadence-jobs.js";
