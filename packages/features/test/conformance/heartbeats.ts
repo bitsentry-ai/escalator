@@ -79,10 +79,15 @@ export async function seedHeartbeatFixture(
 export function heartbeatConformance(
   name: string,
   create: () => Promise<HeartbeatFixture>,
-  options: TestOptions = {},
+  options: TestOptions & {
+    register?: (name: string, run: () => Promise<void>) => void;
+  } = {},
 ) {
+  const register =
+    options.register ??
+    ((title: string, run: () => Promise<void>) => test(title, options, run));
   const check = (title: string, run: (f: HeartbeatFixture) => Promise<void>) =>
-    test(`${name}: ${title}`, options, async () => {
+    register(`${name}: ${title}`, async () => {
       const f = await create();
       try {
         await run(f);

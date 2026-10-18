@@ -4,6 +4,9 @@
     "rootDir": "../..",
     "baseUrl": ".",
     "paths": {
+      "@escalator-test/heartbeats": [
+        "../../packages/features/test/conformance/heartbeats.ts"
+      ],
       "@escalator-test/foundation": [
         "../../packages/features/test/conformance/foundation.ts"
       ],
