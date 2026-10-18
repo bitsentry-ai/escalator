@@ -69,3 +69,7 @@ export * from "./signals/provider-http.js";
 export * from "../domain/alerts/transition.js";
 export * from "./detection/ports.js";
 export * from "./detection/transaction.js";
+
+export * from "./detection/process.js";
+export { SignalRecovery } from "./detection/recovery.js";
+export * from "./detection/handlers.js";

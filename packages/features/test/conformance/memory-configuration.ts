@@ -1,4 +1,5 @@
-import type { WorkspaceId } from "../../src/contracts/index.js";
+import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
+import type { Clock, WorkspaceId } from "../../src/contracts/index.js";
 import { configurationTransaction } from "../../src/application/configuration/transaction.js";
 import type {
   ConfigurationRepository,
@@ -10,12 +11,25 @@ import type {
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import { MemoryPagingRepository } from "./memory-paging.js";
 export class MemoryConfigurationRepository implements ConfigurationRepository {
-  readonly paging = new MemoryPagingRepository({
-    now: () => new Date("2026-09-20T00:00:00.000Z"),
-  });
+  readonly paging: MemoryPagingRepository;
+  constructor(
+    clock: Clock = { now: () => new Date("2026-09-20T00:00:00.000Z") },
+  ) {
+    this.paging = new MemoryPagingRepository(clock);
+  }
   transaction<T>(
     scope: WorkspaceId,
     work: (tx: ConfigurationTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(scope, (tx) => work(tx));
+  }
+  withExtensions<T>(
+    scope: WorkspaceId,
+    work: (
+      tx: ConfigurationTransaction,
+      extensions: Record<string, unknown>,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.paging.withExtensions(scope, (base, extensions, guard) => {
       type Rows = Record<
@@ -70,7 +84,11 @@ export class MemoryConfigurationRepository implements ConfigurationRepository {
         },
         secretExists: async (id) => id === "fixture-secret",
       };
-      return work(configurationTransaction(base, store, guard));
+      return work(
+        configurationTransaction(base, store, guard),
+        extensions,
+        guard,
+      );
     });
   }
 }

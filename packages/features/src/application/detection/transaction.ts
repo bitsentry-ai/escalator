@@ -145,6 +145,16 @@ export function detectionTransaction(
             )
               throw new PersistenceError("scope_violation");
           }
+          if (
+            previous?.incidentId &&
+            previous.incidentId !== value.incidentId
+          ) {
+            const incident = required(
+              await base.incidents.get(previous.incidentId),
+            );
+            if (incident.resolvedAt === null)
+              throw new DetectionError("identity_change");
+          }
           const written = await store.putGroup(value, expected);
           if (written) groups.set(value.id, value);
           return written;
