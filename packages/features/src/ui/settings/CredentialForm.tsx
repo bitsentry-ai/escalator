@@ -11,7 +11,9 @@ export function CredentialForm({
   onCreated: (value: { id: string; name: string }) => void;
   t: (key: string) => string;
 }) {
-  const [channel, setChannel] = useState<"pushover" | "webhook">("pushover");
+  const [channel, setChannel] = useState<
+    "pushover" | "webhook" | "ntfy" | "slack" | "discord"
+  >("pushover");
   const [name, setName] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
@@ -44,12 +46,15 @@ export function CredentialForm({
               user: fields.user ?? "",
               ...(fields.device ? { device: fields.device } : {}),
             }
-          : {
-              url: fields.url ?? "",
-              ...(fields.bearerToken
-                ? { bearerToken: fields.bearerToken }
-                : {}),
-            };
+          : channel === "slack" || channel === "discord"
+            ? { url: fields.url ?? "" }
+            : {
+                url: fields.url ?? "",
+                ...(channel === "ntfy" ? { topic: fields.topic ?? "" } : {}),
+                ...(fields.bearerToken
+                  ? { bearerToken: fields.bearerToken }
+                  : {}),
+              };
       const result = await client.createSecret(
         createChannelSecretSchema.parse({ channel, name, credentials }),
       );
@@ -95,29 +100,44 @@ export function CredentialForm({
             style={styles.input}
             value={channel}
             onChange={(event) => {
-              setChannel(
-                event.target.value === "webhook" ? "webhook" : "pushover",
-              );
+              const selected = event.target.value;
+              if (
+                selected === "pushover" ||
+                selected === "webhook" ||
+                selected === "ntfy" ||
+                selected === "slack" ||
+                selected === "discord"
+              )
+                setChannel(selected);
               setFields({});
               setError(false);
             }}
           >
             <option value="pushover">Pushover</option>
             <option value="webhook">Webhook</option>
+            <option value="ntfy">ntfy</option>
+            <option value="slack">Slack</option>
+            <option value="discord">Discord</option>
           </select>
         </label>
         {(channel === "pushover"
           ? ["token", "user", "device"]
-          : ["url", "bearerToken"]
+          : channel === "ntfy"
+            ? ["url", "topic", "bearerToken"]
+            : channel === "webhook"
+              ? ["url", "bearerToken"]
+              : ["url"]
         ).map((field) => (
           <label key={field} style={styles.label}>
-            {t(`settings.credential.${field}`)}
+            {t(
+              `settings.credential.${channel === "ntfy" && field === "url" ? "serverUrl" : field}`,
+            )}
             <input
               style={styles.input}
               type="password"
               autoComplete="off"
               spellCheck={false}
-              required={["token", "user", "url"].includes(field)}
+              required={["token", "user", "url", "topic"].includes(field)}
               maxLength={4096}
               value={fields[field] ?? ""}
               onChange={(event) =>

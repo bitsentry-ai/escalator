@@ -235,7 +235,9 @@
       "user": "Clé utilisateur",
       "device": "Appareil (facultatif)",
       "url": "URL du webhook",
-      "bearerToken": "Jeton Bearer (facultatif)"
+      "bearerToken": "Jeton Bearer (facultatif)",
+      "serverUrl": "URL du serveur",
+      "topic": "Sujet"
     },
     "heading": "Paramètres d’alerte",
     "view": "Consulter",

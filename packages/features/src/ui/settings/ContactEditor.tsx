@@ -119,15 +119,24 @@ export function ContactEditor({
               value={draft.channel}
               onChange={(event) => {
                 const channel = event.target.value;
-                if (channel === "pushover" || channel === "webhook")
+                if (
+                  channel === "pushover" ||
+                  channel === "webhook" ||
+                  channel === "ntfy" ||
+                  channel === "slack" ||
+                  channel === "discord"
+                )
                   setDraft({ ...draft, channel });
               }}
             >
               <option value="pushover">Pushover</option>
               <option value="webhook">Webhook</option>
-              {!["pushover", "webhook"].includes(draft.channel) && (
-                <option value={draft.channel}>{draft.channel}</option>
-              )}
+              <option value="ntfy">ntfy</option>
+              <option value="slack">Slack</option>
+              <option value="discord">Discord</option>
+              {!["pushover", "webhook", "ntfy", "slack", "discord"].includes(
+                draft.channel,
+              ) && <option value={draft.channel}>{draft.channel}</option>}
             </select>
           </label>
           <label style={styles.label}>

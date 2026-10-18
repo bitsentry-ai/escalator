@@ -235,7 +235,9 @@
       "user": "Kunci pengguna",
       "device": "Perangkat (opsional)",
       "url": "URL webhook",
-      "bearerToken": "Token Bearer (opsional)"
+      "bearerToken": "Token Bearer (opsional)",
+      "serverUrl": "URL server",
+      "topic": "Topik"
     },
     "heading": "Pengaturan panggilan",
     "view": "Lihat",

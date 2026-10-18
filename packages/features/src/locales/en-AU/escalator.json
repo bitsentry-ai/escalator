@@ -235,7 +235,9 @@
       "user": "User key",
       "device": "Device (optional)",
       "url": "Webhook URL",
-      "bearerToken": "Bearer token (optional)"
+      "bearerToken": "Bearer token (optional)",
+      "serverUrl": "Server URL",
+      "topic": "Topic"
     },
     "heading": "Paging settings",
     "view": "View",
