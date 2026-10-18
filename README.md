@@ -1,7 +1,8 @@
 # Escalator workspace
 
-This first stack part installs and builds the canonical feature package.
-Server and web shells are supplied by later Phase 0 parts.
+This stack part builds the canonical feature package and the NestJS/tRPC server
+shell. The web shell is supplied by the next Phase 0 part.
+The server exports an app factory; operational behavior starts in Phase 1.
 
 ```sh
 pnpm install --frozen-lockfile
