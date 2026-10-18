@@ -7,12 +7,22 @@ import {
 } from "./identity.js";
 import { utcTimestampSchema } from "./entities.js";
 
+// PostgreSQL JSON rejects NUL and unpaired UTF-16 surrogates. Both hosts reject
+// them at the shared boundary while preserving valid emoji and other Unicode.
+function storableText(value: string): boolean {
+  return [...value].every((character) => {
+    const code = character.codePointAt(0)!;
+    return code !== 0 && (code < 0xd800 || code > 0xdfff);
+  });
+}
+const unicodeMessage = "Expected PostgreSQL-compatible Unicode text";
 /** Hosts enforce this byte limit while reading, before JSON parsing. */
 export const SIGNAL_INGRESS_MAX_BYTES = 256 * 1024;
 const externalKey = z
   .string()
   .min(1)
   .max(256)
+  .refine(storableText, unicodeMessage)
   .refine(
     (value) =>
       [...value].every(
@@ -27,13 +37,13 @@ const attribute = z.strictObject({
     .min(1)
     .max(80)
     .regex(/^[a-zA-Z0-9_.:-]+$/),
-  value: z.string().max(1000),
+  value: z.string().max(1000).refine(storableText, unicodeMessage),
 });
 /** Provider adapters allowlist/redact evidence before constructing this value.
  * No arbitrary provider payload, request headers, credentials or response body.
  */
 export const signalEvidenceSchema = z.strictObject({
-  summary: z.string().max(4000),
+  summary: z.string().max(4000).refine(storableText, unicodeMessage),
   attributes: z
     .array(attribute)
     .max(16)
@@ -47,10 +57,13 @@ const eventFields = {
   version: z.literal(1),
   eventId: externalKey,
   fingerprint: externalKey,
-  observedAt: utcTimestampSchema,
+  // Canonical milliseconds match both adapters and the scheduler's clock.
+  observedAt: utcTimestampSchema.transform((value) =>
+    new Date(value).toISOString(),
+  ),
   status: z.enum(["active", "recovered"]),
   severity: z.enum(["critical", "high", "warning"]),
-  title: z.string().trim().min(1).max(500),
+  title: z.string().trim().min(1).max(500).refine(storableText, unicodeMessage),
   evidence: signalEvidenceSchema,
 };
 /** Generic machine input has no tenant, service, source or received-time fields.
@@ -81,7 +94,12 @@ export const signalSourceSchema = z
     workspaceId: workspaceIdSchema,
     serviceId: serviceIdSchema,
     environmentId: environmentIdSchema,
-    name: z.string().trim().min(1).max(200),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .refine(storableText, unicodeMessage),
     kind: signalSourceKindSchema,
     enabled: z.boolean(),
     version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
