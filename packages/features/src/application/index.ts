@@ -147,3 +147,6 @@ export * from "./retention/runtime.js";
 
 export * from "./retention/management.js";
 export * from "../domain/deploy/lifecycle.js";
+
+export * from "./deploy/ports.js";
+export * from "./deploy/transaction.js";
