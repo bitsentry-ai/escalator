@@ -105,3 +105,16 @@ export {
   GithubDiffError,
   type GithubDiffFailure,
 } from "./evidence/github-http.js";
+
+export {
+  repositoryConnectionSchema,
+  repositoryConnectionsSchema,
+  repositoryConnectionRevision,
+  RepositoryConnections,
+  type RepositoryConnection,
+} from "./evidence/connections.js";
+export {
+  RepositoryEvidenceReader,
+  type RepositoryEvidenceAccess,
+} from "./evidence/repository-reader.js";
+export { repositoryComparisonFromDeployments } from "./evidence/deployment-comparison.js";
