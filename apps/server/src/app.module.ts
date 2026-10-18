@@ -1,3 +1,4 @@
+import { RulesModule } from "./features/rules/rules.module.js";
 import { LabelsModule } from "./features/labels/labels.module.js";
 import { StandaloneInvestigationModule } from "./features/escalator/investigation/module.js";
 import { InvestigationSettingsModule } from "./features/investigation/settings.module.js";
@@ -17,6 +18,7 @@ import { ServicesModule } from "./features/services/services.module.js";
 @Module({
   imports: [
     LabelsModule,
+    RulesModule,
     StandaloneInvestigationModule,
     SecretKeysModule,
     AuthModule,

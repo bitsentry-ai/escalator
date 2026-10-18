@@ -15,9 +15,11 @@ import { authRouter } from "../auth/auth.router.js";
 import { getEscalatorPackageInfo } from "@bitsentry-escalator/features/application";
 import { servicesRouter } from "../../features/services/services.router.js";
 import { investigationSettingsRouter } from "../../features/investigation/settings.router.js";
+import { rulesRouter } from "../../features/rules/rules.router.js";
 import { labelsRouter } from "../../features/labels/labels.router.js";
 export const appRouter = t.router({
   labels: labelsRouter,
+  rules: rulesRouter,
   investigationReports: investigationReportsRouter,
   investigationSettings: investigationSettingsRouter,
   auth: authRouter,

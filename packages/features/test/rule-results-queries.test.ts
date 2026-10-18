@@ -80,6 +80,7 @@ async function setup() {
     rationale: null,
   });
   const store: RuleResultsStore = {
+    detail: async () => undefined,
     replays: async () => [row],
     replay: async (id) => (id === row.id ? row : undefined),
     proposals: async () => [proposal],
@@ -182,5 +183,78 @@ test("pagination returns at most the requested limit and preserves the cursor", 
       environmentId: f.d.environmentId,
       limit: 26,
     }),
+  );
+});
+
+test("report details require completed scoped evidence and current read authority", async () => {
+  const f = await setup();
+  let reads = 0;
+  f.store.detail = async (input) => {
+    reads++;
+    return {
+      workspaceId: f.actor.workspaceId,
+      runId: input.runId,
+      section: "episodes",
+      items: [],
+      next: null,
+    };
+  };
+  assert.equal(
+    await f.queries.detail(f.actor, { runId: "run", section: "episodes" }),
+    undefined,
+  );
+  assert.equal(reads, 0);
+  f.row.state = "completed";
+  f.row.report = {
+    status: "NOT_BACKTESTABLE",
+    reason: "no_usable_history",
+    simulation: {
+      initialState: "inactive",
+      warmupUntil: f.row.firstDecisionAt,
+    },
+    range: {
+      firstDecisionAt: f.row.firstDecisionAt,
+      lastDecisionAt: f.row.lastDecisionAt,
+    },
+    coverage: {
+      totalDecisions: 1,
+      evaluatedDecisions: 0,
+      suppressedDecisions: 0,
+      unknownDecisions: 1,
+      fraction: 0,
+    },
+    episodeCount: 0,
+    reviewedLabels: 0,
+    unreviewedEpisodes: 0,
+    ambiguousEpisodes: 0,
+    truePositives: 0,
+    falsePositives: 0,
+    missedLabels: 0,
+    unevaluableLabels: 0,
+    precision: { value: null, denominator: 0, wilson95: null },
+    labelCoverage: null,
+  };
+  assert.deepEqual(
+    (await f.queries.detail(f.actor, { runId: "run", section: "episodes" }))
+      ?.items,
+    [],
+  );
+  f.store.detail = async () => ({
+    workspaceId: f.actor.workspaceId,
+    runId: "other",
+    section: "episodes",
+    items: [],
+    next: null,
+  });
+  await assert.rejects(
+    f.queries.detail(f.actor, { runId: "run", section: "episodes" }),
+  );
+  f.control.disabled = true;
+  await assert.rejects(
+    f.queries.detail(f.actor, { runId: "run", section: "episodes" }),
+    /forbidden/,
+  );
+  assert.throws(() =>
+    f.queries.detail(f.actor, { runId: "run", section: "episodes", limit: 26 }),
   );
 });

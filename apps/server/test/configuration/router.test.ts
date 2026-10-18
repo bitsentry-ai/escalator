@@ -1,4 +1,5 @@
 import type {
+  RuleManagement,
   IncidentLabelManagement,
   InvestigationReports,
   InvestigationSettingsUseCases,
@@ -62,6 +63,7 @@ test("standalone configuration routes use current identity and reject injected s
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
     labels: {} as IncidentLabelManagement,
+    rules: {} as RuleManagement,
     investigationReports: {} as InvestigationReports,
     investigationSettings: {} as InvestigationSettingsUseCases,
     investigationSourceCatalog: {} as InvestigationSourceCatalog,

@@ -1,3 +1,7 @@
+import {
+  ruleReportDetailInputSchema,
+  ruleReportDetailSchema,
+} from "../../contracts/rule-report-detail.js";
 import { z } from "zod";
 import {
   ruleResultsListSchema,
@@ -25,6 +29,40 @@ async function authorize(tx: RuleResultsTransaction, actor: Actor) {
 }
 export class RuleResultsQueries {
   constructor(private readonly repository: RuleResultsRepository) {}
+  detail(actor: Actor, raw: unknown) {
+    const input = ruleReportDetailInputSchema.parse(raw);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      await authorize(tx, actor);
+      const found = await tx.ruleResults.replay(input.runId);
+      if (!found) return undefined;
+      const replay = ruleReplayResultSchema.parse(found);
+      if (replay.id !== input.runId || replay.workspaceId !== tx.workspaceId)
+        throw new PersistenceError("scope_violation");
+      if (!replay.report) return undefined;
+      const detail = await tx.ruleResults.detail(input);
+      if (!detail) return undefined;
+      const row = ruleReportDetailSchema.parse(detail);
+      if (
+        row.workspaceId !== tx.workspaceId ||
+        row.runId !== input.runId ||
+        row.section !== input.section ||
+        row.items.length > input.limit ||
+        (row.next !== null && row.next !== input.offset + row.items.length) ||
+        (row.section === "comparison" &&
+          row.items.some(
+            (item) =>
+              item.observation.version.definition.workspaceId !==
+                tx.workspaceId ||
+              item.observation.version.definition.serviceId !==
+                replay.version.definition.serviceId ||
+              item.observation.version.definition.environmentId !==
+                replay.version.definition.environmentId,
+          ))
+      )
+        throw new PersistenceError("scope_violation");
+      return row;
+    });
+  }
   replays(actor: Actor, raw: unknown) {
     const input = ruleResultsListSchema.parse(raw);
     return this.repository.transaction(actor.workspaceId, async (tx) => {

@@ -4,6 +4,7 @@ import type {
   RuleResultsList,
 } from "@bitsentry-escalator/features/contracts";
 import {
+  projectRuleReportDetail,
   projectRuleReplayResult,
   projectRuleProposal,
   ruleResultJobId,
@@ -74,6 +75,27 @@ export function postgresRuleResultsStore(
     ];
   }
   return {
+    async detail(input) {
+      const expression =
+        input.section === "episodes"
+          ? "b.data->'report'->'episodes'"
+          : input.section === "gaps"
+            ? "b.data->'report'->'availability'->'gaps'"
+            : "b.data->'report'->'comparison'->'groups'";
+      const rows = await query<{ items: unknown; comparison: unknown }>(
+        `SELECT (SELECT coalesce(jsonb_agg(part.value ORDER BY part.ordinality),'[]'::jsonb) FROM
+         (SELECT value,ordinality FROM jsonb_array_elements(coalesce(${expression},'[]'::jsonb)) WITH ORDINALITY
+          ORDER BY ordinality OFFSET $3::integer LIMIT $4::integer) part) AS items,
+          CASE WHEN jsonb_typeof(b.data->'report'->'comparison')='object' THEN (b.data->'report'->'comparison') - 'groups' ELSE NULL END AS comparison
+        FROM escalator_rule_backtest b
+        JOIN escalator_rule_replay_run r ON(r.workspace_id,r.id,r.snapshot_id,r.input_hash)=(b.workspace_id,b.run_id,b.snapshot_id,b.input_hash)
+        WHERE b.workspace_id=$1 AND b.run_id=$2`,
+        [scope, input.runId, input.offset, input.limit + 1],
+      );
+      return rows[0]
+        ? projectRuleReportDetail(scope, input, rows[0])
+        : undefined;
+    },
     replays: (input) =>
       replays(
         replayProjection +

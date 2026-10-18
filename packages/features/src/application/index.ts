@@ -283,3 +283,8 @@ export * from "./rules/catalog-queries.js";
 export * from "./rules/results-ports.js";
 export * from "./rules/results-queries.js";
 export * from "./rules/results-projection.js";
+
+export * from "./rules/management.js";
+export * from "./rules/request-error.js";
+
+export * from "./rules/report-detail-projection.js";

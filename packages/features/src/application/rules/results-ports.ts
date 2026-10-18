@@ -6,7 +6,12 @@ import type {
 } from "../../contracts/rule-results.js";
 import type { FoundationTransaction } from "../ports/persistence.js";
 import type { TransactionGuard } from "../ports/transaction-guard.js";
+import type {
+  RuleReportDetailInput,
+  RuleReportDetail,
+} from "../../contracts/rule-report-detail.js";
 export interface RuleResultsStore {
+  detail(input: RuleReportDetailInput): Promise<RuleReportDetail | undefined>;
   replays(input: RuleResultsList): Promise<RuleReplayResult[]>;
   replay(id: string): Promise<RuleReplayResult | undefined>;
   proposals(input: RuleResultsList): Promise<RuleProposalView[]>;
@@ -29,6 +34,7 @@ export function withRuleResults<T extends FoundationTransaction>(
   return {
     ...base,
     ruleResults: {
+      detail: (input) => guard.operation(() => store.detail(input)),
       replays: (input) => guard.operation(() => store.replays(input)),
       replay: (id) => guard.operation(() => store.replay(id)),
       proposals: (input) => guard.operation(() => store.proposals(input)),
