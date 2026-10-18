@@ -74,7 +74,7 @@
   "scripts": {
     "build": "node ../../scripts/build-features.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "node ../../scripts/check-boundaries.mjs && node ../../scripts/check-locales.mjs"
+    "lint": "eslint src && node ../../scripts/check-boundaries.mjs && node ../../scripts/check-locales.mjs"
   },
   "peerDependencies": {
     "react": "^19.0.0"

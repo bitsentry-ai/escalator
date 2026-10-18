@@ -6,11 +6,14 @@
     "build:packages": "pnpm --filter @bitsentry-escalator/features build",
     "build": "pnpm run build:packages",
     "typecheck": "pnpm run build:packages && pnpm -r typecheck",
-    "lint": "node scripts/check-boundaries.mjs && node scripts/check-locales.mjs",
+    "lint": "eslint packages && node scripts/check-boundaries.mjs && node scripts/check-locales.mjs",
     "i18n:audit:integrity": "node scripts/check-locales.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3",
+    "eslint": "^9.39.0",
+    "@eslint/js": "^9.39.0",
+    "typescript-eslint": "^8.63.0",
     "@types/node": "^22.0.0",
     "esbuild": "0.28.1"
   }
