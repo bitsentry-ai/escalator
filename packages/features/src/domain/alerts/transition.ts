@@ -4,9 +4,13 @@ import { alertStateSchema, type AlertState } from "../../contracts/alerts.js";
 import { utcTimestampSchema } from "../../contracts/entities.js";
 const hash = (parts: unknown[]) =>
   createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+type AlertIdentityFields = Pick<
+  SignalEvent,
+  "workspaceId" | "serviceId" | "environmentId" | "sourceId" | "fingerprint"
+>;
 /** Cross-source grouping still preserves workspace, service, environment and fingerprint. */
 export function alertGroupKey(
-  signal: SignalEvent,
+  signal: AlertIdentityFields,
   source: SignalSource,
 ): string {
   if (
@@ -25,7 +29,7 @@ export function alertGroupKey(
     source.grouping === "source-fingerprint" ? source.id : null,
   ]);
 }
-export function alertIdentity(signal: SignalEvent): string {
+export function alertIdentity(signal: AlertIdentityFields): string {
   return hash([
     "alert",
     signal.workspaceId,

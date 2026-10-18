@@ -177,3 +177,7 @@ export * from "./deploy/watch-reader.js";
 export * from "./deploy/watch-page-policy.js";
 
 export * from "./deploy/watch-persistence.js";
+
+export * from "./deploy/watch-finish.js";
+export * from "./deploy/watch-runtime.js";
+export * from "./deploy/watch-correlation.js";

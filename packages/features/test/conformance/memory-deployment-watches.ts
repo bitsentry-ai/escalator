@@ -10,6 +10,7 @@ import {
   withDeploymentWatches,
   type DeploymentWatchTransaction,
 } from "../../src/application/deploy/watch-persistence.js";
+import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
 import type { PagingTransaction } from "../../src/application/paging/persistence.js";
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import { MemoryDeploymentRepository } from "./memory-deployments.js";
@@ -37,6 +38,15 @@ export class MemoryDeploymentWatchRepository {
   transaction<T>(
     scope: WorkspaceId,
     run: (tx: DeploymentWatchTransaction & PagingTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(scope, run);
+  }
+  withExtensions<T>(
+    scope: WorkspaceId,
+    run: (
+      tx: DeploymentWatchTransaction & PagingTransaction,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.base.withExtensions(scope, (tx, paging, extensions, guard) => {
       const baselines = (extensions.baselines ??= []) as DeploymentBaseline[];
@@ -113,6 +123,7 @@ export class MemoryDeploymentWatchRepository {
           },
           guard,
         ),
+        guard,
       );
     });
   }
