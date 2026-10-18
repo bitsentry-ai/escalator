@@ -1,7 +1,9 @@
+import { detectionClient } from "../detection/detection-client.js";
 import type { ProbesClient } from "@bitsentry-escalator/features/ui";
 import type { LocalAuthClient } from "../../auth/auth-client.js";
 export function probesClient(client: LocalAuthClient): ProbesClient {
   return {
+    ...detectionClient(client),
     get: (input) => client.query("probes.get", input),
     secretOptions: (input) => client.query("monitoringSecrets.list", input),
     createMonitoringSecret: (input) =>

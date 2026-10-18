@@ -1,3 +1,4 @@
+import { DetectionBindingEditor } from "../detection/DetectionBindingEditor.js";
 import { ProbeStatus } from "./ProbeStatus.js";
 import { useState } from "react";
 import type { Probe } from "../../contracts/index.js";
@@ -129,6 +130,16 @@ export function ProbesScreen({
           key={selected.id}
           client={client}
           id={selected.id}
+          t={t}
+        />
+      )}
+      {selected && (
+        <DetectionBindingEditor
+          key={selected.serviceId + ":" + selected.environmentId}
+          client={client}
+          serviceId={selected.serviceId}
+          environmentId={selected.environmentId}
+          canManage={canManage}
           t={t}
         />
       )}

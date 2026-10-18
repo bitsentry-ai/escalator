@@ -26,3 +26,8 @@ export type { ProbesClient } from "./probes-client.js";
 export { ProbesScreen } from "./probes/ProbesScreen.js";
 
 export type { MonitoringSecretsClient } from "./monitoring-client.js";
+
+export type { SourcesClient } from "./sources-client.js";
+export { SourcesScreen } from "./sources/SourcesScreen.js";
+
+export type { DetectionClient } from "./detection-client.js";
