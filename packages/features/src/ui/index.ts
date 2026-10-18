@@ -63,3 +63,5 @@ export { LabelsScreen } from "./labels/LabelsScreen.js";
 export * from "./rules/client.js";
 export { RuleEditor } from "./rules/RuleEditor.js";
 export { RuleImport } from "./rules/RuleImport.js";
+
+export { RulesScreen } from "./rules/RulesScreen.js";
