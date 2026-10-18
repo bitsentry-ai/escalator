@@ -101,3 +101,7 @@ BYPASSRLS, or a member of the migration role. Never use a database containing re
 records. Additional Dashboard procedures live in the monorepo's
 [`escalator-postgres-verification.md`](../../docs/architecture/escalator-postgres-verification.md).
 Dashboard uses the separate secret-store broker; it does not use this key file.
+
+Before relying on paging, complete the [two-host release checklist](docs/release-verification.md)
+and [capacity measurement procedure](docs/capacity.md). No production capacity envelope
+is claimed until those runtime measurements are recorded.

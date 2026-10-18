@@ -38,6 +38,7 @@ COPY --from=build /app/apps/server/migrations ./apps/server/migrations
 COPY --from=build /app/packages/features/package.json ./packages/features/package.json
 COPY --from=build /app/packages/features/dist ./packages/features/dist
 COPY --from=build /app/apps/web/dist ./apps/server/public
+COPY --from=build /app/scripts/capacity-process.cjs /app/scripts/capacity-snapshot.mjs /app/scripts/capacity-evaluate.mjs ./scripts/
 USER node
 EXPOSE 3000
 # Liveness only. Authenticated readiness and the external watchdog are separate.
