@@ -50,3 +50,7 @@ export * from "./incidents/incidents.use-cases.js";
 export { resolvePageInTransaction } from "./paging/resolve.js";
 
 export * from "./configuration/configuration.use-cases.js";
+
+export * from "./signals/ports.js";
+export * from "./signals/ingest.js";
+export * from "./signals/transaction.js";
