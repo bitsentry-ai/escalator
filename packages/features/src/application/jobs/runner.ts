@@ -34,11 +34,13 @@ export function retryDelay(
     throw new Error("Invalid jitter source");
   return Math.max(1, Math.floor(ceiling / 2 + (sample * ceiling) / 2));
 }
-/** Each link of these chains enqueues its successor only when it commits. Terminal
- * failure re-arms the same link (fencing identity unchanged) after the maximum backoff
- * with a fresh attempt budget instead of silently ending the chain. */
+/** Each link of these chains enqueues its successor only when it commits; a heartbeat
+ * deadline is the only pending check for its generation. Terminal failure re-arms the
+ * same link (fencing identity unchanged) after the maximum backoff with a fresh attempt
+ * budget instead of silently ending the chain. */
 const selfReschedulingJobKinds: ReadonlySet<string> = new Set([
   "probe.execute",
+  "heartbeat.deadline",
 ]);
 export class DurableWorkRunner {
   constructor(

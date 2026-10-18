@@ -36,3 +36,5 @@ export * from "./alerts.js";
 export * from "./detection-inputs.js";
 export * from "./probes.js";
 export * from "./probe-inputs.js";
+
+export * from "./heartbeat.js";

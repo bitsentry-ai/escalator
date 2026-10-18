@@ -90,3 +90,9 @@ export * from "./probes/capacity.js";
 
 export * from "./probes/deployment.js";
 export * from "./probes/handlers.js";
+
+export * from "./probes/heartbeat.js";
+export * from "./probes/heartbeat-ports.js";
+export * from "./probes/heartbeat-jobs.js";
+export * from "./probes/heartbeat-transaction.js";
+export * from "./probes/heartbeat-intake.js";
