@@ -48,17 +48,22 @@ export class StandaloneInvestigationRuntime
     });
     this.pool = pool;
     pool.on("error", () => this.failed());
-    const repository = new PostgresInvestigationRepository(pool, {
-      authorizeRuntime: async (_db, scope, id) =>
-        scope === workspaceId && id === runtimeId,
-      configuration: (db, scope, id) =>
-        standaloneInvestigationConfiguration(
-          db,
-          scope,
-          id,
-          repositoryConnections,
-        ),
-    });
+    const repository = new PostgresInvestigationRepository(
+      pool,
+      {
+        authorizeRuntime: async (_db, scope, id) =>
+          scope === workspaceId && id === runtimeId,
+        configuration: (db, scope, id) =>
+          standaloneInvestigationConfiguration(
+            db,
+            scope,
+            id,
+            repositoryConnections,
+          ),
+      },
+      3,
+      repositoryConnections,
+    );
     this.consumer = new InvestigationConsumer(
       repository,
       standaloneInvestigationExecution(

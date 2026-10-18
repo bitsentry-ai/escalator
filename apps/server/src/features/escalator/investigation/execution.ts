@@ -1,3 +1,4 @@
+import { standaloneRepositoryEvidenceAccess } from "./repository-access.js";
 import type { SecretKeyRing } from "../../../platform/secrets/keyring.js";
 import { EncryptedSecretStore } from "../../../platform/secrets/encrypted-secret.store.js";
 import type { PostgresInvestigationRepository } from "../../../platform/database/postgres-investigation.repository.js";
@@ -5,6 +6,8 @@ import { SecretAccessError } from "@bitsentry-escalator/features/application";
 import {
   investigationClaimSchema,
   ScopedModelResolver,
+  RepositoryEvidenceReader,
+  type GithubDiffHttp,
   modelCredentialSecrets,
   runInvestigation,
   type BoundedModelHttp,
@@ -13,12 +16,17 @@ import {
 /** No runtime identity or source scope comes from model output or caller parameters. */
 export type StandaloneInvestigationAccess = Pick<
   PostgresInvestigationRepository,
-  "readModelSecret" | "readProfile" | "readNativeEvidence" | "trace"
+  | "readModelSecret"
+  | "readProfile"
+  | "readNativeEvidence"
+  | "readRepositoryEvidence"
+  | "trace"
 >;
 export function standaloneInvestigationExecution(
   repository: StandaloneInvestigationAccess,
   keys: SecretKeyRing,
   transport: Pick<BoundedModelHttp, "bind">,
+  repositoryTransport?: Pick<GithubDiffHttp, "read">,
 ): InvestigationExecution {
   return (input, signal) => {
     const claim = investigationClaimSchema.parse(input);
@@ -57,6 +65,10 @@ export function standaloneInvestigationExecution(
       transport,
       { queue: "job", workId: claim.id, claimToken: claim.claimToken },
     );
+    const repositories = new RepositoryEvidenceReader(
+      standaloneRepositoryEvidenceAccess(repository, claim, keys),
+      repositoryTransport,
+    );
     return runInvestigation(
       claim,
       {
@@ -75,6 +87,8 @@ export function standaloneInvestigationExecution(
                 status: "unavailable",
                 unavailable: { query, reason: "not_authorized" },
               };
+            if (query.kind === "git_diff")
+              return repositories.read(scope, query, context);
             const result = await repository.readNativeEvidence(
               claim,
               query,

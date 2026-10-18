@@ -1,3 +1,8 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
+import {
+  readRepositoryBinding,
+  readRepositoryComparison,
+} from "./postgres-repository-evidence.js";
 import type { SecretEnvelope } from "../secrets/keyring.js";
 import { readNativeEvidence } from "./postgres-native-evidence.js";
 import { investigationTransaction } from "./investigation-transaction.js";
@@ -68,6 +73,7 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
     private readonly pool: Pool,
     private readonly policy: InvestigationDatabasePolicy,
     private readonly maxAttempts = 3,
+    private readonly repositoryConnections = new RepositoryConnections(),
   ) {
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5)
       throw new Error("Invalid investigation attempt limit");
@@ -373,6 +379,106 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
           databaseNow: clock.rows[0].now.toISOString(),
           approvedSecretIds: [secretId],
         },
+      };
+    });
+  }
+  /** Local snapshot only; commit before decrypting credentials or reading the provider.
+   * Source IDs and secret IDs are taken from captured configuration, never model input. */
+  async readRepositoryEvidence(
+    input: InvestigationClaim,
+    queryInput: EvidenceQuery,
+  ) {
+    const claim = investigationClaimSchema.parse(input);
+    const query = evidenceQuerySchema.parse(queryInput);
+    if (query.kind !== "git_diff") return undefined;
+    return this.scoped(claim.scope.workspaceId, async (db) => {
+      const value = await this.fence(db, claim);
+      if (
+        !value ||
+        !value.claim.sources.some(
+          (source) =>
+            source.kind === query.kind &&
+            source.sourceId === query.sourceId &&
+            source.limit === query.limit &&
+            source.window.from === query.window.from &&
+            source.window.to === query.window.to,
+        )
+      )
+        return undefined;
+      const captured = this.captured(
+        claim.scope.workspaceId,
+        value.row,
+      ).configuration;
+      const binding = await readRepositoryBinding(
+        db,
+        claim.scope,
+        query.sourceId,
+        this.repositoryConnections,
+      );
+      if (
+        !binding ||
+        !captured.sourceVersions.some(
+          (source) =>
+            source.kind === "git_diff" &&
+            source.sourceId === query.sourceId &&
+            source.revision === binding.revision,
+        )
+      )
+        return undefined;
+      const id = binding.connection.secretId;
+      if (id !== null && !captured.secretIds.includes(id)) return undefined;
+      const records =
+        id === null
+          ? undefined
+          : await db.query<{ envelope: SecretEnvelope }>(
+              "SELECT envelope FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND purpose='provider' AND disabled_at IS NULL FOR SHARE",
+              [claim.scope.workspaceId, id],
+            );
+      if (id !== null && !records?.rows[0]) return undefined;
+      const clock = await db.query<{ now: Date }>(
+        "SELECT clock_timestamp() AS now",
+        [],
+      );
+      const comparison = await readRepositoryComparison(
+        db,
+        claim.scope,
+        query,
+        binding.connection,
+        clock.rows[0].now.toISOString(),
+      );
+      if (!comparison || !(await this.fence(db, claim))) return undefined;
+      const current = await this.locked(db, claim.scope.workspaceId, claim.id);
+      if (!current?.live) return undefined;
+      const finalClock = await db.query<{ now: Date }>(
+        "SELECT clock_timestamp() AS now",
+        [],
+      );
+      if (
+        !current.lease_expires_at ||
+        current.lease_expires_at <= finalClock.rows[0].now
+      )
+        return undefined;
+      return {
+        comparison,
+        secret:
+          id === null
+            ? null
+            : {
+                id,
+                workspaceId: claim.scope.workspaceId,
+                disabled: false,
+                envelope: records!.rows[0].envelope,
+                claim: {
+                  workspaceId: claim.scope.workspaceId,
+                  workId: claim.id,
+                  queue: "job" as const,
+                  state: current.state,
+                  token: current.lease_token,
+                  expiresAt: current.lease_expires_at.toISOString(),
+                  databaseNow: finalClock.rows[0].now.toISOString(),
+                  approvedSecretIds: [id],
+                },
+              },
       };
     });
   }

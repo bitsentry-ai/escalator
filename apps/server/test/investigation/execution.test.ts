@@ -32,6 +32,7 @@ function fixture(fail = false) {
       reads.secret++;
       throw new Error("Unexpected credential read");
     },
+    readRepositoryEvidence: async () => undefined,
     readNativeEvidence: async () => ({
       status: "available",
       items: structuredClone(sample.result.evidence),
@@ -148,4 +149,68 @@ test("standalone model credentials are decrypted only for the approved active cl
   assert.equal(result.report.status, "complete");
   assert.equal(f.reads.secret, 1);
   assert.doesNotMatch(JSON.stringify(result), /ephemeral-test-key/);
+});
+
+test("standalone runner routes repository sources through bounded provider access and rechecks the claim", async () => {
+  const f = fixture();
+  const source = {
+    kind: "git_diff" as const,
+    sourceId: "repository",
+    limit: 5,
+    window: {
+      from: "2026-10-01T00:00:00.000Z",
+      to: "2026-10-01T01:00:00.000Z",
+    },
+  };
+  f.claim = { ...f.claim, sources: [source] };
+  let reads = 0,
+    requests = 0;
+  f.repository.readNativeEvidence = async () => {
+    assert.fail("Repository evidence must not use the native reader");
+  };
+  f.repository.readRepositoryEvidence = async (claim, query) => {
+    assert.deepEqual(claim.scope, f.claim.scope);
+    assert.deepEqual(query, source);
+    reads++;
+    return {
+      secret: null,
+      comparison: {
+        scope: f.claim.scope,
+        sourceId: source.sourceId,
+        owner: "bitsentry-ai",
+        repository: "api",
+        baseSha: "a".repeat(40),
+        headSha: "b".repeat(40),
+        observedAt: source.window.to,
+        deploymentReceivedAt: "2026-10-01T01:00:01.000Z",
+      },
+    };
+  };
+  const execute = standaloneInvestigationExecution(
+    f.repository,
+    f.keys,
+    f.transport,
+    {
+      read: async (comparison, token, context) => {
+        requests++;
+        assert.equal(token, undefined);
+        assert.ok(context.timeoutMs > 0 && context.timeoutMs <= 10000);
+        assert.equal(comparison.headSha, "b".repeat(40));
+        return JSON.stringify({
+          status: "ahead",
+          ahead_by: 1,
+          behind_by: 0,
+          total_commits: 1,
+          base_commit: { sha: "a".repeat(40) },
+          merge_base_commit: { sha: "a".repeat(40) },
+          commits: [{ sha: "b".repeat(40) }],
+          files: [],
+        });
+      },
+    },
+  );
+  const result = await execute(f.claim, new AbortController().signal);
+  assert.equal(requests, 1);
+  assert.equal(reads, 2);
+  assert.ok(result.evidence.some((item) => item.reference.kind === "git_diff"));
 });

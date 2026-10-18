@@ -1,3 +1,6 @@
+import { modelProfileSchema } from "@bitsentry-escalator/features/investigation";
+import { operationalIncidentSchema } from "@bitsentry-escalator/features/contracts";
+import { PostgresInvestigationRepository } from "../../src/platform/database/postgres-investigation.repository.js";
 import { PostgresInvestigationSourceCatalog } from "../../src/platform/database/investigation-source-catalog.repository.js";
 import { investigationFixture } from "@escalator-test/investigation-fixture";
 import { investigationSettingsSchema } from "@bitsentry-escalator/features/contracts";
@@ -432,3 +435,131 @@ test(
     }
   },
 );
+
+for (const change of [
+  "none",
+  "query",
+  "runtime",
+  "lease",
+  "target",
+  "revision",
+] as const) {
+  test(
+    `claim-bound repository snapshot fences ${change}`,
+    options,
+    async () => {
+      const f = await fixture();
+      try {
+        await record(f, f.a, "base", "base", "a".repeat(40));
+        await record(f, f.a, "head", "head", "b".repeat(40));
+        const sample = investigationFixture();
+        const connections = new RepositoryConnections([connection(f.a)]);
+        const paging = new PostgresPagingRepository(
+          f.database.app,
+          connections,
+        );
+        await paging.transaction(f.a, async (tx) => {
+          await tx.incidents.insert(
+            operationalIncidentSchema.parse({
+              id: "repository_claim_incident",
+              workspaceId: f.a,
+              serviceId: "api",
+              environmentId: "prod",
+              title: "Outage",
+              severity: "critical",
+              openedAt: tx.now,
+              resolvedAt: null,
+            }),
+          );
+        });
+        const selectedScope = investigationScopeSchema.parse({
+          ...scope(f.a),
+          incidentId: "repository_claim_incident",
+        });
+        const configuration = {
+          profile: modelProfileSchema.parse({
+            id: "repository_profile",
+            revision: 1,
+            scope: {
+              workspaceId: f.a,
+              serviceId: "api",
+              environmentId: "prod",
+            },
+            destination: sample.result.report.destination!,
+            endpoint: "http://127.0.0.1:11434",
+            secretId: null,
+          }),
+          secretIds: [],
+          sourceVersions: [
+            {
+              kind: "git_diff" as const,
+              sourceId: "repository",
+              revision: repositoryConnectionRevision(connection(f.a), "1"),
+            },
+          ],
+        };
+        let allowed = true;
+        const investigations = new PostgresInvestigationRepository(
+          f.database.app,
+          {
+            authorizeRuntime: async (_db, workspace, runtime) =>
+              allowed && workspace === f.a && runtime === "repository_runtime",
+            configuration: async () => configuration,
+          },
+          3,
+          connections,
+        );
+        await investigations.enqueue({
+          id: "repository_investigation",
+          scope: selectedScope,
+          profileId: configuration.profile.id,
+          limits: sample.claim.limits,
+          sources: [query],
+          idempotencyKey: "repository_claim",
+        });
+        const claim = await investigations.claim({
+          workspaceId: f.a,
+          runtimeId: "repository_runtime",
+          claimToken: "repository_claim_token",
+          leaseMs: 30000,
+        });
+        assert.ok(claim);
+        const before = await investigations.readRepositoryEvidence(
+          claim,
+          query,
+        );
+        assert.ok(before);
+        assert.equal(before.secret, null);
+        assert.equal(before.comparison.headSha, "b".repeat(40));
+        if (change === "runtime") allowed = false;
+        if (["lease", "target", "revision"].includes(change))
+          await f.foundation.withConnection(f.a, async (_base, db) => {
+            if (change === "lease")
+              await db.query(
+                "UPDATE escalator_job SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE workspace_id=$1 AND id='repository_investigation'",
+                [f.a],
+              );
+            if (change === "target")
+              await db.query(
+                "UPDATE escalator_deploy_target SET data=jsonb_set(data,'{enabled}','false'::jsonb) WHERE workspace_id=$1 AND id='target'",
+                [f.a],
+              );
+            if (change === "revision")
+              await db.query(
+                "UPDATE escalator_deploy_target SET revision=revision+1,data=jsonb_set(data,'{revision}',to_jsonb(revision+1)) WHERE workspace_id=$1 AND id='target'",
+                [f.a],
+              );
+          });
+        const after = await investigations.readRepositoryEvidence(
+          claim,
+          change === "query" ? { ...query, limit: query.limit + 1 } : query,
+        );
+        if (change === "none")
+          assert.deepEqual(after?.comparison, before.comparison);
+        else assert.equal(after, undefined);
+      } finally {
+        await f.dispose();
+      }
+    },
+  );
+}
