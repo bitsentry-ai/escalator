@@ -6,6 +6,8 @@ import {
   type PageStep,
   type PagingContact,
   pagingContactSchema,
+  hasCapability,
+  type EscalationStep,
 } from "../../contracts/index.js";
 import { resolveSchedule } from "../../domain/schedule/resolve.js";
 import {
@@ -93,32 +95,16 @@ export class PageAdvancement {
           cursor = batch.next ?? undefined;
         } while (cursor);
         const ids = await this.recipients(tx, page, step.target, step.dueAt);
-        const routes: { responderId: ResponderId; contact: PagingContact }[] =
-          [];
-        for (const id of ids) {
-          const responder = await tx.responders.get(id);
-          if (!responder?.enabled) continue;
-          const candidates = (await tx.routing.contacts(id)).map((contact) =>
-            pagingContactSchema.parse(contact),
+        const requireAck =
+          "deployment" in page.policy && step.target !== "operator";
+        let routes = await this.routes(tx, ids, requireAck);
+        // No usable mapped contact: do not wait for the independent fallback deadline.
+        if (step.target === "deployer" && routes.length === 0)
+          routes = await this.routes(
+            tx,
+            page.policy.fallbackResponderIds,
+            true,
           );
-          if (
-            candidates.length > 100 ||
-            new Set(candidates.map((contact) => contact.id)).size !==
-              candidates.length ||
-            candidates.some(
-              (contact) =>
-                contact.workspaceId !== tx.workspaceId ||
-                contact.responderId !== id,
-            )
-          )
-            throw new Error("Invalid contact scope");
-          const contact = candidates
-            .filter((entry) => entry.enabled)
-            .sort(
-              (a, b) => a.priority - b.priority || (a.id < b.id ? -1 : 1),
-            )[0];
-          if (contact) routes.push({ responderId: id, contact });
-        }
         const stepId = pagingWorkId(
           tx.workspaceId,
           "step-record",
@@ -193,14 +179,54 @@ export class PageAdvancement {
       return { state: "completed" };
     });
   }
+  private async routes(
+    tx: DispatchTransaction,
+    ids: readonly ResponderId[],
+    requireAck: boolean,
+  ): Promise<{ responderId: ResponderId; contact: PagingContact }[]> {
+    const routes: { responderId: ResponderId; contact: PagingContact }[] = [];
+    for (const id of ids) {
+      const responder = await tx.responders.get(id);
+      if (!responder?.enabled) continue;
+      if (requireAck && !hasCapability(responder.role, "incident:acknowledge"))
+        continue;
+      const candidates = (await tx.routing.contacts(id)).map((contact) =>
+        pagingContactSchema.parse(contact),
+      );
+      if (
+        candidates.length > 100 ||
+        new Set(candidates.map((contact) => contact.id)).size !==
+          candidates.length ||
+        candidates.some(
+          (contact) =>
+            contact.workspaceId !== tx.workspaceId ||
+            contact.responderId !== id,
+        )
+      )
+        throw new Error("Invalid contact scope");
+      const contact = candidates
+        .filter((entry) => entry.enabled)
+        .sort((a, b) => a.priority - b.priority || (a.id < b.id ? -1 : 1))[0];
+      if (contact) routes.push({ responderId: id, contact });
+    }
+    return routes;
+  }
   private async recipients(
     tx: DispatchTransaction,
     page: OperationalPage,
-    target: "primary" | "peer" | "fallback" | "operator",
+    target: EscalationStep["target"],
     at: string,
   ): Promise<ResponderId[]> {
     if (target === "fallback") return page.policy.fallbackResponderIds;
     if (target === "operator") return page.policy.terminal.notifyResponderIds;
+    if (target === "deployer") {
+      if (!("deployment" in page.policy))
+        throw new Error("Missing deployment routing context");
+      const id = page.policy.deployment.mappedDeployerId;
+      return id === null ? [] : [id];
+    }
+    if ("deployment" in page.policy)
+      throw new Error("Unexpected scheduled deployment route");
     const id =
       target === "primary"
         ? page.policy.primaryScheduleId

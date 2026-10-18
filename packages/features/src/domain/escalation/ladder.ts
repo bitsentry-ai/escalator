@@ -1,6 +1,7 @@
 import { defaultEscalationSteps } from "../../contracts/escalation.js";
 import {
   escalationPolicySchema,
+  pagePolicySchema,
   utcTimestampSchema,
   type EscalationPolicy,
   type PolicySnapshot,
@@ -16,13 +17,13 @@ function freeze<T>(value: T): DeepReadonly<T> {
   return value as DeepReadonly<T>;
 }
 /** Parse copies caller-owned arrays before freezing the immutable page policy. */
-export function snapshotPolicy(value: unknown): PolicySnapshot {
+export function snapshotPolicy(value: unknown): DeepReadonly<EscalationPolicy> {
   return freeze(escalationPolicySchema.parse(value));
 }
 /** Terminal bounds and operator recipients must be chosen explicitly by the operator. */
 export function defaultEscalationPolicy(
   input: Omit<EscalationPolicy, "steps">,
-): PolicySnapshot {
+): DeepReadonly<EscalationPolicy> {
   return snapshotPolicy({ ...input, steps: defaultEscalationSteps() });
 }
 function timestamp(value: string): number {
@@ -32,7 +33,7 @@ export function escalationSteps(
   snapshot: PolicySnapshot,
   createdAt: string,
 ): EscalationStep[] {
-  const policy = escalationPolicySchema.parse(snapshot);
+  const policy = pagePolicySchema.parse(snapshot);
   const created = timestamp(createdAt);
   const steps: EscalationStep[] = policy.steps.map((step) => ({
     id: step.id,

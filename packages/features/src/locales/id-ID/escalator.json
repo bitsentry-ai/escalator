@@ -115,6 +115,7 @@
       "resolved": "Diselesaikan"
     },
     "targets": {
+      "deployer": "Pelaksana deployment",
       "primary": "Utama",
       "peer": "Rekan terjadwal",
       "fallback": "Cadangan",

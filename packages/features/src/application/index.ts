@@ -7,6 +7,7 @@ import {
   type EscalatorPackageInfo,
 } from "../contracts/index.js";
 export * from "./deploy/http.js";
+export * from "./deploy/stuck-policy.js";
 export function getEscalatorPackageInfo(): EscalatorPackageInfo {
   return { contractVersion: escalatorContractVersion };
 }
@@ -161,3 +162,5 @@ export * from "./deploy/management.js";
 export * from "./deploy/commands.js";
 
 export * from "./deploy/preflight.js";
+
+export * from "./deploy/stuck.js";

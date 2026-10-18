@@ -115,6 +115,7 @@
       "resolved": "已解决"
     },
     "targets": {
+      "deployer": "部署人员",
       "primary": "主要值班人员",
       "peer": "排班同事",
       "fallback": "后备人员",

@@ -5,6 +5,7 @@ import { seedPagingFixture } from "./conformance/paging.js";
 import { ConfigurationUseCases } from "../src/application/configuration/configuration.use-cases.js";
 import {
   workspaceIdSchema,
+  escalationPolicySchema,
   responderIdSchema,
   type Actor,
 } from "../src/contracts/index.js";
@@ -139,9 +140,8 @@ test("policy activation requires a preview of the current schedule revision", as
     startsAt: "2026-09-20T00:00:00.000Z",
     endsAt: "2026-09-21T00:00:00.000Z",
   });
-  const policy = await repository.transaction(
-    actor.workspaceId,
-    async (tx) => (await tx.pages.get("page"))!.policy,
+  const policy = await repository.transaction(actor.workspaceId, async (tx) =>
+    escalationPolicySchema.parse((await tx.pages.get("page"))!.policy),
   );
   const input = {
     id: policy.id,
@@ -190,9 +190,8 @@ test("viewers inspect coverage without creating a reviewed preview", async () =>
 });
 test("malformed policy rules return a validation error before persistence", async () => {
   const { repository, actor, app } = await fixture();
-  const policy = await repository.transaction(
-    actor.workspaceId,
-    async (tx) => (await tx.pages.get("page"))!.policy,
+  const policy = await repository.transaction(actor.workspaceId, async (tx) =>
+    escalationPolicySchema.parse((await tx.pages.get("page"))!.policy),
   );
   const input = {
     id: policy.id,

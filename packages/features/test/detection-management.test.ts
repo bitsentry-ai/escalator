@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   responderIdSchema,
+  escalationPolicySchema,
   workspaceIdSchema,
   writeDetectionBindingSchema,
   type Actor,
@@ -143,7 +144,7 @@ test("automatic paging requires an enabled reviewed policy and can be disabled a
   const policyId = await f.repo.transaction(f.actor.workspaceId, async (tx) => {
     const page = (await tx.pages.get("page"))!;
     const schedule = {
-      id: page.policy.primaryScheduleId,
+      id: escalationPolicySchema.parse(page.policy).primaryScheduleId,
       workspaceId: f.actor.workspaceId,
       serviceId: page.policy.serviceId,
       name: "Primary",
@@ -171,7 +172,7 @@ test("automatic paging requires an enabled reviewed policy and can be disabled a
       ],
     });
     const policy = {
-      ...page.policy,
+      ...escalationPolicySchema.parse(page.policy),
       peerScheduleId: schedule.id,
       enabled: true,
       primaryPreviewId: "preview",

@@ -6,6 +6,8 @@ import {
   deliveryAttemptSchema,
   operationalIncidentSchema,
   operationalPageSchema,
+  escalationPolicySchema,
+  deploymentPagePolicySchema,
   pageStepSchema,
   recipientDeliverySchema,
   serviceSchema,
@@ -22,6 +24,7 @@ import type {
 
 import {
   PageAcknowledgements,
+  PageCreation,
   acknowledgementDigest,
   pagingWorkId,
   escalationSteps,
@@ -63,6 +66,76 @@ export function pagingConformance(
       }
     });
   };
+  scenario(
+    "round-trips immutable timeout routing without changing the configured ladder",
+    async (repo, scope, other) => {
+      const original = await repo.transaction(
+        scope,
+        async (tx) => (await tx.pages.get("page"))!,
+      );
+      const policy = deploymentPagePolicySchema.parse({
+        id: "timeout-policy",
+        workspaceId: scope,
+        serviceId: original.policy.serviceId,
+        version: 1,
+        deployment: {
+          id: "deployment",
+          mappedDeployerId: "primary",
+          sourcePolicyId: original.policy.id,
+          sourcePolicyVersion: original.policy.version,
+        },
+        fallbackResponderIds: original.policy.fallbackResponderIds,
+        steps: [
+          { id: "deployer", offsetMs: 0, target: "deployer" },
+          { id: "service-fallback", offsetMs: 120000, target: "fallback" },
+        ],
+        terminal: original.policy.terminal,
+      });
+      const incident = await repo.transaction(
+        scope,
+        async (tx) => (await tx.incidents.get("incident"))!,
+      );
+      const created = await new PageCreation(repo).open(scope, {
+        incident: {
+          id: "timeout-incident",
+          serviceId: incident.serviceId,
+          environmentId: incident.environmentId,
+          title: "Stuck deploy",
+          severity: "high",
+        },
+        policy,
+      });
+      await repo.transaction(scope, async (tx) => {
+        const stored = (await tx.pages.get(created.id))!;
+        assert.deepEqual(stored.policy, policy);
+        assert.deepEqual((await tx.pages.get("page"))!.policy, original.policy);
+      });
+      assert.equal(
+        await repo.transaction(other, (tx) => tx.pages.get(created.id)),
+        undefined,
+      );
+      await assert.rejects(
+        repo.transaction(scope, async (tx) => {
+          const stored = (await tx.pages.lock(created.id))!;
+          assert.ok("deployment" in stored.policy);
+          await tx.pages.replace(
+            {
+              ...stored,
+              revision: stored.revision + 1,
+              policy: {
+                ...policy,
+                deployment: {
+                  ...policy.deployment,
+                  mappedDeployerId: responderIdSchema.parse("peer"),
+                },
+              },
+            },
+            stored.revision,
+          );
+        }),
+      );
+    },
+  );
   scenario(
     "acknowledgement rollback leaves ownership and cancellation unchanged",
     async (repo, scope) => {
@@ -460,7 +533,10 @@ export function pagingConformance(
             {
               ...page,
               revision: page.revision + 1,
-              policy: { ...page.policy, version: 2 },
+              policy: {
+                ...escalationPolicySchema.parse(page.policy),
+                version: 2,
+              },
             },
             page.revision,
           );

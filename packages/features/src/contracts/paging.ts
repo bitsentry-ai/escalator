@@ -7,7 +7,7 @@ import {
   responderIdSchema,
 } from "./identity.js";
 import { utcTimestampSchema } from "./entities.js";
-import { escalationPolicySchema } from "./escalation.js";
+import { pagePolicySchema } from "./page-policy.js";
 
 const scoped = { id: opaqueIdSchema, workspaceId: workspaceIdSchema };
 export const operationalIncidentSchema = z
@@ -31,7 +31,7 @@ export const operationalPageSchema = z
   .strictObject({
     ...scoped,
     incidentId: opaqueIdSchema,
-    policy: escalationPolicySchema,
+    policy: pagePolicySchema,
     createdAt: utcTimestampSchema,
     state: z.enum(["open", "exhausted", "acknowledged", "resolved"]),
     revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),

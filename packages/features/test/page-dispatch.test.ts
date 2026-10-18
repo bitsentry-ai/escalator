@@ -24,7 +24,7 @@ async function fixture() {
     async (tx) => (await tx.pages.get("page"))!.policy,
   );
   const policy = escalationPolicySchema.parse(
-    defaultEscalationPolicy(original),
+    defaultEscalationPolicy(escalationPolicySchema.parse(original)),
   );
   const schedules = new Map(
     ["primary", "peer"].map((id) => [

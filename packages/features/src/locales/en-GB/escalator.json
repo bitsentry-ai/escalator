@@ -115,6 +115,7 @@
       "resolved": "Resolved"
     },
     "targets": {
+      "deployer": "Deployer",
       "primary": "Primary",
       "peer": "Scheduled peer",
       "fallback": "Fallback",

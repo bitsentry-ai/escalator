@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PagePolicy } from "./page-policy.js";
 import {
   opaqueIdSchema,
   responderIdSchema,
@@ -71,11 +72,11 @@ export type EscalationTarget = z.infer<typeof escalationTargetSchema>;
 export type DeepReadonly<T> = T extends object
   ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
   : T;
-export type PolicySnapshot = DeepReadonly<EscalationPolicy>;
+export type PolicySnapshot = DeepReadonly<PagePolicy>;
 export interface EscalationStep {
   id: string;
   dueAt: string;
-  target: EscalationTarget | "operator";
+  target: EscalationTarget | "deployer" | "operator";
 }
 export type EscalationDecision =
   | { kind: "cancel"; cancel: string[]; exhausted: boolean }

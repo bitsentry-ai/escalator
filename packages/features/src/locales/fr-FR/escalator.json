@@ -115,6 +115,7 @@
       "resolved": "Résolu"
     },
     "targets": {
+      "deployer": "Responsable du déploiement",
       "primary": "Responsable principal",
       "peer": "Collègue planifié",
       "fallback": "Remplaçant",

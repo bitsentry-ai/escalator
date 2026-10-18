@@ -94,6 +94,13 @@ export function pagingTransaction(
     const incident = requireValue(await incidents.get(value.incidentId));
     if (incident.serviceId !== value.policy.serviceId)
       throw new PersistenceError("scope_violation");
+    if (
+      "deployment" in value.policy &&
+      value.policy.deployment.mappedDeployerId !== null
+    )
+      requireValue(
+        await base.responders.get(value.policy.deployment.mappedDeployerId),
+      );
     if (value.revision !== 1 || value.state !== "open")
       throw new Error("Page must start open at revision one");
   });

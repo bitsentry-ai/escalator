@@ -3,7 +3,7 @@ import {
   operationalIncidentSchema,
   operationalPageSchema,
   type WorkspaceId,
-  escalationPolicySchema,
+  pagePolicySchema,
   type OperationalPage,
 } from "../../contracts/index.js";
 import { escalationSteps } from "../../domain/escalation/ladder.js";
@@ -20,7 +20,7 @@ const openInput = z.strictObject({
     title: operationalIncidentSchema.shape.title,
     severity: operationalIncidentSchema.shape.severity,
   }),
-  policy: escalationPolicySchema,
+  policy: pagePolicySchema,
 });
 export type OpenPageInput = z.infer<typeof openInput>;
 
@@ -69,7 +69,10 @@ export async function openPageInTransaction(
   if (existing) return existing;
   const pageId = pagingWorkId(scope, "page", parsed.incident.id);
   const service = await tx.services.get(parsed.incident.serviceId);
-  if (!service?.enabled) throw new Error("Service is unavailable for paging");
+  // Disabling intake cannot erase an already accepted deployment's deadline.
+  // Ordinary incident creation still requires an enabled service.
+  if (!service || (!service.enabled && !("deployment" in parsed.policy)))
+    throw new Error("Service is unavailable for paging");
   const incident = operationalIncidentSchema.parse({
     ...parsed.incident,
     workspaceId: scope,
