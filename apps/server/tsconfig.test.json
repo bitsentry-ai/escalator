@@ -36,6 +36,9 @@
       ],
       "@escalator-test/detection": [
         "../../packages/features/test/conformance/detection.ts"
+      ],
+      "@escalator-test/metrics": [
+        "../../packages/features/test/conformance/metrics.ts"
       ]
     }
   },

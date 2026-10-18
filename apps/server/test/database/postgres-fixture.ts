@@ -100,6 +100,8 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       "escalator_detection_processed",
       "escalator_probe_result",
       "escalator_heartbeat_receipt",
+      "escalator_metric_version",
+      "escalator_metric_observation",
     ]) {
       await admin.query(
         `GRANT SELECT, INSERT ON ${identifier(table)} TO ${identifier(current.role)}`,
@@ -111,6 +113,8 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       "escalator_probe_state",
       "escalator_probe_schedule",
       "escalator_heartbeat_probe",
+      "escalator_metric_monitor",
+      "escalator_metric_schedule",
       "escalator_heartbeat_state",
       "escalator_heartbeat_grant",
       "escalator_detection_group",
