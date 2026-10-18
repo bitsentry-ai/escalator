@@ -65,3 +65,7 @@ export * from "../adapters/intake/grafana-alerts.js";
 export * from "./signals/source-secrets.js";
 export * from "./signals/provider-ingest.js";
 export * from "./signals/provider-http.js";
+
+export * from "../domain/alerts/transition.js";
+export * from "./detection/ports.js";
+export * from "./detection/transaction.js";
