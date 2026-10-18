@@ -208,3 +208,6 @@ export { advanceRuleDecision } from "../domain/rules/advance.js";
 
 export * from "./rules/replay.js";
 export * from "./rules/labels.js";
+
+export * from "./rules/label-ports.js";
+export * from "./rules/label-transaction.js";
