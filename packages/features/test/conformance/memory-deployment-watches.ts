@@ -46,6 +46,7 @@ export class MemoryDeploymentWatchRepository {
     run: (
       tx: DeploymentWatchTransaction & PagingTransaction,
       guard: TransactionGuard,
+      extensions: Record<string, unknown>,
     ) => Promise<T>,
   ): Promise<T> {
     return this.base.withExtensions(scope, (tx, paging, extensions, guard) => {
@@ -124,6 +125,7 @@ export class MemoryDeploymentWatchRepository {
           guard,
         ),
         guard,
+        extensions,
       );
     });
   }

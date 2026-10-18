@@ -73,3 +73,5 @@ export * from "./deploy-watch.js";
 export * from "./deploy-baseline.js";
 
 export * from "./deploy-watch-record.js";
+
+export * from "./deploy-cadence.js";

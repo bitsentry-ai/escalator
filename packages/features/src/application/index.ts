@@ -181,3 +181,7 @@ export * from "./deploy/watch-persistence.js";
 export * from "./deploy/watch-finish.js";
 export * from "./deploy/watch-runtime.js";
 export * from "./deploy/watch-correlation.js";
+
+export * from "./deploy/cadence.js";
+
+export * from "./deploy/cadence-persistence.js";
