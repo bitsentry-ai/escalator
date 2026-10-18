@@ -164,6 +164,7 @@ export class MemoryFoundationRepository
       tx: FoundationTransaction,
       extensions: Record<string, unknown>,
       guard: TransactionGuard,
+      workRecords: readonly MemoryWork[],
     ) => Promise<T>,
   ): Promise<T> {
     return this.serialized(async () => {
@@ -279,7 +280,14 @@ export class MemoryFoundationRepository
           },
         };
         const tx = protectFoundationTransaction(raw, guard);
-        const result = await work(tx, state.extensions, guard);
+        const result = await work(
+          tx,
+          state.extensions,
+          guard,
+          structuredClone(
+            state.work.filter((row) => row.workspaceId === workspaceId),
+          ),
+        );
         guard.assertCommittable();
         this.state = state;
         return result;

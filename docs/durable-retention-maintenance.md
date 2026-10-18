@@ -1,0 +1,69 @@
+# Durable retention maintenance
+
+This shared T3.12 implementation defines the schedule state, guarded transaction,
+bootstrap/repair operation and job handler. PostgreSQL schedule storage and runtime
+registration follow in the next part; no production timer or deletion handler is
+registered here.
+
+Each workspace has one schedule with a monotonically increasing revision, current
+job ID, source ID, receipt cursor, due time and sweep timestamps. Jobs have a closed,
+versioned payload and a deterministic workspace/revision identity. A control job
+chooses the first source. A source job invokes the bounded pruning transaction,
+then persists its successor job and cursor with the same commit. Empty and protected
+batches advance even when no deletion audit is needed.
+
+A batch can delete records while retaining its cursor: SQL preserves timestamp
+fractions that JavaScript's millisecond comparison cannot distinguish. The next job
+must revisit any earlier physical receipt that the capped deletion left behind.
+Progress means either deleting records or advancing the cursor; it does not require
+a non-null cursor after every batch.
+
+## Failure and restart behavior
+
+The handler reloads schedule state and the authoritative work claim under locks.
+Caller-supplied payload, kind and attempt fields do not choose a source or cursor.
+Expired or replaced leases do not advance the schedule. A crash after committing a
+successor but before settling the old job is harmless: retrying that old job sees
+an advanced schedule and completes without repeating deletion or its audit.
+
+Bootstrap preserves an existing pending or running job. If its current job is
+terminal or missing, bootstrap preserves the source/cursor and schedules a new
+revision with a one-hour repair delay, recording the repair atomically. A malformed
+kind or payload fails closed instead of silently replacing unexplained work.
+Normal sweeps repeat hourly with one-second spacing between batches. These are
+bounded deployment settings, separate from user-managed retention days and bytes.
+Hosts should invoke bootstrap periodically as well as at startup so exhausted
+retries cannot leave maintenance stopped indefinitely.
+
+Any failure writing the audit, successor or schedule rolls back deletion and byte
+accounting. Caught port failures poison the enclosing transaction, and transaction
+handles cannot escape their lifetime. Completing a sweep means traversing its
+sources; it does not promise usage fell below the target when protected data alone
+exceeds that target.
+
+## Host adapter requirements
+
+- Serialize the singleton even before its first row exists. For a source job,
+  lock that source before the singleton, then its work claim, related receipt jobs
+  and workspace accounting. Bootstrap takes only singleton/work locks.
+- Keep the initial unlocked schedule read as a hint. Revalidate its revision and
+  source under physical locks before invoking the pruning port.
+- Implement `nextSource` as a scoped, indexed ID seek without a row lock. Never
+  acquire another source lock after accounting.
+- Lock the current job when examining it for repair; use the same physical
+  transaction for successor enqueue, schedule compare-and-swap and repair audit.
+- Compose the shared transaction guards with the existing PostgreSQL pruning store.
+  Preserve organization mapping and forced row-level security in the Dashboard.
+- Register a bounded maintenance lane with paging capacity reserved. Add bounded
+  cleanup for obsolete, terminal maintenance work using exact validated identities;
+  never delete current/live work or arbitrary job prefixes.
+
+The shared memory scenarios exercise the real pruning use case and durable claim
+store. They are not PostgreSQL lock, index or contention evidence. Run them with:
+
+```sh
+pnpm --dir apps/escalator --filter @bitsentry-escalator/features test
+```
+
+Database scheduling conformance, production activation and authenticated
+retention/coverage management remain follow-up work before Phase 3 completion.
