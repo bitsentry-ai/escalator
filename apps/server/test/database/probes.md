@@ -13,11 +13,14 @@ role cannot bypass RLS, applies and reapplies migrations, grants observations on
 SELECT/INSERT, and removes its schema when finished. Never substitute the normal
 application `DATABASE_URL`.
 
-The six shared conformance cases check scoped data, concurrent edits, source
+The seven shared conformance cases check scoped data, concurrent edits, source
 ownership, immutable observations, canonical schedules and transaction rollback.
 An additional populated-table test checks forced RLS and observation update denial.
-These seven cases skip explicitly without both test variables. The SQL binding unit
+These eight cases skip explicitly without both test variables. The SQL binding unit
 test is not proof of database syntax, constraints, locking or RLS.
 
 No PostgreSQL test configuration was supplied. No database or server was started,
 and migration/concurrency behavior remains not runtime-verified.
+
+The shared capacity race is registered in this layer and requires the same
+explicit test database configuration. It is not runtime-verified here.

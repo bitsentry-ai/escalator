@@ -85,3 +85,5 @@ export * from "./probes/ports.js";
 export * from "./probes/schedule.js";
 export * from "./probes/transaction.js";
 export * from "./probes/execute.js";
+export * from "./probes/management.js";
+export * from "./probes/capacity.js";

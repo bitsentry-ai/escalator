@@ -61,6 +61,12 @@ export function postgresProbeStore(
     return result.rows.map((row) => ({ ...row.data, workspaceId: scope }));
   }
   return {
+    async lockCapacity() {
+      await connection.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+        [JSON.stringify(["escalator-probe-capacity", scope])],
+      );
+    },
     async get(id, lock = false) {
       const row = await read("probe", id, lock);
       return row ? probeSchema.parse(row) : undefined;

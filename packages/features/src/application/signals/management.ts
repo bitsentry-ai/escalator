@@ -118,6 +118,8 @@ export class SignalManagement {
     return this.repository.transaction(actor.workspaceId, async (tx) => {
       const current = await tx.sources.get(id);
       if (!current) throw new PersistenceError("not_found");
+      if (["probe", "heartbeat", "metrics"].includes(current.kind))
+        throw new SignalManagementError("source_kind");
       if (current.version !== expectedVersion)
         throw new SignalManagementError("conflict");
       if (

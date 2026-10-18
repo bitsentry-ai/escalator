@@ -5,6 +5,8 @@ import type { SignalTransaction } from "../signals/ports.js";
 import type { ProbeSchedule } from "./schedule.js";
 export interface ProbeTransaction extends SignalTransaction {
   probes: {
+    /** Acquire before source/probe locks when counting and changing configured capacity. */
+    lockCapacity(): Promise<void>;
     get(id: string): Promise<Probe | undefined>;
     /** Takes the source lock first, then the probe lock. All mutable execution state requires this lock. */
     lock(id: string): Promise<Probe | undefined>;
@@ -29,6 +31,7 @@ export interface ProbeRepository {
 }
 /** Every method uses the surrounding physical transaction and its scoped connection. */
 export interface ProbeRecordStore {
+  lockCapacity(): Promise<void>;
   get(id: string, lock?: boolean): Promise<Probe | undefined>;
   list(page: PageRequest): Promise<Page<Probe>>;
   put(value: Probe, expectedVersion: number | null): Promise<boolean>;

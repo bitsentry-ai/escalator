@@ -260,3 +260,18 @@ test("rotation keeps the replacement valid and disabling the source blocks all g
     { code: "invalid_token" },
   );
 });
+
+test("internal source lifecycle cannot bypass its owning feature through generic source updates", async () => {
+  const f = await fixture();
+  for (const kind of ["probe", "heartbeat", "metrics"] as const) {
+    await f.repository.transaction(f.actor.workspaceId, async (tx) => {
+      const source = (await tx.sources.get("source"))!;
+      await tx.sources.insert({ ...source, id: kind, kind });
+    });
+    await assert.rejects(
+      f.management.update(f.actor, { ...update, id: kind }),
+      { code: "source_kind" },
+    );
+    assert.equal((await f.management.get(f.actor, { id: kind })).version, 1);
+  }
+});

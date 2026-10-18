@@ -21,7 +21,8 @@ export class ProbePersistenceError extends Error {
       | "probe_not_locked"
       | "invalid_transition"
       | "invalid_source"
-      | "invalid_schedule",
+      | "invalid_schedule"
+      | "invalid_lock_order",
   ) {
     super(code);
   }
@@ -47,6 +48,7 @@ export function probeTransaction(
   guard: TransactionGuard,
 ): ProbeTransaction {
   const locked = new Map<string, Probe>();
+  let capacityLocked = false;
   const scoped = (value: { workspaceId: string }) => {
     if (value.workspaceId !== base.workspaceId)
       throw new PersistenceError("scope_violation");
@@ -72,6 +74,14 @@ export function probeTransaction(
   return {
     ...base,
     probes: {
+      lockCapacity: () =>
+        guard.operation(async () => {
+          if (capacityLocked) return;
+          if (locked.size)
+            throw new ProbePersistenceError("invalid_lock_order");
+          await store.lockCapacity();
+          capacityLocked = true;
+        }),
       get: (id) => guard.operation(() => store.get(opaqueIdSchema.parse(id))),
       lock: (id) => guard.operation(() => lock(id)),
       list: (input) =>

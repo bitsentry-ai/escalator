@@ -23,3 +23,22 @@ test("probe locks and paginated observations bind scope and caller values", asyn
   assert.deepEqual(calls[1].values, ["tenant", "cursor", 11, hostile]);
   for (const call of calls) assert.equal(call.sql.includes(hostile), false);
 });
+
+test("probe capacity mutexes use the workspace rather than an individual probe", async () => {
+  const calls: { sql: string; values: unknown[] }[] = [];
+  const connection = {
+    query: async (sql: string, values: unknown[]) => {
+      calls.push({ sql, values });
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as PoolClient;
+  for (const scope of ["tenant-a", "tenant-a", "tenant-b"])
+    await postgresProbeStore(
+      connection,
+      workspaceIdSchema.parse(scope),
+    ).lockCapacity();
+  assert.match(calls[0].sql, /pg_advisory_xact_lock/);
+  assert.equal(calls[0].values[0], calls[1].values[0]);
+  assert.notEqual(calls[0].values[0], calls[2].values[0]);
+  assert.equal(calls[0].values.length, 1);
+});

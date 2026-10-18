@@ -6,11 +6,13 @@ import {
   probeResultSchema,
   signalSourceSchema,
   workspaceIdSchema,
+  responderIdSchema,
   type Probe,
   type WorkspaceId,
 } from "@bitsentry-escalator/features/contracts";
 import {
   observeProbe,
+  ProbeManagement,
   probeJobId,
   type ProbeRepository,
   type ProbeTransaction,
@@ -345,6 +347,50 @@ export function probeConformance(
         await repository.transaction(b, (tx) => tx.probes.schedule("probe")),
         undefined,
       );
+    },
+  );
+  scenario(
+    "workspace capacity serializes simultaneous probe creation",
+    async ({ repository }, a) => {
+      const existing = await repository.transaction(a, (tx) =>
+        tx.probes.get("probe"),
+      );
+      assert.ok(existing);
+      const management = new ProbeManagement(
+        repository,
+        randomUUID,
+        { target: () => undefined },
+        { maxActive: 2, maxConfigured: 2, concurrency: 1 },
+      );
+      const actor = {
+        workspaceId: a,
+        responderId: responderIdSchema.parse("operator"),
+        role: "administrator" as const,
+      };
+      const input = {
+        name: "Another",
+        serviceId: existing.serviceId,
+        environmentId: existing.environmentId,
+        enabled: true,
+        critical: true,
+        failureThreshold: 1,
+        recoveryThreshold: 2,
+        intervalSeconds: 60,
+        config: existing.config,
+      };
+      const outcomes = await Promise.allSettled([
+        management.create(actor, input),
+        management.create(actor, input),
+      ]);
+      assert.equal(
+        outcomes.filter((result) => result.status === "fulfilled").length,
+        1,
+      );
+      assert.equal(
+        outcomes.filter((result) => result.status === "rejected").length,
+        1,
+      );
+      assert.equal((await management.list(actor)).items.length, 2);
     },
   );
   scenario(

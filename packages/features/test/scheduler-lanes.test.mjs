@@ -114,3 +114,115 @@ test("job lanes reject missing, duplicate and unregistered handlers", () => {
     );
   }
 });
+
+test(
+  "probe concurrency stays bounded while a deadline has its own worker",
+  { timeout: 5000 },
+  async () => {
+    const full = deferred(),
+      release = deferred(),
+      deadline = deferred();
+    let probes = 0,
+      active = 0,
+      peak = 0,
+      deadlineClaimed = false;
+    const store = {
+      async claim(input) {
+        const kind = input.kinds[0];
+        if (kind === "probe.execute") {
+          if (probes >= 4) return undefined;
+          probes++;
+        } else {
+          if (deadlineClaimed) return undefined;
+          deadlineClaimed = true;
+          await full.promise;
+        }
+        return {
+          ...input,
+          id: `${kind}:${probes}`,
+          kind,
+          payload: {},
+          attempt: 1,
+          dueAt: "2026-09-20T00:00:00.000Z",
+          leaseExpiresAt: "2026-09-20T00:00:20.000Z",
+        };
+      },
+      async settle(lease) {
+        if (lease.kind === "paging.step") deadline.resolve();
+        return true;
+      },
+    };
+    const scheduler = new DurableWorkScheduler(
+      store,
+      "org_fixture",
+      {
+        job: new Map([
+          [
+            "probe.execute",
+            async () => {
+              active++;
+              peak = Math.max(peak, active);
+              if (active === 2) full.resolve();
+              await release.promise;
+              active--;
+              return { state: "completed" };
+            },
+          ],
+          ["paging.step", async () => ({ state: "completed" })],
+        ]),
+        outbox: new Map(),
+      },
+      options,
+      {
+        intervalMs: 1000,
+        batchSize: 2,
+        onError: () => {},
+        jobLanes: [["probe.execute"], ["paging.step"]],
+        jobConcurrency: { "probe.execute": 2 },
+      },
+    );
+    scheduler.start();
+    try {
+      await deadline.promise;
+      assert.equal(active, 2);
+      assert.equal(peak, 2);
+      const stopping = scheduler.stop();
+      release.resolve();
+      await stopping;
+      assert.equal(peak, 2);
+      assert.equal(active, 0);
+    } finally {
+      release.resolve();
+      await scheduler.stop();
+    }
+  },
+);
+test("job concurrency rejects unknown kinds, mixed lanes and excessive allocations", () => {
+  const job = new Map(
+    ["a", "b", "c"].map((kind) => [kind, async () => ({ state: "completed" })]),
+  );
+  for (const [jobLanes, jobConcurrency] of [
+    [[["a"], ["b"], ["c"]], { missing: 2 }],
+    [[["a"], ["b"], ["c"]], { a: 0 }],
+    [[["a"], ["b"], ["c"]], { a: 33 }],
+    [[["a"], ["b"], ["c"]], { a: 1.5 }],
+    [[["a", "b"], ["c"]], { a: 2 }],
+    [[["a"], ["b"], ["c"]], { a: 32, b: 32, c: 1 }],
+  ])
+    assert.throws(
+      () =>
+        new DurableWorkScheduler(
+          {},
+          "org_fixture",
+          { job, outbox: new Map() },
+          options,
+          {
+            intervalMs: 1000,
+            batchSize: 2,
+            onError: () => {},
+            jobLanes,
+            jobConcurrency,
+          },
+        ),
+    );
+});

@@ -22,6 +22,8 @@ export class DurableWorkScheduler {
       onError(queue: WorkQueue): void;
       /** Each registered job kind occurs once; independent loops reserve deadline capacity. */
       jobLanes?: readonly (readonly string[])[];
+      /** Bounded parallel workers for a dedicated single-kind lane; other lanes retain their slots. */
+      jobConcurrency?: Readonly<Record<string, number>>;
     },
   ) {
     const lanes = pollerOptions.jobLanes ?? [[...handlers.job.keys()]];
@@ -35,14 +37,35 @@ export class DurableWorkScheduler {
       kinds.some((kind) => !handlers.job.has(kind))
     )
       throw new Error("Job lanes must partition registered handlers");
+    const parallel = new Map(
+      Object.entries(pollerOptions.jobConcurrency ?? {}),
+    );
+    for (const [kind, count] of parallel) {
+      if (
+        !handlers.job.has(kind) ||
+        !Number.isSafeInteger(count) ||
+        count < 1 ||
+        count > 32
+      )
+        throw new Error("Invalid job concurrency");
+      if (!lanes.some((lane) => lane.length === 1 && lane[0] === kind))
+        throw new Error("Parallel jobs require a dedicated lane");
+    }
+    const counts = lanes.map((lane) =>
+      lane.length === 1 ? (parallel.get(lane[0]) ?? 1) : 1,
+    );
+    if (counts.reduce((sum, count) => sum + count, 0) > 64)
+      throw new Error("Job concurrency exceeds the scheduler limit");
     const groups: { queue: WorkQueue; handlers: WorkHandlers }[] = [
-      ...lanes.map((lane) => ({
-        queue: "job" as const,
-        handlers: {
-          job: new Map(lane.map((kind) => [kind, handlers.job.get(kind)!])),
-          outbox: new Map<string, WorkHandler>(),
-        },
-      })),
+      ...lanes.flatMap((lane, index) =>
+        Array.from({ length: counts[index] }, () => ({
+          queue: "job" as const,
+          handlers: {
+            job: new Map(lane.map((kind) => [kind, handlers.job.get(kind)!])),
+            outbox: new Map<string, WorkHandler>(),
+          },
+        })),
+      ),
       {
         queue: "outbox",
         handlers: { job: new Map(), outbox: handlers.outbox },

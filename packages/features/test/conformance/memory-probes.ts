@@ -72,6 +72,7 @@ export class MemoryProbeRepository implements ProbeRepository {
           else values[index] = copy(value);
         };
         const store: ProbeRecordStore = {
+          lockCapacity: async () => {},
           get: async (id) =>
             copy(scoped(rows.probes).find((row) => row.id === id)),
           list: async (input) => list(scoped(rows.probes), input),
