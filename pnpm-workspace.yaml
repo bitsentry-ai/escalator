@@ -5,3 +5,8 @@ onlyBuiltDependencies:
   - argon2
   - "@nestjs/core"
   - esbuild
+
+# Preserve SDK API compatibility with patched provider response parsing.
+# GHSA-866g-f22w-33x8 is fixed in provider-utils 4.0.33+.
+overrides:
+  "@ai-sdk/provider-utils@4.0.15": "4.0.45"

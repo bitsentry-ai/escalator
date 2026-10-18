@@ -98,7 +98,12 @@
     "@types/react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "3.0.110",
+    "@ai-sdk/google": "3.0.30",
+    "@ai-sdk/groq": "3.0.24",
+    "@ai-sdk/openai": "3.0.31",
     "@js-temporal/polyfill": "0.5.1",
+    "ai": "6.0.97",
     "nodemailer": "10.0.13",
     "zod": "4.3.6"
   }
