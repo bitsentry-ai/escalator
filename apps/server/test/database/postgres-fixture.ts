@@ -152,6 +152,19 @@ export async function postgresFixture(
         `GRANT SELECT, INSERT, UPDATE ON ${identifier(table)} TO ${identifier(current.role)}`,
       );
     }
+    if (migrations.some((item) => item.name === "0016_deployments.sql")) {
+      for (const table of [
+        "escalator_deploy_target",
+        "escalator_deploy_grant",
+        "escalator_deployment",
+      ])
+        await admin.query(
+          `GRANT SELECT,INSERT,UPDATE ON ${identifier(table)} TO ${identifier(current.role)}`,
+        );
+      await admin.query(
+        `GRANT SELECT,INSERT ON escalator_deploy_receipt TO ${identifier(current.role)}`,
+      );
+    }
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
