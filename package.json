@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "build:packages": "pnpm --filter @bitsentry-escalator/features build",
-    "build": "pnpm run build:packages && pnpm --filter @bitsentry-escalator/server build",
+    "build": "pnpm run build:packages && pnpm --filter @bitsentry-escalator/server build && pnpm --filter @bitsentry-escalator/web build",
     "typecheck": "pnpm run build:packages && pnpm -r typecheck",
     "lint": "eslint apps packages && node scripts/check-boundaries.mjs && node scripts/check-locales.mjs",
     "i18n:audit:integrity": "node scripts/check-locales.mjs"

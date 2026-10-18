@@ -1,15 +1,16 @@
 # Escalator workspace
 
-This stack part builds the canonical feature package and the NestJS/tRPC server
-shell. The web shell is supplied by the next Phase 0 part.
-The server exports an app factory; operational behavior starts in Phase 1.
+Independent Phase 0 host shells and the canonical shared feature package.
+Copy this directory alone, then run:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm run build
 pnpm run typecheck
 pnpm run lint
-node --test scripts/*.test.mjs
 ```
 
-Requires Node 22.12+ and pnpm 10.32.1. No root checkout or host runtime is needed.
+Requires Node 22.12+ and pnpm 10.32.1. No root checkout, Desktop CE,
+WorkOS, Encore, database, or server process is required for these checks.
+The server exports an app factory; operational behavior starts in Phase 1.
+The package exports compiled CommonJS and ESM only. React is a peer dependency.

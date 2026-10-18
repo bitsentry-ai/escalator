@@ -1,0 +1,23 @@
+{
+  "name": "@bitsentry-escalator/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@bitsentry-escalator/features": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "i18next": "^25.0.0",
+    "react-i18next": "^16.0.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}
