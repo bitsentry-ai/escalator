@@ -49,8 +49,15 @@ const event = (workspaceId: WorkspaceId): AuditEvent => ({
 export function foundationConformance(
   name: string,
   create: FoundationFactory,
-  options: { skip?: string } = {},
+  options: {
+    skip?: string;
+    register?: (name: string, run: () => Promise<void>) => unknown;
+  } = {},
 ): void {
+  const register =
+    options.register ??
+    ((title: string, run: () => Promise<void>) =>
+      test(title, { skip: options.skip }, run));
   function scenario(
     title: string,
     run: (
@@ -59,7 +66,7 @@ export function foundationConformance(
       b: WorkspaceId,
     ) => Promise<void>,
   ) {
-    test(`${name}: ${title}`, options, async () => {
+    register(`${name}: ${title}`, async () => {
       const fixture = await create();
       const a = workspaceIdSchema.parse(`test_a_${randomUUID()}`);
       const b = workspaceIdSchema.parse(`test_b_${randomUUID()}`);
