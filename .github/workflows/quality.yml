@@ -1,0 +1,63 @@
+name: Quality
+
+on:
+  pull_request:
+    paths:
+      - '**'
+
+concurrency:
+  group: escalator-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  escalator-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: escalator_test
+          POSTGRES_PASSWORD: ci-postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d escalator_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ESCALATOR_TEST_MIGRATION_DATABASE_URL: postgresql://escalator_migrate:ci-migrate@localhost:5432/escalator_test
+      ESCALATOR_TEST_DATABASE_URL: postgresql://escalator_app:ci-app@localhost:5432/escalator_test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+      - name: Install Escalator workspace
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck Escalator
+        run: pnpm typecheck
+      - name: Create disposable database roles
+        run: |
+          docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d escalator_test <<'SQL'
+          CREATE ROLE escalator_migrate LOGIN BYPASSRLS PASSWORD 'ci-migrate';
+          CREATE ROLE escalator_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'ci-app';
+          GRANT CREATE ON DATABASE escalator_test TO escalator_migrate;
+          SQL
+      - name: Run Escalator suites including PostgreSQL conformance
+        run: |
+          pnpm -r test
+          node --test scripts/*.test.mjs
+      - name: Check locale integrity
+        run: pnpm i18n:audit:integrity
