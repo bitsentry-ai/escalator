@@ -32,8 +32,9 @@ replay. All of these dependencies remain inside the standalone workspace.
 
 Dependency support, persistence, login/MFA orchestration and operator commands
 are implemented. The app factory now registers PostgreSQL sessions, CSRF checks
-and tRPC authentication procedures. Standalone screens follow in the next part.
-No live HTTP service or database-backed authentication flow has been run.
+and tRPC authentication procedures. The standalone shell includes login, setup,
+operator recovery, invitations and authenticator management. No live HTTP service
+or database-backed authentication flow has been run.
 Encrypted TOTP material must participate in the existing key-rotation procedure.
 PostgreSQL conformance will remain explicitly not runtime-verified until a
 separate disposable test database is provided; tests never use the application's
@@ -57,7 +58,7 @@ purposes. Provider redemption explicitly accepts only `provider` secrets, while
 key rotation covers both purposes.
 
 Authentication middleware and public tRPC login routes are registered by the
-app factory. The following shell part supplies the user-facing screens.
+app factory. The standalone shell supplies the user-facing screens.
 Run `pnpm --filter @bitsentry-escalator/server test` from this workspace for
 library/validation tests and opt-in PostgreSQL scenarios. Database scenarios
 require both dedicated test variables described in the README; without them,
@@ -138,3 +139,24 @@ active key; retained keys verify older cookies. Retain old keys for at least the
 eight-hour session lifetime after rotation, in addition to the ciphertext/backup
 requirements. Removing an old key sooner may sign out existing users. Neither
 master keys nor derived cookie keys enter PostgreSQL.
+
+## Using the standalone shell
+
+Choose Create account and enter the one-use operator or invitation credential,
+a local login name, display name, time zone and password. After registration,
+sign in with that local name. If authenticator protection is enabled, include a
+current authenticator code or an unused recovery code.
+
+Account security lets you enroll an authenticator, confirm its first code, save
+one-use recovery codes, or disable it with your password and a factor. An
+administrator can issue invitations with an explicit role. Invitation credentials,
+enrollment secrets and recovery codes stay in component memory and are cleared
+when the account screen unmounts; they are never written to browser storage.
+Use Recover account with a locally issued recovery credential to reset access.
+
+The client uses same-origin tRPC requests, obtains a CSRF token before mutations,
+updates it after session rotation and never automatically replays a failed
+mutation. Secret inputs travel in POST bodies, not URL query strings. The six
+feature locales include all account and Services labels. UI transport unit tests
+run with `pnpm --filter @bitsentry-escalator/web test`; live browser flows remain
+not runtime-verified in this environment.

@@ -1,4 +1,4 @@
-/** Package compatibility marker; operational contracts arrive in Phase 1. */
+/** Package contract compatibility marker. */
 export const escalatorContractVersion = 0 as const;
 export interface EscalatorPackageInfo {
   contractVersion: typeof escalatorContractVersion;
@@ -6,3 +6,5 @@ export interface EscalatorPackageInfo {
 
 export * from "./identity.js";
 export * from "./entities.js";
+
+export * from "./services.js";

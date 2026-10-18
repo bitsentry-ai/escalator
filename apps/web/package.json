@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "tsc --noEmit -p tsconfig.test.json && node ../../scripts/test-web.mjs"
   },
   "dependencies": {
     "@bitsentry-escalator/features": "workspace:*",

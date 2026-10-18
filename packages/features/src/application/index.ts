@@ -18,3 +18,5 @@ export * from "./jobs/poller.js";
 export * from "./jobs/scheduler.js";
 
 export * from "./ports/secrets.js";
+
+export * from "./services/services.use-cases.js";

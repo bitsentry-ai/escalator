@@ -1,0 +1,108 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #172b3a;
+  background: #f1f5f9;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+.escalator-shell {
+  max-width: 72rem;
+  margin: auto;
+  padding: 1.5rem;
+}
+.escalator-shell header,
+.escalator-shell header > div,
+.escalator-shell nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.escalator-shell header {
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.auth-card,
+.account-security {
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+.auth-card {
+  max-width: 32rem;
+  margin-inline: auto;
+}
+.escalator-shell form {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  max-width: 34rem;
+}
+.escalator-shell label {
+  display: grid;
+  gap: 0.375rem;
+  font-weight: 600;
+}
+.escalator-shell input,
+.escalator-shell select,
+.escalator-shell textarea,
+.escalator-shell button {
+  font: inherit;
+  border: 1px solid #64748b;
+  border-radius: 0.375rem;
+  padding: 0.65rem;
+  min-width: 0;
+}
+.escalator-shell button {
+  background: #0f766e;
+  color: white;
+  cursor: pointer;
+}
+.escalator-shell button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.escalator-shell textarea {
+  width: 100%;
+  max-width: 34rem;
+  display: block;
+  margin-block: 0.75rem;
+}
+.escalator-shell code {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-block: 0.75rem;
+}
+.escalator-shell [role="alert"] {
+  border-left: 4px solid #b91c1c;
+  padding: 0.75rem;
+  background: #fef2f2;
+}
+.escalator-shell [role="status"] {
+  padding: 0.75rem;
+  background: #ecfdf5;
+}
+.escalator-shell :focus-visible {
+  outline: 3px solid #0e7490;
+  outline-offset: 3px;
+}
+@media (max-width: 40rem) {
+  .escalator-shell {
+    padding: 0.75rem;
+  }
+  .auth-card,
+  .account-security {
+    padding: 1rem;
+  }
+}
+.escalator-shell nav button[aria-pressed="false"] {
+  background: white;
+  color: #0f766e;
+}
