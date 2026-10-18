@@ -114,3 +114,5 @@ export * from "./rule-evaluation.js";
 export * from "./rule-proposal.js";
 
 export * from "./rule-candidate-input.js";
+
+export * from "./rule-catalog.js";

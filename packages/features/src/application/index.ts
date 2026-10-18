@@ -263,3 +263,9 @@ export * from "./rules/prepare-candidate.js";
 export * from "./rules/proposal-authorization.js";
 
 export * from "./rules/proposal-consumer.js";
+
+export * from "./rules/activation-ports.js";
+export * from "./rules/review-state.js";
+export * from "./rules/review-eligibility.js";
+export * from "./rules/activate.js";
+export * from "./rules/catalog.js";
