@@ -1,3 +1,4 @@
+import type { WorkWriter } from "../jobs/ports.js";
 import type {
   Environment,
   Responder,
@@ -38,6 +39,7 @@ export interface EntityRepository<
   insert(value: T): Promise<void>;
 }
 export interface FoundationTransaction {
+  work: WorkWriter;
   readonly workspaceId: WorkspaceId;
   /** UTC database transaction time, not the caller's wall clock. */
   readonly now: string;

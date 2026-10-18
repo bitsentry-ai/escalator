@@ -63,3 +63,5 @@ export interface Actor {
   responderId: ResponderId;
   role: Role;
 }
+
+export { opaqueId as opaqueIdSchema };

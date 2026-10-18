@@ -1,3 +1,4 @@
+import { postgresWorkWriter } from "../jobs/postgres-work.writer.js";
 import type { Pool, QueryResultRow } from "pg";
 import {
   workspaceIdSchema,
@@ -120,6 +121,7 @@ export class PostgresFoundationRepository implements FoundationRepository {
         },
       });
       const raw: FoundationTransaction = {
+        work: postgresWorkWriter(connection, scope),
         workspaceId: scope,
         now: timestamp(time.rows[0].now),
         workspace: {

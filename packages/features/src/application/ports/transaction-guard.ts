@@ -48,6 +48,12 @@ export function protectFoundationTransaction(
     insert: (value) => guard.operation(() => repo.insert(value)),
   });
   return {
+    work: {
+      enqueue: (queue, intent) =>
+        guard.operation(() => raw.work.enqueue(queue, intent)),
+      cancel: (queue, ids) =>
+        guard.operation(() => raw.work.cancel(queue, ids)),
+    },
     workspaceId: raw.workspaceId,
     now: raw.now,
     workspace: {
