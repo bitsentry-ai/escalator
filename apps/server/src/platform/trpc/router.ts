@@ -1,3 +1,4 @@
+import { detectionRouter } from "../../features/detection/detection.router.js";
 import { signalsRouter } from "../../features/signals/signals.router.js";
 import { channelSecretsRouter } from "../../features/configuration/channel-secrets.router.js";
 import { configurationRouter } from "../../features/configuration/configuration.router.js";
@@ -10,6 +11,7 @@ export const appRouter = t.router({
   auth: authRouter,
   services: servicesRouter,
   signals: signalsRouter,
+  detection: detectionRouter,
   incidents: incidentsRouter,
   configuration: configurationRouter,
   channelSecrets: channelSecretsRouter,

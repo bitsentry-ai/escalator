@@ -1,3 +1,4 @@
+import { createPagingHandlers, pagingJobLanes } from "../paging/handlers.js";
 import type { WorkHandlers } from "../jobs/scheduler.js";
 import type { WorkHandler } from "../jobs/runner.js";
 import type { DetectionRepository } from "./ports.js";
@@ -19,5 +20,23 @@ export function createDetectionHandlers(
       ["signal.recover", (lease) => recovery.recover(lease)],
     ]),
     outbox: new Map(),
+  };
+}
+
+/** Paging and detection share orchestration; hosts own only adapters and lifecycle. */
+export const monitoringJobLanes = [
+  ...pagingJobLanes,
+  ...detectionJobLanes,
+] as const;
+export function createMonitoringHandlers(
+  repository: DetectionRepository,
+  channels: Parameters<typeof createPagingHandlers>[1],
+  publicUrl: string,
+): WorkHandlers {
+  const paging = createPagingHandlers(repository, channels, publicUrl);
+  const detection = createDetectionHandlers(repository);
+  return {
+    job: new Map([...paging.job, ...detection.job]),
+    outbox: paging.outbox,
   };
 }

@@ -1,3 +1,4 @@
+import type { DetectionManagement } from "@bitsentry-escalator/features/application";
 import type { SignalManagement } from "@bitsentry-escalator/features/application";
 import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
@@ -44,6 +45,7 @@ function fixture() {
     auth: auth as unknown as LocalAuthService,
     incidents: {} as IncidentUseCases,
     signals: {} as SignalManagement,
+    detection: {} as DetectionManagement,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     services: services as unknown as ServiceUseCases,

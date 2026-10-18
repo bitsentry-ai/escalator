@@ -73,3 +73,4 @@ export * from "./detection/transaction.js";
 export * from "./detection/process.js";
 export { SignalRecovery } from "./detection/recovery.js";
 export * from "./detection/handlers.js";
+export * from "./detection/management.js";

@@ -10,6 +10,7 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   transitionAlert,
+  openPageInTransaction,
   type DetectionRepository,
   type DetectionTransaction,
   type DurableWorkStore,
@@ -113,6 +114,23 @@ export function detectionConformance(
       const ids = await repository.transaction(scope, detectionRows);
       await assert.rejects(
         repository.transaction(scope, async (tx) => {
+          await openPageInTransaction(tx, {
+            incident: {
+              id: "rollback-incident",
+              serviceId: ids.group.serviceId,
+              environmentId: ids.group.environmentId,
+              title: "Rollback",
+              severity: "high",
+            },
+            policy: (await tx.pages.get("page"))!.policy,
+          });
+          await tx.work.enqueue("outbox", {
+            id: "rollback-send",
+            kind: "paging.send",
+            idempotencyKey: "rollback-send",
+            payload: {},
+            dueAt: tx.now,
+          });
           await tx.detection.lockGroup(ids.group.id);
           await tx.detection.putGroup(ids.group, null);
           await tx.detection.putAlert(ids.alert);
@@ -146,6 +164,7 @@ export function detectionConformance(
         /abort transaction/,
       );
       await repository.transaction(scope, async (tx) => {
+        assert.equal(await tx.incidents.get("rollback-incident"), undefined);
         assert.equal(await tx.detection.lockGroup(ids.group.id), undefined);
         assert.equal(await tx.detection.alert(ids.alert.id), undefined);
         assert.equal(await tx.detection.processed("event"), undefined);
@@ -156,6 +175,20 @@ export function detectionConformance(
           false,
         );
       });
+      for (const [queue, kind] of [
+        ["job", "paging.step"],
+        ["outbox", "paging.send"],
+      ] as const)
+        assert.equal(
+          await work.claim({
+            workspaceId: scope,
+            queue,
+            token: "rollback-claim",
+            leaseMs: 30000,
+            kinds: [kind],
+          }),
+          undefined,
+        );
       assert.equal(
         await work.claim({
           workspaceId: scope,
@@ -171,17 +204,36 @@ export function detectionConformance(
   scenario(
     "missing-group creation has one compare-and-swap winner",
     async ({ repository }, scope) => {
+      await repository.transaction(scope, async (tx) => {
+        const source = (await tx.sources.get("source"))!;
+        await tx.sources.replace(
+          { ...source, version: 2, grouping: "fingerprint", updatedAt: tx.now },
+          1,
+        );
+        await tx.sources.insert({
+          ...source,
+          id: "other-source",
+          grouping: "fingerprint",
+          createdAt: tx.now,
+          updatedAt: tx.now,
+        });
+      });
       const { group } = await repository.transaction(scope, detectionRows);
       const results = await Promise.all(
-        [1, 2].map(() =>
+        ["source", "other-source"].map((sourceId) =>
           repository.transaction(scope, async (tx) => {
-            await tx.sources.get("source");
-            await tx.detection.lockGroup(group.id);
-            return tx.detection.putGroup(group, null);
+            // Different source locks must still serialize creation of the shared group.
+            await tx.sources.get(sourceId);
+            const existing = await tx.detection.lockGroup(group.id);
+            return {
+              existing: !!existing,
+              written: await tx.detection.putGroup(group, null),
+            };
           }),
         ),
       );
-      assert.equal(results.filter(Boolean).length, 1);
+      assert.equal(results.filter((result) => result.written).length, 1);
+      assert.equal(results.filter((result) => result.existing).length, 1);
     },
   );
   scenario(

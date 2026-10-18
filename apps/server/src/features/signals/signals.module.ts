@@ -1,8 +1,10 @@
+import { PostgresDetectionRepository } from "../../platform/database/detection.repository.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import {
   SignalHttp,
   SignalManagement,
+  DetectionManagement,
   ProviderIntake,
   ProviderHttp,
 } from "@bitsentry-escalator/features/application";
@@ -20,6 +22,15 @@ import { ProviderIngestController } from "../../platform/http/ingest/provider.co
   imports: [DatabaseModule, SecretKeysModule],
   controllers: [SignalIngestController, ProviderIngestController],
   providers: [
+    {
+      provide: DetectionManagement,
+      inject: [StandaloneDatabase],
+      useFactory: (db: StandaloneDatabase) =>
+        new DetectionManagement(
+          new PostgresDetectionRepository(db.pool),
+          randomUUID,
+        ),
+    },
     {
       provide: ProviderHttp,
       inject: [PostgresSignalRepository, StandaloneDatabase, SecretKeyRing],
@@ -58,6 +69,6 @@ import { ProviderIngestController } from "../../platform/http/ingest/provider.co
       ) => new SignalHttp(repository, (scope) => scope === db.workspaceId),
     },
   ],
-  exports: [SignalManagement],
+  exports: [SignalManagement, DetectionManagement],
 })
 export class SignalsModule {}

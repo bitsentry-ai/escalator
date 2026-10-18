@@ -8,11 +8,13 @@ import type {
   IncidentUseCases,
   ServiceUseCases,
   SignalManagement,
+  DetectionManagement,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
   secretWriter: PostgresSecretWriter;
   services: ServiceUseCases;
   signals: SignalManagement;
+  detection: DetectionManagement;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;
   req: Request;

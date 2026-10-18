@@ -1,15 +1,15 @@
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
-  createPagingHandlers,
-  pagingJobLanes,
+  createMonitoringHandlers,
+  monitoringJobLanes,
   type WorkQueue,
 } from "@bitsentry-escalator/features/application";
 import {
   createPagingChannels,
   PublicHttpsChannelTransport,
 } from "@bitsentry-escalator/features/channels";
-import { PostgresConfigurationRepository } from "../../platform/database/configuration.repository.js";
+import { PostgresDetectionRepository } from "../../platform/database/detection.repository.js";
 import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.js";
 import { EncryptedSecretStore } from "../../platform/secrets/encrypted-secret.store.js";
 import { PostgresSecretReader } from "../../platform/secrets/postgres-secret.reader.js";
@@ -21,7 +21,7 @@ export function standalonePagingRuntime(
   publicUrl: string,
   onError: (queue: WorkQueue) => void,
 ) {
-  const repository = new PostgresConfigurationRepository(pool);
+  const repository = new PostgresDetectionRepository(pool);
   const channels = createPagingChannels(
     new EncryptedSecretStore(keys, new PostgresSecretReader(pool)),
     new PublicHttpsChannelTransport(),
@@ -31,9 +31,9 @@ export function standalonePagingRuntime(
     runtime: new PostgresJobsRuntime(
       pool,
       scope,
-      createPagingHandlers(repository, channels, publicUrl),
+      createMonitoringHandlers(repository, channels, publicUrl),
       onError,
-      pagingJobLanes,
+      monitoringJobLanes,
     ),
   };
 }
