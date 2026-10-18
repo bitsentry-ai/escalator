@@ -7,8 +7,9 @@ import {
   type RuleReplayBudget,
   type RuleReplayBatch,
 } from "../../contracts/rule-replay.js";
-import type { RuleSample } from "../../contracts/rules.js";
+import type { DetectionRule, RuleSample } from "../../contracts/rules.js";
 import { advanceRuleDecision } from "../../domain/rules/advance.js";
+import { ruleSampleTime, ruleWindowBounds } from "../../domain/rules/time.js";
 
 type Interval = { startAt: string; endAt: string; recordedAt: string | null };
 function intervals<T extends Interval>(input: readonly T[]): T[] {
@@ -44,12 +45,16 @@ function visibleInterval<T extends Interval>(
     ? row
     : null;
 }
-function after(samples: readonly RuleSample[], at: number): number {
+function after(
+  rule: DetectionRule,
+  samples: readonly RuleSample[],
+  at: number,
+): number {
   let low = 0,
     high = samples.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (Date.parse(samples[middle]!.observedAt) <= at) low = middle + 1;
+    if (ruleSampleTime(rule, samples[middle]!) <= at) low = middle + 1;
     else high = middle;
   }
   return low;
@@ -115,7 +120,9 @@ export function replayRuleWindows(
   const cursor = prior === null ? null : ruleReplayCursorSchema.parse(prior);
   validateScope(snapshot, cursor);
   const samples = [...snapshot.samples].sort(
-    (a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt),
+    (a, b) =>
+      ruleSampleTime(snapshot.version.definition, a) -
+      ruleSampleTime(snapshot.version.definition, b),
   );
   const policies = intervals(snapshot.policies),
     coverage = intervals(snapshot.coverage);
@@ -137,8 +144,9 @@ export function replayRuleWindows(
     sampleVisits: 0,
   };
   for (; at <= end; at += step) {
-    const from = after(samples, at - rule.windowSeconds * 1000),
-      to = after(samples, at);
+    const bounds = ruleWindowBounds(rule, new Date(at).toISOString());
+    const from = after(rule, samples, bounds.start),
+      to = after(rule, samples, bounds.end);
     if (
       signal?.aborted ||
       result.decisions.length >= budget.maxDecisions ||

@@ -43,6 +43,9 @@ export const detectionRuleSchema = z
     aggregation: z.enum(["sum", "mean", "minimum", "maximum", "count"]),
     windowSeconds: seconds,
     stepSeconds: seconds,
+    /** Explicit receipt allowance; absent preserves the original zero-delay contract.
+     * This shifts the sample window, never the decision's availability cutoff. */
+    collectionDelaySeconds: z.number().int().min(0).max(86400).optional(),
     minimumSamples: z.number().int().min(1).max(1440),
     trigger: z.strictObject({
       operator: z.enum(["gt", "gte"]),
@@ -73,10 +76,11 @@ export const detectionRuleSchema = z
         rule.persistenceSeconds,
         rule.recoverySeconds,
         rule.cooldownSeconds,
+        rule.collectionDelaySeconds ?? 0,
       ].some((value) => value % rule.stepSeconds !== 0)
     )
       reject(
-        "Persistence, recovery and cooldown must use whole decision steps",
+        "Persistence, recovery, cooldown and collection delay must use whole decision steps",
       );
     if (
       rule.recovery.value > rule.trigger.value ||
@@ -123,6 +127,9 @@ export const ruleSampleSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...sample,
     kind: z.literal("metric"),
+    /** Original retained schedule/measurement slot, not a rewritten observation.
+     * null means historical slot provenance is unavailable. */
+    slotAt: utcTimestampSchema.nullable().optional(),
     usable: z.boolean(),
     requests: count,
     errors: count,
@@ -130,6 +137,7 @@ export const ruleSampleSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...sample,
     kind: z.literal("probe"),
+    slotAt: utcTimestampSchema.nullable().optional(),
     usable: z.boolean(),
     success: z.boolean().nullable(),
     durationMs: count,
@@ -138,9 +146,11 @@ export const ruleSampleSchema = z.discriminatedUnion("kind", [
 ]);
 export type RuleSample = z.infer<typeof ruleSampleSchema>;
 
-/** Periodic windows use the exact grid (decision-window, decision], UTC epoch aligned.
- * Signal windows use that same half-open interval, but do not infer continuity
- * from silence. A complete read alone does not prove source health.
+/** Windows use (decision-delay-window, decision-delay], UTC epoch aligned.
+ * Receipts are still cut off at decision time. Periodic retained slots identify
+ * their bins; original observation/receipt times are never rewritten. Signal
+ * windows do not infer continuity from silence. A complete read alone does not
+ * prove source health.
  */
 export const ruleWindowSchema = z.strictObject({
   decisionAt: utcTimestampSchema,

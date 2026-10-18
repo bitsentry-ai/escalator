@@ -4,6 +4,7 @@ import type {
   RuleWindow,
   RuleWindowReason,
 } from "../../contracts/rules.js";
+import { ruleSampleTime, ruleWindowBounds } from "./time.js";
 
 export interface SelectedRuleSamples {
   samples: RuleSample[];
@@ -31,8 +32,7 @@ export function selectRuleSamples(
     retrospectiveCount: 0,
     reason: null,
   };
-  const end = Date.parse(window.decisionAt),
-    start = end - rule.windowSeconds * 1000;
+  const { start, end, visibleAt } = ruleWindowBounds(rule, window.decisionAt);
   const ids = new Set<string>(),
     slots = new Set<number>();
   for (const sample of window.samples) {
@@ -41,29 +41,37 @@ export function selectRuleSamples(
       return result;
     }
     const observed = Date.parse(sample.observedAt);
-    if (observed <= start || observed > end) continue;
+    const slot = ruleSampleTime(rule, sample);
+    if (slot <= start || slot > end) continue;
+    if (sample.kind !== "signal" && sample.slotAt === null) {
+      result.retrospectiveCount++;
+      continue;
+    }
     if (sample.receivedAt === null) {
       result.retrospectiveCount++;
       continue;
     }
-    if (Date.parse(sample.receivedAt) > end) {
+    if (Date.parse(sample.receivedAt) > visibleAt) {
       result.lateCount++;
       continue;
     }
-    // Every visible observation must have one identity and one periodic slot.
     if (
-      ids.has(sample.id) ||
-      (sample.kind !== "signal" && slots.has(observed))
+      sample.kind !== "signal" &&
+      typeof sample.slotAt === "string" &&
+      (Date.parse(sample.slotAt) > observed ||
+        observed > Date.parse(sample.receivedAt))
     ) {
+      result.reason = "invalid_input";
+      return result;
+    }
+    // Every visible observation must have one identity and one periodic slot.
+    if (ids.has(sample.id) || (sample.kind !== "signal" && slots.has(slot))) {
       result.reason = "conflicting_samples";
       return result;
     }
     ids.add(sample.id);
-    slots.add(observed);
-    if (
-      sample.kind !== "signal" &&
-      observed % (rule.stepSeconds * 1000) !== 0
-    ) {
+    slots.add(slot);
+    if (sample.kind !== "signal" && slot % (rule.stepSeconds * 1000) !== 0) {
       result.reason = "unaligned_window";
       return result;
     }
