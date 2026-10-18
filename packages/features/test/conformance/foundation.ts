@@ -10,12 +10,12 @@ import {
   workspaceIdSchema,
   workspaceSchema,
   type WorkspaceId,
-} from "../../src/contracts/index.js";
-import type { AuditEvent } from "../../src/application/ports/audit.js";
+} from "@bitsentry-escalator/features/contracts";
+import type { AuditEvent } from "@bitsentry-escalator/features/application";
 import type {
   FoundationRepository,
   FoundationTransaction,
-} from "../../src/application/ports/persistence.js";
+} from "@bitsentry-escalator/features/application";
 
 export interface FoundationFixture {
   repository: FoundationRepository;
@@ -49,6 +49,7 @@ const event = (workspaceId: WorkspaceId): AuditEvent => ({
 export function foundationConformance(
   name: string,
   create: FoundationFactory,
+  options: { skip?: string } = {},
 ): void {
   function scenario(
     title: string,
@@ -58,7 +59,7 @@ export function foundationConformance(
       b: WorkspaceId,
     ) => Promise<void>,
   ) {
-    test(`${name}: ${title}`, async () => {
+    test(`${name}: ${title}`, options, async () => {
       const fixture = await create();
       const a = workspaceIdSchema.parse(`test_a_${randomUUID()}`);
       const b = workspaceIdSchema.parse(`test_b_${randomUUID()}`);
