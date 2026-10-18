@@ -14,3 +14,5 @@ export * from "./escalation.js";
 export * from "./paging.js";
 
 export * from "./contact.js";
+
+export * from "./configuration.js";

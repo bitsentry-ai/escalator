@@ -36,3 +36,6 @@ export * from "./paging/advance.js";
 export * from "./paging/cancel.js";
 export * from "./paging/send.js";
 export * from "./paging/provider-jobs.js";
+
+export * from "./configuration/ports.js";
+export * from "./configuration/transaction.js";

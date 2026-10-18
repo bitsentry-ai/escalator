@@ -12,6 +12,8 @@ import type {
 import { pagingTransaction } from "../../src/application/paging/transaction.js";
 import { MemoryFoundationRepository } from "./memory.js";
 
+import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
+
 type Stored = PagingRecordMap[PagingRecordKind];
 type Rows = Record<PagingRecordKind, Stored[]>;
 function naturalKey(kind: PagingRecordKind, value: Stored): string {
@@ -43,6 +45,16 @@ export class MemoryPagingRepository implements PagingRepository {
   transaction<T>(
     scope: WorkspaceId,
     work: (tx: PagingTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(scope, (tx) => work(tx));
+  }
+  withExtensions<T>(
+    scope: WorkspaceId,
+    work: (
+      tx: PagingTransaction,
+      extensions: Record<string, unknown>,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.foundation.withExtensions(
       scope,
@@ -112,7 +124,7 @@ export class MemoryPagingRepository implements PagingRepository {
             );
           },
         };
-        return work(pagingTransaction(base, store, guard));
+        return work(pagingTransaction(base, store, guard), extensions, guard);
       },
     );
   }
