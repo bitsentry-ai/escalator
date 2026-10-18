@@ -1,3 +1,5 @@
+import { RuleProposalEvaluation } from "./proposal-evaluation.js";
+import type { RuleProposalRepository } from "./proposal-ports.js";
 import type { RuleBacktestRepository } from "./backtest-ports.js";
 import { RuleBacktestExecution } from "./backtest-job.js";
 import type { RuleReplayRepository } from "./replay-ports.js";
@@ -52,6 +54,23 @@ export function withRuleBacktestHandlers(
     job: new Map<string, WorkHandler>([
       ...handlers.job,
       ["rules.backtest", (lease) => runner.process(lease)],
+    ]),
+    outbox: handlers.outbox,
+  };
+}
+
+export const ruleProposalEvaluationLane = ["rules.proposal-evaluate"] as const;
+export function withRuleProposalEvaluationHandlers(
+  handlers: WorkHandlers,
+  repository: RuleProposalRepository,
+): WorkHandlers {
+  if (handlers.job.has("rules.proposal-evaluate"))
+    throw new Error("Proposal evaluation handler already registered");
+  const runner = new RuleProposalEvaluation(repository);
+  return {
+    job: new Map<string, WorkHandler>([
+      ...handlers.job,
+      ["rules.proposal-evaluate", (lease) => runner.process(lease)],
     ]),
     outbox: handlers.outbox,
   };

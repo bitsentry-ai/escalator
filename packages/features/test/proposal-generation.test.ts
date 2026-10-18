@@ -153,6 +153,8 @@ async function setup() {
           withRuleProposals(
             tx,
             {
+              evaluatingIds: unused,
+              workState: unused,
               currentTime: async () => control.now,
               lock: async (id) =>
                 structuredClone(state.rows.find((r) => r.id === id)),

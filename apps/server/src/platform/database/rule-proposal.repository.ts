@@ -1,3 +1,4 @@
+import { postgresProposalWorkFence } from "./postgres-proposal-work-fence.js";
 import {
   RuleProposalLeaseFence,
   withRuleProposals,
@@ -36,11 +37,18 @@ export class PostgresRuleProposalRepository implements RuleProposalRepository {
               base.work,
               fence,
             );
+            const evaluation = postgresProposalWorkFence(
+              db,
+              scope,
+              base.work,
+              fence,
+              guard,
+            );
             const tx = withRuleProposals(
               withRuleBacktests(
                 withRuleReplayCapture(
                   withRuleReplay(
-                    base,
+                    { ...base, work: evaluation.writer },
                     postgresRuleReplayStore(db, scope),
                     guard,
                   ),
@@ -55,6 +63,7 @@ export class PostgresRuleProposalRepository implements RuleProposalRepository {
             );
             const result = await work(tx);
             await proposal.assertClaimLive();
+            await evaluation.assertLive();
             return result;
           },
         ),

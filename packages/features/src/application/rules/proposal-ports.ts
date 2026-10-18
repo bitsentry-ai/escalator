@@ -10,6 +10,14 @@ import type {
 import type { RuleReplayCaptureTransaction } from "./replay-capture.js";
 import type { RuleBacktestTransaction } from "./backtest-ports.js";
 export interface RuleProposalStore {
+  /** At most the three pending proposals; host-scoped, never a cross-tenant scan. */
+  evaluatingIds(): Promise<string[]>;
+  /** Read-only job state, scoped by the surrounding transaction. */
+  workState(
+    id: string,
+  ): Promise<
+    "pending" | "running" | "completed" | "failed" | "cancelled" | undefined
+  >;
   /** Lock proposal before its work/claim row. */
   lock(id: string): Promise<RuleProposal | undefined>;
   /** Database time, fresh within the bounded transaction. */

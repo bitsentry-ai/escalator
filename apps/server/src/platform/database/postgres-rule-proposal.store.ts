@@ -48,6 +48,22 @@ export function postgresRuleProposalStore(
     fence.bind(started, result.rows[0].remaining);
   }
   const store: RuleProposalStore = {
+    async evaluatingIds() {
+      const result = await db.query<{ id: string }>(
+        "SELECT id FROM escalator_rule_proposal WHERE workspace_id=$1 AND status='evaluating' ORDER BY created_at,id LIMIT 3 FOR UPDATE SKIP LOCKED",
+        [scope],
+      );
+      return result.rows.map((row) => row.id);
+    },
+    async workState(id) {
+      const result = await db.query<{
+        state: "pending" | "running" | "completed" | "failed" | "cancelled";
+      }>("SELECT state FROM escalator_job WHERE workspace_id=$1 AND id=$2", [
+        scope,
+        id,
+      ]);
+      return result.rows[0]?.state;
+    },
     async lock(id) {
       const result = await db.query<{
         data: unknown;
@@ -113,7 +129,9 @@ export function postgresRuleProposalStore(
         throw new Error("Proposal must be locked before saving");
       const result = await db.query(
         `UPDATE escalator_rule_proposal SET revision=$3::bigint,status=$4,updated_at=$5::timestamptz,data=$6::jsonb,
-        runtime_id=CASE WHEN $4='generating' THEN runtime_id ELSE NULL END WHERE workspace_id=$1 AND id=$2 AND revision=$7::bigint RETURNING id`,
+        runtime_id=CASE WHEN $4='generating' THEN runtime_id ELSE NULL END,
+        full_report_run_id=CASE WHEN $4='ready' THEN $6::jsonb->>'fullRunId' ELSE NULL END,
+        held_out_report_run_id=CASE WHEN $4='ready' THEN $6::jsonb->>'heldOutRunId' ELSE NULL END WHERE workspace_id=$1 AND id=$2 AND revision=$7::bigint AND ($4<>'ready' OR expires_at>clock_timestamp()) RETURNING id`,
         [
           scope,
           row.id,

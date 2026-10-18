@@ -132,3 +132,8 @@ export const ruleCandidateEvaluationSchema = z
     (x) => compareUtcTimestamps(x.firstDecisionAt, x.lastDecisionAt) <= 0,
     "Invalid candidate interval",
   );
+
+export const ruleProposalEvaluationJobSchema = z.strictObject({
+  proposalId: opaqueIdSchema,
+  revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+});

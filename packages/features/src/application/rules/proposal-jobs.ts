@@ -22,12 +22,7 @@ export function ruleProposalEvaluationJob(raw: RuleProposal): WorkIntent {
   const row = ruleProposalSchema.parse(raw);
   if (row.status !== "evaluating")
     throw new Error("Evaluation requires a generated candidate");
-  const id = pagingWorkId(
-    row.workspaceId,
-    "rule-proposal-evaluation",
-    row.id,
-    String(row.revision),
-  );
+  const id = ruleProposalEvaluationJobId(row.workspaceId, row.id, row.revision);
   return {
     id,
     kind: "rules.proposal-evaluate",
@@ -35,4 +30,17 @@ export function ruleProposalEvaluationJob(raw: RuleProposal): WorkIntent {
     payload: { proposalId: row.id, revision: row.revision },
     dueAt: row.updatedAt,
   };
+}
+
+export function ruleProposalEvaluationJobId(
+  scope: RuleProposal["workspaceId"],
+  proposalId: string,
+  revision: number,
+): string {
+  return pagingWorkId(
+    scope,
+    "rule-proposal-evaluation",
+    proposalId,
+    String(revision),
+  );
 }

@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { assertProposalReports } from "./proposal-readiness.js";
 import {
   ruleProposalSchema,
   ruleProposalClaimSchema,
@@ -35,6 +37,24 @@ export function withRuleProposals<
   return {
     ...base,
     proposals: {
+      evaluatingIds: () =>
+        guard.operation(async () => {
+          const ids = z
+            .array(opaqueIdSchema)
+            .max(3)
+            .parse(await store.evaluatingIds());
+          if (new Set(ids).size !== ids.length)
+            throw new Error("Duplicate proposal maintenance IDs");
+          return ids;
+        }),
+      workState: (id) =>
+        guard.operation(async () => {
+          opaqueIdSchema.parse(id);
+          return z
+            .enum(["pending", "running", "completed", "failed", "cancelled"])
+            .optional()
+            .parse(await store.workState(id));
+        }),
       currentTime: () =>
         guard.operation(async () =>
           utcTimestampSchema.parse(await store.currentTime()),
@@ -106,8 +126,7 @@ export function withRuleProposals<
             (before.heldOutRunId && before.heldOutRunId !== row.heldOutRunId)
           )
             throw new Error("Invalid proposal transition");
-          if (row.status === "ready")
-            throw new Error("Report attachment is required before readiness");
+          if (row.status === "ready") await assertProposalReports(base, row);
           const accepted = await store.save(row, expected);
           if (accepted) locked.set(row.id, structuredClone(row));
           return accepted;

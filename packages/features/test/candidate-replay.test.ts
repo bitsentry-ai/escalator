@@ -1,48 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { at } from "./conformance/rule-backtest-fixture.js";
+import { proposalCapture as capture } from "./conformance/proposal-fixture.js";
 import { createHash } from "node:crypto";
-import { fixture, at } from "./conformance/rule-backtest-fixture.js";
-import { ruleReplaySnapshotSchema } from "../src/contracts/rule-replay.js";
-import { storedRuleReplaySnapshotSchema } from "../src/contracts/replay-run.js";
 import { deriveCandidateReplay } from "../src/application/rules/candidate-replay.js";
 import { deriveHeldOutReplay } from "../src/application/rules/held-out.js";
-function capture() {
-  const old = fixture(),
-    d = old.version.definition;
-  const snapshot = ruleReplaySnapshotSchema.parse({
-    ...old,
-    samples: [],
-    coverage: [],
-    policies: [],
-    complete: false,
-    retained: {
-      measurementHash: "a".repeat(64),
-      policyFacts: [],
-      policyComplete: false,
-      history: {
-        workspaceId: d.workspaceId,
-        serviceId: d.serviceId,
-        environmentId: d.environmentId,
-        kind: d.selector.kind,
-        streamId: d.selector.streamId,
-        snapshotAt: old.snapshotAt,
-        visibleAt: old.snapshotAt,
-        startAt: at(0),
-        endAt: at(10),
-        complete: false,
-        configurations: [],
-        receipts: [],
-      },
-    },
-  });
-  return storedRuleReplaySnapshotSchema.parse({
-    workspaceId: d.workspaceId,
-    snapshot,
-    inputHash: createHash("sha256")
-      .update(JSON.stringify(snapshot))
-      .digest("hex"),
-  });
-}
+
 test("longer candidate lookbacks use only the captured decision interval", () => {
   const source = capture(),
     candidate = {

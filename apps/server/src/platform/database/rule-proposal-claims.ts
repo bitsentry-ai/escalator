@@ -1,3 +1,5 @@
+import { PostgresRuleProposalRepository } from "./rule-proposal.repository.js";
+import { RuleProposalEvaluation } from "@bitsentry-escalator/features/application";
 import type { Pool, PoolClient } from "pg";
 import {
   opaqueIdSchema,
@@ -65,12 +67,15 @@ export class PostgresRuleProposalClaims implements RuleProposalClaims {
       () => fence.assertLive(),
     );
   }
-  claim(
+  async claim(
     input: Parameters<RuleProposalClaims["claim"]>[0],
   ): Promise<RuleProposalClaim | undefined> {
     const scope = workspaceIdSchema.parse(input.workspaceId),
       runtime = opaqueIdSchema.parse(input.runtimeId),
       token = opaqueIdSchema.parse(input.token);
+    await new RuleProposalEvaluation(
+      new PostgresRuleProposalRepository(this.pool),
+    ).recover(scope);
     return this.within(scope, async (db, base, fence) => {
       // Lock proposal before its job, including reclamation and terminal cleanup.
       const candidates = await db.query<{ data: unknown }>(

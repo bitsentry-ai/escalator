@@ -255,3 +255,5 @@ export * from "./rules/proposal-transaction.js";
 export * from "./rules/proposal-storage.js";
 
 export * from "./rules/proposal-claim-transition.js";
+
+export * from "./rules/proposal-evaluation.js";
