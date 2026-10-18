@@ -114,3 +114,10 @@ export * from "./metrics/management.js";
 export * from "./metrics/capacity.js";
 export * from "./metrics/deployment.js";
 export * from "./metrics/handlers.js";
+
+export * from "./health/health.js";
+export * from "./health/progress.js";
+export * from "./health/watchdog.js";
+export * from "./health/watchdog-coordinator.js";
+
+export * from "./health/watchdog-handlers.js";

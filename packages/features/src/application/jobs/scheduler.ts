@@ -1,3 +1,4 @@
+import { SchedulerProgress } from "../health/progress.js";
 import type { WorkspaceId } from "../../contracts/index.js";
 import type { DurableWorkStore, WorkQueue } from "./ports.js";
 import {
@@ -12,6 +13,7 @@ export type WorkHandlers = Readonly<
 /** Host owns identity, database and lifetime; both queues use the same durable protocol. */
 export class DurableWorkScheduler {
   private readonly loops: WorkPoller[];
+  private readonly health: SchedulerProgress;
   private stopping: Promise<void> | undefined;
   constructor(
     store: DurableWorkStore,
@@ -75,23 +77,37 @@ export class DurableWorkScheduler {
         handlers: { job: new Map(), outbox: handlers.outbox },
       },
     ];
-    this.loops = groups.map((group) => {
+    this.health = new SchedulerProgress(groups.length);
+    this.loops = groups.map((group, index) => {
       const runner = new DurableWorkRunner(
         store,
         group.handlers,
         runnerOptions,
       );
-      return new WorkPoller(() => runner.runOne(workspaceId, group.queue), {
-        ...pollerOptions,
-        onError: () => pollerOptions.onError(group.queue),
-      });
+      return new WorkPoller(
+        async () => {
+          const result = await runner.runOne(workspaceId, group.queue);
+          if (group.handlers[group.queue].size > 0)
+            this.health.record(index, result);
+          return result;
+        },
+        {
+          ...pollerOptions,
+          onError: () => pollerOptions.onError(group.queue),
+        },
+      );
     });
   }
   start(): void {
     if (this.stopping) throw new Error("Work scheduler is stopping");
+    if (!this.health.snapshot().running) this.health.start();
     for (const loop of this.loops) loop.start();
   }
+  progress(): ReturnType<SchedulerProgress["snapshot"]> {
+    return this.health.snapshot();
+  }
   stop(): Promise<void> {
+    this.health.stop();
     if (!this.stopping)
       this.stopping = Promise.all(this.loops.map((loop) => loop.stop()))
         .then(() => undefined)
