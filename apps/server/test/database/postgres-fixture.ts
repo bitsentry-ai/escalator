@@ -186,6 +186,13 @@ export async function postgresFixture(
       );
     };
     await grantBaselines(migrations);
+    const grantWatches = async (list: readonly Migration[]) => {
+      if (list.some((item) => item.name === "0019_deployment_watches.sql"))
+        await admin.query(
+          `GRANT SELECT,INSERT,UPDATE ON escalator_deployment_watch TO ${identifier(current.role)}`,
+        );
+    };
+    await grantWatches(migrations);
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
@@ -244,6 +251,7 @@ export async function postgresFixture(
         await migrate(admin, next);
         await grantCoverage(next);
         await grantBaselines(next);
+        await grantWatches(next);
         await grantRecording(next);
         await grantAccounting(next);
         await grantMaintenance(next);
