@@ -77,3 +77,5 @@ export {
   type InvestigationExecution,
   type InvestigationExecutionOutcome,
 } from "./orchestration/lease-runner.js";
+
+export * from "./orchestration/capture.js";

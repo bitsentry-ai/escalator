@@ -69,6 +69,12 @@
       ],
       "@escalator-test/watch-runtime": [
         "../../packages/features/test/conformance/watch-runtime.ts"
+      ],
+      "@escalator-test/investigations": [
+        "../../packages/features/test/conformance/investigations.ts"
+      ],
+      "@escalator-test/investigation-fixture": [
+        "../../packages/features/test/fixtures/investigation.ts"
       ]
     }
   },

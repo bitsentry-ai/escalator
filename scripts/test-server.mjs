@@ -29,6 +29,14 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/investigations": path.resolve(
+      server,
+      "../../packages/features/test/conformance/investigations.ts",
+    ),
+    "@escalator-test/investigation-fixture": path.resolve(
+      server,
+      "../../packages/features/test/fixtures/investigation.ts",
+    ),
     "@escalator-test/watch-runtime": path.resolve(
       server,
       "../../packages/features/test/conformance/watch-runtime.ts",
