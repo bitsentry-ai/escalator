@@ -17,6 +17,11 @@ export interface SignalTransaction extends FoundationTransaction {
     /** Lock source before token/event/work rows, including source edits. */
     get(id: string): Promise<SignalSource | undefined>;
     list(page: PageRequest): Promise<Page<SignalSource>>;
+    /** Lock/check the source-bound secret metadata until this transaction commits. */
+    hasUsableSecret(
+      sourceId: string,
+      expectedVersion: number,
+    ): Promise<boolean>;
     insert(source: SignalSource): Promise<void>;
     /** Increment exactly once; source identity/kind/service/environment immutable. */
     replace(source: SignalSource, expectedVersion: number): Promise<boolean>;
@@ -66,6 +71,7 @@ export interface SignalRecordStore {
     source: SignalSource,
     expectedVersion: number,
   ): Promise<boolean>;
+  /** Scope and lock enabled authorization metadata so disabling waits for commit. */
   hasSecret(id: string): Promise<boolean>;
   getTokenByHash(hash: string): Promise<SignalToken | undefined>;
   getToken(id: string): Promise<SignalToken | undefined>;

@@ -28,3 +28,6 @@ export * from "./channel-credentials.js";
 export * from "./signal.js";
 
 export * from "./signal-management.js";
+
+export * from "./intake-config.js";
+export * from "./provider-source-inputs.js";

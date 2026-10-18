@@ -1,8 +1,8 @@
+import { recordSignal } from "./record.js";
 import { createHash } from "node:crypto";
 import {
   opaqueIdSchema,
   signalInputSchema,
-  signalEventSchema,
   SIGNAL_INGRESS_MAX_BYTES,
 } from "../../contracts/index.js";
 import type { SignalRepository } from "./ports.js";
@@ -68,38 +68,7 @@ export class SignalIntake {
       if (!service?.enabled) throw new SignalIngressError("invalid_token");
       const parsed = signalInputSchema.safeParse(input);
       if (!parsed.success) throw new SignalIngressError("invalid_input");
-      const id = createHash("sha256")
-        .update(JSON.stringify([tx.workspaceId, sourceId, parsed.data.eventId]))
-        .digest("hex");
-      const event = signalEventSchema.parse({
-        ...parsed.data,
-        id,
-        workspaceId: tx.workspaceId,
-        sourceId,
-        serviceId: source.serviceId,
-        environmentId: source.environmentId,
-        receivedAt: tx.now,
-      });
-      if ((await tx.signals.insert(event)) === "duplicate")
-        return { state: "duplicate", signalId: id };
-      await tx.work.enqueue("job", {
-        id: `signal.process:${id}`,
-        kind: "signal.process",
-        idempotencyKey: `signal.process:${id}`,
-        payload: { signalId: id },
-        dueAt: tx.now,
-      });
-      await tx.audit.append({
-        id: `signal.accepted:${id}`,
-        workspaceId: tx.workspaceId,
-        actor: { kind: "system", component: "signal-ingress" },
-        action: "signal.accepted",
-        subjectType: "signal",
-        subjectId: id,
-        recordedAt: tx.now,
-        metadata: { sourceId, grantId: grant.id },
-      });
-      return { state: "accepted", signalId: id };
+      return recordSignal(tx, source, grant.id, parsed.data);
     });
   }
 }

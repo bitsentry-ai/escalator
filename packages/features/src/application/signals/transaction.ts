@@ -63,6 +63,17 @@ export function signalTransaction(
     sources: {
       get: (id) =>
         guard.operation(() => store.getSource(opaqueIdSchema.parse(id))),
+      hasUsableSecret: (id, expectedVersion) =>
+        guard.operation(async () => {
+          const source = await store.getSource(opaqueIdSchema.parse(id));
+          return (
+            !!source &&
+            source.enabled &&
+            source.version === expectedVersion &&
+            source.authSecretId !== null &&
+            (await store.hasSecret(source.authSecretId))
+          );
+        }),
       list: (input) =>
         guard.operation(() => {
           page(input);

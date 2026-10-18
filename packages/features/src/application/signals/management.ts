@@ -1,3 +1,14 @@
+import {
+  providerSourceKind,
+  needsManualProviderRecovery,
+  usesProviderSignature,
+} from "../../contracts/intake-config.js";
+import {
+  createProviderSourceSchema,
+  updateProviderSourceSchema,
+  type CreateProviderSourceInput,
+  type UpdateProviderSourceInput,
+} from "../../contracts/provider-source-inputs.js";
 import { randomBytes } from "node:crypto";
 import {
   hasCapability,
@@ -21,7 +32,12 @@ import { signalTokenDigest } from "./ingest.js";
 
 export class SignalManagementError extends Error {
   constructor(
-    readonly code: "forbidden" | "conflict" | "source_disabled" | "source_kind",
+    readonly code:
+      | "forbidden"
+      | "conflict"
+      | "source_disabled"
+      | "source_kind"
+      | "invalid_configuration",
   ) {
     super(code);
   }
@@ -104,6 +120,12 @@ export class SignalManagement {
       if (!current) throw new PersistenceError("not_found");
       if (current.version !== expectedVersion)
         throw new SignalManagementError("conflict");
+      if (
+        current.intake &&
+        needsManualProviderRecovery(current.intake) &&
+        fields.recovery !== "manual"
+      )
+        throw new SignalManagementError("invalid_configuration");
       const value = signalSourceSchema.parse({
         ...current,
         ...fields,
@@ -116,7 +138,11 @@ export class SignalManagement {
       return value;
     });
   }
-  async issueToken(actor: Actor, input: IssueSignalTokenInput) {
+  private async issueGrant(
+    actor: Actor,
+    input: IssueSignalTokenInput,
+    receiver: boolean,
+  ) {
     authorize(actor, true);
     const { sourceId, ttlSeconds } = issueSignalTokenSchema.parse(input);
     // Cryptographic entropy is generated once; plaintext is returned only after commit.
@@ -128,7 +154,14 @@ export class SignalManagement {
         const source = await tx.sources.get(sourceId);
         if (!source) throw new PersistenceError("not_found");
         if (!source.enabled) throw new SignalManagementError("source_disabled");
-        if (source.kind !== "generic")
+        const signed = source.intake
+          ? usesProviderSignature(source.intake)
+          : false;
+        const tokenSource =
+          source.kind === "generic" ||
+          source.intake?.mode === "glitchtip" ||
+          source.intake?.mode === "grafana-bearer";
+        if (receiver ? !signed : !tokenSource)
           throw new SignalManagementError("source_kind");
         const value = signalTokenSchema.parse({
           id: this.newId(),
@@ -146,14 +179,23 @@ export class SignalManagement {
         await this.audit(
           tx,
           actor,
-          "signal.token.issued",
+          receiver ? "signal.receiver.issued" : "signal.token.issued",
           "signal_token",
           value.id,
         );
         return { id: value.id, sourceId, expiresAt: value.expiresAt };
       },
     );
+    return { grant, token };
+  }
+  async issueToken(actor: Actor, input: IssueSignalTokenInput) {
+    const { grant, token } = await this.issueGrant(actor, input, false);
     return { ...grant, token };
+  }
+  /** Public routing reference; authentication still requires a valid provider MAC. */
+  async issueReceiver(actor: Actor, input: IssueSignalTokenInput) {
+    const { grant, token } = await this.issueGrant(actor, input, true);
+    return { ...grant, receiverId: signalTokenDigest(token)! };
   }
   async revokeToken(actor: Actor, input: { id: string }) {
     authorize(actor, true);
@@ -163,6 +205,67 @@ export class SignalManagement {
         throw new PersistenceError("not_found");
       await this.audit(tx, actor, "signal.token.revoked", "signal_token", id);
       return { revoked: true as const };
+    });
+  }
+  async createProvider(actor: Actor, input: CreateProviderSourceInput) {
+    authorize(actor, true);
+    const fields = createProviderSourceSchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      const source = signalSourceSchema.parse({
+        ...fields,
+        kind: providerSourceKind(fields.intake),
+        recovery: needsManualProviderRecovery(fields.intake)
+          ? "manual"
+          : "explicit",
+        id: this.newId(),
+        workspaceId: actor.workspaceId,
+        enabled: true,
+        version: 1,
+        createdAt: tx.now,
+        updatedAt: tx.now,
+      });
+      await tx.sources.insert(source);
+      await this.audit(
+        tx,
+        actor,
+        "signal.source.created",
+        "signal_source",
+        source.id,
+      );
+      return source;
+    });
+  }
+  async updateProvider(actor: Actor, input: UpdateProviderSourceInput) {
+    authorize(actor, true);
+    const { id, expectedVersion, intake, authSecretId } =
+      updateProviderSourceSchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      const current = await tx.sources.get(id);
+      if (!current) throw new PersistenceError("not_found");
+      if (current.version !== expectedVersion)
+        throw new SignalManagementError("conflict");
+      if (current.kind !== providerSourceKind(intake))
+        throw new SignalManagementError("source_kind");
+      const source = signalSourceSchema.parse({
+        ...current,
+        intake,
+        authSecretId,
+        recovery: needsManualProviderRecovery(intake)
+          ? "manual"
+          : current.recovery,
+        version: expectedVersion + 1,
+        updatedAt: tx.now,
+      });
+      if (!(await tx.sources.replace(source, expectedVersion)))
+        throw new SignalManagementError("conflict");
+      await this.audit(
+        tx,
+        actor,
+        "signal.source.credentials.updated",
+        "signal_source",
+        id,
+      );
+      return source;
     });
   }
 }

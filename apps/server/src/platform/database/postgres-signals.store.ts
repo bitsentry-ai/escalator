@@ -91,7 +91,7 @@ export function postgresSignalStore(
     },
     async hasSecret(id) {
       const result = await connection.query(
-        "SELECT 1 FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND disabled_at IS NULL AND purpose='provider'",
+        "SELECT 1 FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND disabled_at IS NULL AND purpose='provider' FOR SHARE",
         [scope, id],
       );
       return result.rowCount === 1;

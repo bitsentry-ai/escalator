@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  providerIntakeSchema,
+  providerSourceKind,
+  usesProviderSignature,
+  needsManualProviderRecovery,
+} from "./intake-config.js";
+import {
   opaqueIdSchema,
   workspaceIdSchema,
   serviceIdSchema,
@@ -109,9 +115,19 @@ export const signalSourceSchema = z
     recovery: z.enum(["explicit", "manual"]),
     recoveryHoldSeconds: z.number().int().min(0).max(86_400),
     authSecretId: opaqueIdSchema.nullable(),
+    intake: providerIntakeSchema.optional(),
     createdAt: utcTimestampSchema,
     updatedAt: utcTimestampSchema,
   })
+  .refine(
+    (row) =>
+      !row.intake ||
+      (providerSourceKind(row.intake) === row.kind &&
+        usesProviderSignature(row.intake) === (row.authSecretId !== null) &&
+        (!needsManualProviderRecovery(row.intake) ||
+          row.recovery === "manual")),
+    "Provider configuration does not match the source or recovery policy",
+  )
   .refine(
     (row) => Date.parse(row.updatedAt) >= Date.parse(row.createdAt),
     "Source update precedes creation",

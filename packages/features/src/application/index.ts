@@ -61,3 +61,7 @@ export * from "./signals/http.js";
 export * from "../adapters/intake/sentry.js";
 export * from "../adapters/intake/glitchtip.js";
 export * from "../adapters/intake/grafana-alerts.js";
+
+export * from "./signals/source-secrets.js";
+export * from "./signals/provider-ingest.js";
+export * from "./signals/provider-http.js";
