@@ -99,3 +99,6 @@ export * from "./rule-history.js";
 
 export * from "./rule-live.js";
 export * from "./rule-policy.js";
+
+export * from "./replay-run.js";
+export * from "./rule-backtest.js";
