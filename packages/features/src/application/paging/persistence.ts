@@ -15,7 +15,10 @@ import type {
 } from "../ports/persistence.js";
 
 export interface PagingTransaction extends FoundationTransaction {
-  incidents: EntityRepository<OperationalIncident>;
+  incidents: EntityRepository<OperationalIncident> & {
+    /** Requires the locked owning page to be resolved; first timestamp is immutable. */
+    resolve(id: string, pageId: string): Promise<OperationalIncident>;
+  };
   pages: EntityRepository<OperationalPage> & {
     /** Lock until transaction end; missing and foreign workspace IDs are indistinguishable. */
     lock(id: string): Promise<OperationalPage | undefined>;

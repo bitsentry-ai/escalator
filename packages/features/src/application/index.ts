@@ -46,3 +46,5 @@ export * from "./paging/handlers.js";
 export * from "./paging/ack-http.js";
 
 export * from "./incidents/incidents.use-cases.js";
+
+export { resolvePageInTransaction } from "./paging/resolve.js";

@@ -14,6 +14,7 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   IncidentUseCases,
+  escalationSteps,
   previewSchedule,
   pagingWorkId,
   type ConfigurationRepository,
@@ -61,6 +62,117 @@ export function incidentConformance(
       title: "Manual outage",
       severity: "critical",
     });
+  scenario(
+    "resolution commits once and cancels deadlines",
+    async (repo, actor) => {
+      const app = new IncidentUseCases(repo, randomUUID);
+      const created = await app.create(actor, input("resolve-once"));
+      const [first, concurrent] = await Promise.all([
+        app.resolve(actor, { id: created.incidentId }),
+        app.resolve(actor, { id: created.incidentId }),
+      ]);
+      assert.deepEqual(concurrent, first);
+      assert.equal(first.state, "resolved");
+      assert.deepEqual(
+        await app.resolve(actor, { id: created.incidentId }),
+        first,
+      );
+      await repo.transaction(actor.workspaceId, async (tx) => {
+        const page = (await tx.pages.get(created.pageId))!;
+        assert.equal(page.revision, 2);
+        assert.equal(
+          (await tx.incidents.get(created.incidentId))?.resolvedAt,
+          first.resolvedAt,
+        );
+        assert.equal(
+          (await tx.audit.list({ limit: 100 })).items.filter(
+            (e) => e.action === "incident.resolved",
+          ).length,
+          1,
+        );
+        assert.equal(
+          await tx.work.cancel(
+            "job",
+            escalationSteps(page.policy, page.createdAt).map((s) =>
+              pagingWorkId(actor.workspaceId, "step", page.id, s.id),
+            ),
+          ),
+          0,
+        );
+      });
+    },
+  );
+  scenario(
+    "failed resolution audit rolls back page, incident and cancellations",
+    async (repo, actor) => {
+      const app = new IncidentUseCases(repo, randomUUID);
+      const created = await app.create(actor, input("resolve-rollback"));
+      const failing: ConfigurationRepository = {
+        transaction: (scope, run) =>
+          repo.transaction(scope, (tx) =>
+            run({
+              ...tx,
+              audit: {
+                ...tx.audit,
+                append: async () => {
+                  throw new Error("audit unavailable");
+                },
+              },
+            }),
+          ),
+      };
+      await assert.rejects(
+        new IncidentUseCases(failing, randomUUID).resolve(actor, {
+          id: created.incidentId,
+        }),
+      );
+      await repo.transaction(actor.workspaceId, async (tx) => {
+        const page = (await tx.pages.get(created.pageId))!;
+        assert.equal(page.state, "open");
+        assert.equal(
+          (await tx.incidents.get(created.incidentId))?.resolvedAt,
+          null,
+        );
+        const steps = escalationSteps(page.policy, page.createdAt);
+        assert.equal(
+          await tx.work.cancel(
+            "job",
+            steps.map((s) =>
+              pagingWorkId(actor.workspaceId, "step", page.id, s.id),
+            ),
+          ),
+          steps.length,
+        );
+      });
+    },
+  );
+  scenario(
+    "resolution rejects viewers, missing responders and foreign incidents",
+    async (repo, actor) => {
+      const app = new IncidentUseCases(repo, randomUUID);
+      const created = await app.create(actor, input("resolve-scope"));
+      await assert.rejects(
+        app.resolve({ ...actor, role: "viewer" }, { id: created.incidentId }),
+        { code: "forbidden" },
+      );
+      await assert.rejects(
+        app.resolve(
+          { ...actor, responderId: responderIdSchema.parse("missing") },
+          { id: created.incidentId },
+        ),
+        { code: "forbidden" },
+      );
+      const scope = workspaceIdSchema.parse(`other_${randomUUID()}`);
+      await repo.transaction(scope, seedPagingFixture);
+      await assert.rejects(
+        app.resolve(
+          { ...actor, workspaceId: scope },
+          { id: created.incidentId },
+        ),
+        { code: "not_found" },
+      );
+    },
+  );
   scenario(
     "manual creation is idempotent, responder-attributed and frozen after policy changes",
     async (repo, actor) => {

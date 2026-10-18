@@ -138,7 +138,32 @@ export function pagingTransaction(
   );
   return {
     ...base,
-    incidents,
+    incidents: {
+      ...incidents,
+      resolve: (id, pageId) =>
+        guard.operation(async () => {
+          if (!locked.has(pageId)) throw new Error("Page lock required");
+          const page = requireValue(await store.get("pages", pageId));
+          if (
+            page.incidentId !== id ||
+            page.state !== "resolved" ||
+            !page.resolvedAt
+          )
+            throw new Error("Resolved owning page required");
+          const previous = requireValue(await store.get("incidents", id, true));
+          if (previous.resolvedAt !== null) {
+            if (previous.resolvedAt !== page.resolvedAt)
+              throw new Error("Incident resolution cannot change");
+            return previous;
+          }
+          const next = operationalIncidentSchema.parse({
+            ...previous,
+            resolvedAt: page.resolvedAt,
+          });
+          await store.replace("incidents", next);
+          return next;
+        }),
+    },
     steps: { ...steps, forPage: (id, query) => forParent("steps", id, query) },
     deliveries: {
       ...deliveries,

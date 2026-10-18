@@ -34,7 +34,7 @@ export interface PagingRecordStore {
     value: PagingRecordMap[K],
   ): Promise<void>;
   /** Caller holds the row lock; this primitive does not decide lifecycle changes. */
-  replace<K extends "pages" | "attempts">(
+  replace<K extends "incidents" | "pages" | "attempts">(
     kind: K,
     value: PagingRecordMap[K],
   ): Promise<void>;

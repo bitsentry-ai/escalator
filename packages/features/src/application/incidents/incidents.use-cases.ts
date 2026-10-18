@@ -1,3 +1,4 @@
+import { resolvePageInTransaction } from "../paging/resolve.js";
 import {
   hasCapability,
   manualIncidentInputSchema,
@@ -88,6 +89,18 @@ export class IncidentUseCases {
     private readonly repository: ConfigurationRepository,
     private readonly newId: () => string,
   ) {}
+  async resolve(actor: Actor, input: { id: string }) {
+    authorize(actor, "incident:resolve");
+    const { id } = incidentDetailInputSchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      if (!(await tx.responders.get(actor.responderId))?.enabled)
+        throw new IncidentError("forbidden");
+      return resolvePageInTransaction(tx, id, {
+        kind: "responder",
+        responderId: actor.responderId,
+      });
+    });
+  }
   async list(actor: Actor, input: IncidentListInput = {}) {
     authorize(actor, "incident:read");
     const query = incidentListInputSchema.parse(input);

@@ -18,7 +18,12 @@ test("standalone incident routes require current identity, reject injected scope
   } as unknown as Request;
   const actors: Actor[] = [];
   let unavailable = false;
+  const resolutions: Actor[] = [];
   const incidents = {
+    resolve: async (actor: Actor) => {
+      resolutions.push(actor);
+      return { state: "resolved" };
+    },
     create: async (actor: Actor) => {
       actors.push(actor);
       if (unavailable)
@@ -55,7 +60,18 @@ test("standalone incident routes require current identity, reject injected scope
   assert.equal(actors.length, 1);
   unavailable = true;
   await assert.rejects(caller.create(input), { code: "PRECONDITION_FAILED" });
+  await caller.resolve({ id: "manual" });
+  assert.deepEqual(resolutions, [
+    { workspaceId: "local", responderId: "owner", role: "responder" },
+  ]);
+  await assert.rejects(
+    caller.resolve({ id: "manual", workspaceId: "foreign" } as never),
+    { code: "BAD_REQUEST" },
+  );
   delete req.session.account;
+  await assert.rejects(caller.resolve({ id: "manual" }), {
+    code: "UNAUTHORIZED",
+  });
   await assert.rejects(caller.create(input), { code: "UNAUTHORIZED" });
   assert.equal(actors.length, 2);
 });
