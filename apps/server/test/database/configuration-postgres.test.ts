@@ -1,3 +1,4 @@
+import { incidentConformance } from "@escalator-test/incidents";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
@@ -177,4 +178,16 @@ test(
       await fixture.dispose();
     }
   },
+);
+
+incidentConformance(
+  "standalone PostgreSQL incidents",
+  async () => {
+    const fixture = await create();
+    return {
+      repository: new PostgresConfigurationRepository(fixture.app),
+      dispose: () => fixture.dispose(),
+    };
+  },
+  options,
 );

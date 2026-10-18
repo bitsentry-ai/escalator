@@ -13,7 +13,10 @@ import {
   cookieOriginGuard,
   sessionOptions,
 } from "./platform/auth/session-security.js";
-import { ServiceUseCases } from "@bitsentry-escalator/features/application";
+import {
+  IncidentUseCases,
+  ServiceUseCases,
+} from "@bitsentry-escalator/features/application";
 /** Construction only: importing this module never starts a listener. */
 export async function createApp() {
   const publicUrl = new URL(process.env.ESCALATOR_PUBLIC_URL ?? "");
@@ -33,6 +36,7 @@ export async function createApp() {
     const db = app.get(StandaloneDatabase);
     const auth = app.get(LocalAuthService);
     const services = app.get(ServiceUseCases);
+    const incidents = app.get(IncidentUseCases);
     const keys = app.get(SecretKeyRing);
     (app.getHttpAdapter().getInstance() as Express).set(
       "trust proxy",
@@ -59,6 +63,7 @@ export async function createApp() {
           res,
           auth,
           services,
+          incidents,
           workspaceId: db.workspaceId,
         }),
       }),

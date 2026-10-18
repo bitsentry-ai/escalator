@@ -1,0 +1,61 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import type { Request, Response } from "express";
+import {
+  workspaceIdSchema,
+  manualIncidentInputSchema,
+  type Actor,
+} from "@bitsentry-escalator/features/contracts";
+import type {
+  IncidentUseCases,
+  ServiceUseCases,
+} from "@bitsentry-escalator/features/application";
+import type { LocalAuthService } from "../../src/platform/auth/auth.service.js";
+import { incidentsRouter } from "../../src/features/incidents/incidents.router.js";
+test("standalone incident routes require current identity, reject injected scope and map inactive policy", async () => {
+  const req = {
+    session: { account: { accountId: "owner", authVersion: 1 } },
+  } as unknown as Request;
+  const actors: Actor[] = [];
+  let unavailable = false;
+  const incidents = {
+    create: async (actor: Actor) => {
+      actors.push(actor);
+      if (unavailable)
+        throw Object.assign(new Error(), { code: "paging_unavailable" });
+      return { incidentId: "manual", pageId: "page" };
+    },
+  } as unknown as IncidentUseCases;
+  const caller = incidentsRouter.createCaller({
+    req,
+    res: {} as Response,
+    services: {} as ServiceUseCases,
+    incidents,
+    workspaceId: workspaceIdSchema.parse("local"),
+    auth: {
+      current: async () => ({ id: "owner", role: "responder" }),
+    } as unknown as LocalAuthService,
+  });
+  const input = manualIncidentInputSchema.parse({
+    requestId: "manual",
+    serviceId: "api",
+    environmentId: "prod",
+    policyId: "policy",
+    title: "Outage",
+    severity: "critical",
+  });
+  await caller.create(input);
+  assert.deepEqual(actors, [
+    { workspaceId: "local", responderId: "owner", role: "responder" },
+  ]);
+  await assert.rejects(
+    caller.create({ ...input, workspaceId: "foreign" } as never),
+    { code: "BAD_REQUEST" },
+  );
+  assert.equal(actors.length, 1);
+  unavailable = true;
+  await assert.rejects(caller.create(input), { code: "PRECONDITION_FAILED" });
+  delete req.session.account;
+  await assert.rejects(caller.create(input), { code: "UNAUTHORIZED" });
+  assert.equal(actors.length, 2);
+});

@@ -23,6 +23,7 @@ export const capabilities = [
   "schedule:read",
   "schedule:manage",
   "incident:read",
+  "incident:create",
   "incident:acknowledge",
   "incident:resolve",
   "deployment:read",
@@ -47,6 +48,7 @@ const roleCapabilities: Readonly<Record<Role, readonly Capability[]>> = {
   administrator: capabilities,
   responder: [
     ...viewerCapabilities,
+    "incident:create",
     "incident:acknowledge",
     "incident:resolve",
     "rule:propose",

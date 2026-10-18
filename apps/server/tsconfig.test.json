@@ -18,6 +18,9 @@
       ],
       "@escalator-test/configuration": [
         "../../packages/features/test/conformance/configuration.ts"
+      ],
+      "@escalator-test/incidents": [
+        "../../packages/features/test/conformance/incidents.ts"
       ]
     }
   },

@@ -26,6 +26,7 @@ export * from "../domain/escalation/ladder.js";
 export * from "./paging/persistence.js";
 export * from "./paging/validation.js";
 export * from "./paging/record-store.js";
+export * from "./paging/incident-order.js";
 export * from "./paging/transaction.js";
 export * from "./paging/work-ids.js";
 export * from "./paging/acknowledge.js";
@@ -43,3 +44,5 @@ export * from "./configuration/transaction.js";
 export * from "./paging/handlers.js";
 
 export * from "./paging/ack-http.js";
+
+export * from "./incidents/incidents.use-cases.js";

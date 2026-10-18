@@ -8,10 +8,13 @@ import {
   pageStepSchema,
   recipientDeliverySchema,
 } from "@bitsentry-escalator/features/contracts";
-import type {
-  PagingRecordKind,
-  PagingRecordMap,
-  PagingRecordStore,
+import {
+  incidentCursor,
+  parseIncidentCursor,
+  type Page,
+  type PagingRecordKind,
+  type PagingRecordMap,
+  type PagingRecordStore,
 } from "@bitsentry-escalator/features/application";
 
 // Static identifiers only: caller input never selects a SQL table or column.
@@ -47,6 +50,9 @@ const tables = {
     schema: acknowledgementGrantSchema,
   },
 } as const;
+// Open incidents first, then newest; must match compareIncidentOrder and its cursor.
+const resolved = "(data->>'resolvedAt') IS NOT NULL";
+const opened = "date_trunc('milliseconds', (data->>'openedAt')::timestamptz)";
 const snake = (key: string) =>
   key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 
@@ -74,6 +80,30 @@ export function postgresPagingStore(
       return result.rows[0] ? parse(kind, result.rows[0].data) : undefined;
     },
     async list(kind, query, parentId) {
+      if (kind === "incidents" && parentId === undefined) {
+        const after =
+          query.after === undefined
+            ? undefined
+            : parseIncidentCursor(query.after);
+        const result = await connection.query<{ data: unknown }>(
+          `SELECT data FROM escalator_incident WHERE workspace_id=$1 AND ($2::boolean IS NULL OR ${resolved} > $2 OR (${resolved} = $2 AND (${opened} < $3::timestamptz OR (${opened} = $3::timestamptz AND id > $4::text)))) ORDER BY ${resolved}, ${opened} DESC, id LIMIT $5`,
+          [
+            scope,
+            after?.resolved ?? null,
+            after ? new Date(after.openedAt).toISOString() : null,
+            after?.id ?? null,
+            query.limit + 1,
+          ],
+        );
+        const rows = result.rows.map((row) => parse("incidents", row.data));
+        return {
+          items: rows.slice(0, query.limit),
+          next:
+            rows.length > query.limit
+              ? incidentCursor(rows[query.limit - 1])
+              : null,
+        } as Page<PagingRecordMap[typeof kind]>;
+      }
       const parentColumn = kind === "attempts" ? "delivery_id" : "page_id";
       if (
         parentId !== undefined &&

@@ -10,6 +10,13 @@ import type {
   PagingRecordStore,
 } from "../../src/application/paging/record-store.js";
 import { pagingTransaction } from "../../src/application/paging/transaction.js";
+import {
+  compareIncidentOrder,
+  incidentCursor,
+  incidentOrderKey,
+  parseIncidentCursor,
+} from "../../src/application/paging/incident-order.js";
+import type { Page } from "../../src/application/ports/persistence.js";
 import { MemoryFoundationRepository } from "./memory.js";
 
 import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
@@ -78,6 +85,31 @@ export class MemoryPagingRepository implements PagingRepository {
             return structuredClone(rows(kind).find((row) => row.id === id));
           },
           async list(kind, query, parentId) {
+            if (kind === "incidents") {
+              const after =
+                query.after === undefined
+                  ? undefined
+                  : parseIncidentCursor(query.after);
+              const incidents = rows("incidents")
+                .filter(
+                  (row) =>
+                    !after ||
+                    compareIncidentOrder(incidentOrderKey(row), after) > 0,
+                )
+                .sort((a, b) =>
+                  compareIncidentOrder(
+                    incidentOrderKey(a),
+                    incidentOrderKey(b),
+                  ),
+                );
+              return structuredClone({
+                items: incidents.slice(0, query.limit),
+                next:
+                  incidents.length > query.limit
+                    ? incidentCursor(incidents[query.limit - 1])
+                    : null,
+              }) as Page<PagingRecordMap[typeof kind]>;
+            }
             const values = rows(kind)
               .filter(
                 (row) =>

@@ -18,3 +18,5 @@ export * from "./contact.js";
 export * from "./configuration.js";
 
 export * from "./acknowledgement.js";
+
+export * from "./incidents.js";
