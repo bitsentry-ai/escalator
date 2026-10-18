@@ -14,6 +14,7 @@ import type {
   RetentionManagement,
   HeartbeatManagement,
   DeploymentManagement,
+  DeploymentPreflight,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
   secretWriter: PostgresSecretWriter;
@@ -25,6 +26,7 @@ export interface AppContext {
   retention: RetentionManagement;
   heartbeats: HeartbeatManagement;
   deployments: DeploymentManagement;
+  deploymentPreflight: DeploymentPreflight;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;
   req: Request;

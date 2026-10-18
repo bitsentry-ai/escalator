@@ -88,6 +88,33 @@ export function coverageTransaction(
   }
   return {
     ...base,
+    deployments: {
+      ...base.deployments,
+      insert: (input) =>
+        guard.operation(async () => {
+          const deployment = input.deployment;
+          if (deployment.coverageDecisionId !== undefined) {
+            const owner = await target(input.targetId);
+            const raw = await store.get(
+              owner.id,
+              opaqueIdSchema.parse(deployment.coverageDecisionId),
+            );
+            if (!raw || raw.decision.id !== deployment.coverageDecisionId)
+              throw new CoveragePersistenceError("invalid_coverage");
+            const proof = record(raw, owner).decision;
+            if (
+              proof.binding.source !== deployment.source ||
+              proof.binding.externalId !== deployment.externalId ||
+              proof.binding.mappedDeployerId !== deployment.mappedDeployerId ||
+              Date.parse(deployment.acceptedAt) <
+                Date.parse(proof.evaluatedAt) ||
+              Date.parse(deployment.acceptedAt) >= Date.parse(proof.expiresAt)
+            )
+              throw new CoveragePersistenceError("invalid_coverage");
+          }
+          await base.deployments.insert(input);
+        }),
+    },
     coverage: {
       snapshot: (id, mappedDeployerId) =>
         guard.operation(() => snapshot(id, mappedDeployerId)),

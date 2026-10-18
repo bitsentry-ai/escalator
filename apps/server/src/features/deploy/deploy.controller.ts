@@ -7,13 +7,22 @@ export class DeploymentController {
   constructor(private readonly http: DeploymentHttp) {}
   @Post("start")
   start(@Req() req: Request, @Res() res: Response) {
-    return this.accept(null, req, res);
+    return this.accept("start", null, req, res);
   }
   @Post(":id/finish")
   finish(@Param("id") id: string, @Req() req: Request, @Res() res: Response) {
-    return this.accept(id, req, res);
+    return this.accept("finish", id, req, res);
   }
-  private async accept(id: string | null, req: Request, res: Response) {
+  @Post("preflight")
+  preflight(@Req() req: Request, @Res() res: Response) {
+    return this.accept("preflight", null, req, res);
+  }
+  private async accept(
+    action: "start" | "finish" | "preflight",
+    id: string | null,
+    req: Request,
+    res: Response,
+  ) {
     const body: unknown = req.body;
     delete req.body;
     res.setHeader("Cache-Control", "no-store");
@@ -30,9 +39,11 @@ export class DeploymentController {
       idempotencyKey: typeof key === "string" ? key : undefined,
     };
     const result =
-      id === null
-        ? await this.http.start(request)
-        : await this.http.finish(id, request);
+      action === "preflight"
+        ? await this.http.preflight(request)
+        : action === "start"
+          ? await this.http.start(request)
+          : await this.http.finish(id!, request);
     if (result.status === 429 || result.status === 503)
       res.setHeader("Retry-After", "1");
     res.status(result.status).json(result.body);

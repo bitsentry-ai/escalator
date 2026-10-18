@@ -86,6 +86,7 @@ export const deploymentReceiptResultSchema = z.discriminatedUnion("state", [
     deploymentId: opaqueIdSchema,
     revision,
     status: deploymentStatusSchema,
+    coverageDecisionId: opaqueIdSchema.optional(),
   }),
   z.strictObject({
     state: z.literal("rejected"),

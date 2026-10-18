@@ -13,6 +13,7 @@ import {
   type DeploymentCoverageDecision,
   type DeploymentPreflightResult,
   type ResponderId,
+  type DeploymentStartInput,
 } from "../../contracts/index.js";
 import {
   coverageDecision,
@@ -21,7 +22,7 @@ import {
 } from "../../domain/deploy/coverage-decision.js";
 import { evaluateDeploymentCoverage } from "../../domain/deploy/coverage.js";
 import { PersistenceError } from "../ports/persistence.js";
-import { DeploymentAccess } from "./access.js";
+import { DeploymentAccess, type AuthorizedDeployment } from "./access.js";
 import { DeploymentCommandError } from "./commands.js";
 import { DeploymentManagementError } from "./management.js";
 import type {
@@ -53,6 +54,13 @@ function binding(
 type AuditActor = Parameters<
   CoverageTransaction["audit"]["append"]
 >[0]["actor"];
+export class DeploymentStartCoverageError extends Error {
+  constructor(
+    readonly reason: DeploymentPreflightResult["reason"] | "missing",
+  ) {
+    super("coverage_blocked");
+  }
+}
 /** Hosts provide trusted actors/rollout scope. Machine JSON cannot choose identity or override authority. */
 export class DeploymentPreflight {
   private readonly access: DeploymentAccess<CoverageTransaction>;
@@ -171,6 +179,24 @@ export class DeploymentPreflight {
           record.decision.override?.reason ?? record.decision.evaluation.reason,
       },
     });
+  }
+  /** Invoke inside the authenticated start transaction, never in a second transaction. */
+  async requireForStart(
+    context: AuthorizedDeployment<CoverageTransaction>,
+    input: DeploymentStartInput,
+  ): Promise<void> {
+    if (input.coverageDecisionId === undefined)
+      throw new DeploymentStartCoverageError("missing");
+    const { tx, target, grant } = context;
+    const record = await tx.coverage.get(target.id, input.coverageDecisionId);
+    if (!record) throw new DeploymentStartCoverageError("missing");
+    const result = await this.reply(
+      tx,
+      record.decision,
+      binding(target, input, grant.mappedDeployerId),
+    );
+    if (result.decision !== "allow")
+      throw new DeploymentStartCoverageError(result.reason);
   }
   async preflight(
     token: string,

@@ -80,7 +80,9 @@ export function startDeployment(
     return current.actor === input.actor &&
       current.commit === input.commit &&
       current.artifact === input.artifact &&
-      current.startedAt === input.occurredAt
+      current.startedAt === input.occurredAt &&
+      (input.coverageDecisionId === undefined ||
+        input.coverageDecisionId === current.coverageDecisionId)
       ? { state: "unchanged", reason: "duplicate" }
       : { state: "rejected", reason: "conflict" };
   }
@@ -100,6 +102,9 @@ export function startDeployment(
       artifact: input.artifact,
       tokenId: context.tokenId,
       mappedDeployerId: context.mappedDeployerId,
+      ...(input.coverageDecisionId === undefined
+        ? {}
+        : { coverageDecisionId: input.coverageDecisionId }),
       startedAt: input.occurredAt,
       acceptedAt: at,
       timeoutAt: new Date(

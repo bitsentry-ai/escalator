@@ -26,6 +26,7 @@ import {
   RetentionManagement,
   HeartbeatManagement,
   DeploymentManagement,
+  DeploymentPreflight,
   DEPLOYMENT_MAX_BYTES,
   HEARTBEAT_MAX_BYTES,
 } from "@bitsentry-escalator/features/application";
@@ -55,6 +56,7 @@ export async function createApp() {
     const retention = app.get(RetentionManagement);
     const heartbeats = app.get(HeartbeatManagement);
     const deployments = app.get(DeploymentManagement);
+    const deploymentPreflight = app.get(DeploymentPreflight);
     app.use("/v1/deploys", signalBodyParser(DEPLOYMENT_MAX_BYTES));
     app.use("/v1/heartbeats", signalBodyParser(HEARTBEAT_MAX_BYTES));
     app.use("/v1/ingest", signalBodyParser());
@@ -94,6 +96,7 @@ export async function createApp() {
           retention,
           heartbeats,
           deployments,
+          deploymentPreflight,
           incidents,
           configuration,
           secretWriter,

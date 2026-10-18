@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   workspaceIdSchema,
   responderIdSchema,
@@ -12,6 +12,8 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   coverageDecision,
+  startDeployment,
+  finishDeployment,
   evaluateDeploymentCoverage,
   type CoverageRepository,
   type CoverageTransaction,
@@ -488,6 +490,129 @@ export function coverageConformance(
         tx.coverage.find("target", "preflight"),
         /closed_transaction/,
       );
+    },
+  );
+  scenario(
+    "accepted proof links survive storage, completion and scoped reads",
+    async ({ repository }, scope, other) => {
+      await repository.transaction(scope, async (tx) => {
+        const proof = await fixtureCoverage(tx);
+        await tx.coverage.insert(proof);
+        const target = (await tx.targets.get("target"))!;
+        const existing = (await tx.tokens.list(target.id, { limit: 10 }))
+          .items[0]!;
+        const at = await tx.currentTime();
+        const grant = {
+          ...existing,
+          id: "covered-grant",
+          tokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+          mappedDeployerId: proof.decision.binding.mappedDeployerId,
+          createdAt: at,
+          expiresAt: new Date(Date.parse(at) + 3600000).toISOString(),
+          revokedAt: null,
+        };
+        await tx.tokens.insert(grant);
+        const started = startDeployment(
+          undefined,
+          {
+            version: 1,
+            source: "ci",
+            externalId: "42",
+            environmentId: target.environmentId,
+            actor: "CI",
+            commit: "abc123",
+            artifact: null,
+            occurredAt: at,
+            coverageDecisionId: proof.decision.id,
+          },
+          {
+            id: "covered-deployment",
+            workspaceId: scope,
+            serviceId: target.serviceId,
+            environmentId: target.environmentId,
+            tokenId: grant.id,
+            mappedDeployerId: grant.mappedDeployerId,
+            timeoutSeconds: target.timeoutSeconds,
+          },
+          at,
+        );
+        if (started.state !== "changed") throw new Error("Expected start");
+        await tx.deployments.insert({
+          targetId: target.id,
+          deployment: started.deployment,
+          policy: await tx.targets.routing(target.id),
+        });
+        await tx.receipts.insert({
+          workspaceId: scope,
+          targetId: target.id,
+          key: "covered-start",
+          action: "start",
+          tokenId: grant.id,
+          requestHash: "b".repeat(64),
+          recordedAt: await tx.currentTime(),
+          result: {
+            state: "accepted",
+            deploymentId: started.deployment.id,
+            revision: 1,
+            status: "STARTED",
+            coverageDecisionId: proof.decision.id,
+          },
+        });
+      });
+      await repository.transaction(scope, async (tx) => {
+        const stored = (await tx.deployments.get(
+          "target",
+          "covered-deployment",
+        ))!.deployment;
+        assert.equal(stored.coverageDecisionId, "decision");
+        const at = await tx.currentTime();
+        const finished = finishDeployment(
+          stored,
+          {
+            version: 1,
+            source: "ci",
+            externalId: "42",
+            environmentId: stored.environmentId,
+            actor: "CI",
+            outcome: "SUCCEEDED",
+            occurredAt: at,
+          },
+          at,
+        );
+        if (finished.state !== "changed") throw new Error("Expected finish");
+        assert.equal(
+          await tx.deployments.replace(
+            "target",
+            finished.deployment,
+            stored.revision,
+          ),
+          true,
+        );
+      });
+      await repository.transaction(scope, async (tx) => {
+        const stored = (await tx.deployments.get(
+          "target",
+          "covered-deployment",
+        ))!.deployment;
+        assert.equal(stored.status, "SUCCEEDED");
+        assert.equal(stored.coverageDecisionId, "decision");
+        const result = (await tx.receipts.get("target", "covered-start"))!
+          .result;
+        if (result.state === "rejected")
+          throw new Error("Expected accepted receipt");
+        assert.equal(result.status, "STARTED");
+        assert.equal(result.coverageDecisionId, "decision");
+      });
+      await repository.transaction(other, async (tx) => {
+        assert.equal(
+          await tx.deployments.get("target", "covered-deployment"),
+          undefined,
+        );
+        assert.equal(
+          await tx.receipts.get("target", "covered-start"),
+          undefined,
+        );
+      });
     },
   );
 }

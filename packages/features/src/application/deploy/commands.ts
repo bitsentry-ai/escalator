@@ -17,6 +17,16 @@ import {
 } from "../../domain/deploy/lifecycle.js";
 import { PersistenceError } from "../ports/persistence.js";
 import { DeploymentAccess, type AuthorizedDeployment } from "./access.js";
+import type { DeploymentTransaction } from "./ports.js";
+export type DeploymentStartGuard<Tx extends DeploymentTransaction> = (
+  context: AuthorizedDeployment<Tx>,
+  input: DeploymentStartInput,
+) => Promise<void>;
+export class DeploymentCoverageUnavailableError extends Error {
+  constructor() {
+    super("coverage_unavailable");
+  }
+}
 type DeploymentReceiptResult = DeploymentReceipt["result"];
 export class DeploymentCommandError extends Error {
   constructor(readonly code: "idempotency_conflict" | "conflict") {
@@ -55,16 +65,22 @@ function result(
     deploymentId: value.id,
     revision: value.revision,
     status: value.status,
+    ...(value.coverageDecisionId === undefined
+      ? {}
+      : { coverageDecisionId: value.coverageDecisionId }),
   };
 }
 /** Pure lifecycle, command receipt and audit commit together after live authentication. */
-export class DeploymentCommands {
+export class DeploymentCommands<
+  Tx extends DeploymentTransaction = DeploymentTransaction,
+> {
   constructor(
-    private readonly access: DeploymentAccess,
+    private readonly access: DeploymentAccess<Tx>,
     private readonly newId: () => string,
+    private readonly startGuard?: DeploymentStartGuard<Tx>,
   ) {}
   private async replay(
-    context: AuthorizedDeployment,
+    context: AuthorizedDeployment<Tx>,
     key: string,
     hash: string,
   ) {
@@ -75,7 +91,7 @@ export class DeploymentCommands {
     return receipt.result;
   }
   private async record(
-    context: AuthorizedDeployment,
+    context: AuthorizedDeployment<Tx>,
     key: string,
     hash: string,
     action: "start" | "finish",
@@ -109,6 +125,10 @@ export class DeploymentCommands {
         deploymentId: stored.deploymentId,
         state: stored.state,
         reason: stored.state === "rejected" ? stored.reason : null,
+        coverageDecisionId:
+          stored.state === "rejected"
+            ? null
+            : (stored.coverageDecisionId ?? null),
       },
     });
     return stored;
@@ -144,12 +164,17 @@ export class DeploymentCommands {
         },
         now,
       );
-      if (decision.state === "changed")
+      if (decision.state === "changed") {
+        if (input.coverageDecisionId !== undefined) {
+          if (!this.startGuard) throw new DeploymentCoverageUnavailableError();
+          await this.startGuard(context, input);
+        }
         await tx.deployments.insert({
           targetId: target.id,
           deployment: decision.deployment,
           policy: await tx.targets.routing(target.id),
         });
+      }
       return this.record(
         context,
         key,

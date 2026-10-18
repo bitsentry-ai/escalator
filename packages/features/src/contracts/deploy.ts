@@ -60,6 +60,8 @@ export const deploymentStartInputSchema = z
     commit: text(200).nullable(),
     artifact: text(500).nullable(),
     occurredAt: timestamp,
+    /** Optional for tracking-only callers; protected hooks must provide a current proof. */
+    coverageDecisionId: opaqueIdSchema.optional(),
   })
   .refine(
     (value) => value.commit !== null || value.artifact !== null,
@@ -90,6 +92,8 @@ export const deploymentSchema = z
     /** Immutable authentication/mapping snapshot, never taken from machine JSON. */
     tokenId: opaqueIdSchema,
     mappedDeployerId: responderIdSchema.nullable(),
+    /** Immutable link to the proof enforced at first acceptance; absent on tracking-only starts. */
+    coverageDecisionId: opaqueIdSchema.optional(),
     startedAt: timestamp,
     acceptedAt: timestamp,
     timeoutAt: timestamp,

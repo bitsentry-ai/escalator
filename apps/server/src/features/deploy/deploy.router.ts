@@ -1,5 +1,7 @@
 import {
   deploymentPageSchema,
+  deploymentCoverageQuerySchema,
+  overrideDeploymentCoverageSchema,
   deploymentTargetIdSchema,
   createDeploymentTargetSchema,
   updateDeploymentTargetSchema,
@@ -11,6 +13,18 @@ import { authenticated } from "../../platform/trpc/authenticated.js";
 import { t } from "../../platform/trpc/context.js";
 import { deploymentRequest } from "./request.js";
 export const deploymentsRouter = t.router({
+  coverage: authenticated
+    .input(deploymentCoverageQuerySchema)
+    .query(({ ctx, input }) =>
+      deploymentRequest(() => ctx.deploymentPreflight.get(ctx.actor, input)),
+    ),
+  overrideCoverage: authenticated
+    .input(overrideDeploymentCoverageSchema)
+    .mutation(({ ctx, input }) =>
+      deploymentRequest(() =>
+        ctx.deploymentPreflight.override(ctx.actor, input),
+      ),
+    ),
   list: authenticated
     .input(deploymentPageSchema)
     .query(({ ctx, input }) =>

@@ -3,9 +3,15 @@ import {
   deploymentIdempotencyKeySchema,
   opaqueIdSchema,
   type DeploymentReceipt,
+  type DeploymentPreflightResult,
 } from "../../contracts/index.js";
 import { DeploymentAccessError, deploymentTokenDigest } from "./access.js";
 import { DeploymentCommands, DeploymentCommandError } from "./commands.js";
+import {
+  DeploymentStartCoverageError,
+  type DeploymentPreflight,
+} from "./preflight.js";
+import { DeploymentPreflightError } from "../../domain/deploy/coverage-decision.js";
 export const DEPLOYMENT_MAX_BYTES = 8192;
 export interface DeploymentHttpRequest {
   authorization?: string;
@@ -21,21 +27,29 @@ type ErrorCode =
   | "body_too_large"
   | "unsupported_content_type"
   | "busy"
-  | "unavailable";
+  | "unavailable"
+  | "coverage_blocked";
 export interface DeploymentHttpResponse {
   status: 200 | 202 | 400 | 401 | 409 | 413 | 415 | 429 | 503;
-  body: DeploymentReceipt["result"] | { error: ErrorCode };
+  body:
+    | DeploymentReceipt["result"]
+    | DeploymentPreflightResult
+    | { error: ErrorCode };
 }
 /** Bounded machine ingress; hosts apply the same byte limit while reading the stream. */
 export class DeploymentHttp {
   private active = 0;
   constructor(
-    private readonly commands: Pick<DeploymentCommands, "start" | "finish">,
+    private readonly commands: Pick<DeploymentCommands, "start" | "finish"> &
+      Partial<Pick<DeploymentPreflight, "preflight">>,
     private readonly available = () => true,
     private readonly maxInFlight = 8,
   ) {
     if (!Number.isInteger(maxInFlight) || maxInFlight < 1 || maxInFlight > 64)
       throw new RangeError("Invalid deployment ingress capacity");
+  }
+  preflight(request: DeploymentHttpRequest) {
+    return this.execute("preflight", null, request);
   }
   start(request: DeploymentHttpRequest) {
     return this.execute("start", null, request);
@@ -44,7 +58,7 @@ export class DeploymentHttp {
     return this.execute("finish", id, request);
   }
   private async execute(
-    action: "start" | "finish",
+    action: "start" | "finish" | "preflight",
     id: string | null,
     request: DeploymentHttpRequest,
   ): Promise<DeploymentHttpResponse> {
@@ -85,6 +99,14 @@ export class DeploymentHttp {
       return { status: 429, body: { error: "busy" } };
     this.active++;
     try {
+      if (action === "preflight") {
+        if (!this.commands.preflight)
+          return { status: 503, body: { error: "unavailable" } };
+        return {
+          status: 200,
+          body: await this.commands.preflight(match[1], key.data, body),
+        };
+      }
       const result =
         action === "start"
           ? await this.commands.start(match[1], key.data, body)
@@ -101,8 +123,14 @@ export class DeploymentHttp {
     } catch (error) {
       if (error instanceof DeploymentAccessError)
         return { status: 401, body: { error: "invalid_token" } };
-      if (error instanceof ZodError)
+      if (
+        error instanceof ZodError ||
+        (error instanceof DeploymentPreflightError &&
+          error.code === "scope_violation")
+      )
         return { status: 400, body: { error: "invalid_input" } };
+      if (error instanceof DeploymentStartCoverageError)
+        return { status: 409, body: { error: "coverage_blocked" } };
       if (error instanceof DeploymentCommandError)
         return { status: 409, body: { error: error.code } };
       return { status: 503, body: { error: "unavailable" } };

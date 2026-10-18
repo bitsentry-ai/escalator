@@ -64,3 +64,73 @@ test("deployment administration converts domain failures into bounded client err
     );
   }
 });
+
+test("coverage procedures derive trusted actors and reject reason, scope and identity injection", async () => {
+  const seen: unknown[] = [];
+  const ctx = context({});
+  ctx.deploymentPreflight = {
+    get: async (actor: unknown, input: unknown) => {
+      seen.push([actor, input]);
+      return {};
+    },
+    override: async (actor: unknown, input: unknown) => {
+      seen.push([actor, input]);
+      return {};
+    },
+  } as unknown as AppContext["deploymentPreflight"];
+  const caller = deploymentsRouter.createCaller(ctx),
+    query = { targetId: "target", decisionId: "decision" },
+    request = { ...query, key: "override", reason: "Emergency coverage" };
+  await caller.coverage(query);
+  await caller.overrideCoverage(request);
+  assert.deepEqual(seen, [
+    [
+      { workspaceId: "local", responderId: "admin", role: "administrator" },
+      query,
+    ],
+    [
+      { workspaceId: "local", responderId: "admin", role: "administrator" },
+      request,
+    ],
+  ]);
+  for (const extra of [
+    { workspaceId: "other" },
+    { actor: { role: "administrator" } },
+    { reason: "   " },
+  ])
+    await assert.rejects(
+      caller.overrideCoverage({ ...request, ...extra } as never),
+      { code: "BAD_REQUEST" },
+    );
+  delete ctx.req.session.account;
+  await assert.rejects(caller.overrideCoverage(request), {
+    code: "UNAUTHORIZED",
+  });
+  assert.equal(seen.length, 2);
+});
+test("coverage override command conflicts do not leak store messages", async () => {
+  const ctx = context({});
+  ctx.deploymentPreflight = {
+    override: async () => {
+      throw Object.assign(new Error("private.database"), {
+        code: "idempotency_conflict",
+      });
+    },
+  } as unknown as AppContext["deploymentPreflight"];
+  await assert.rejects(
+    deploymentsRouter
+      .createCaller(ctx)
+      .overrideCoverage({
+        targetId: "target",
+        decisionId: "decision",
+        key: "override",
+        reason: "Emergency",
+      }),
+    (error: unknown) => {
+      const e = error as { code: string; message: string };
+      assert.equal(e.code, "CONFLICT");
+      assert.ok(!e.message.includes("private.database"));
+      return true;
+    },
+  );
+});

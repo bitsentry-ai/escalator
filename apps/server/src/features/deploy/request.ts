@@ -14,6 +14,11 @@ export async function deploymentRequest<T>(work: () => Promise<T>): Promise<T> {
         code: "BAD_REQUEST",
         message: "Choose an enabled responder in this workspace",
       });
+    if (code === "idempotency_conflict")
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This command key was already used for different input",
+      });
     throw error;
   }
 }

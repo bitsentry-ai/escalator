@@ -70,3 +70,50 @@ test("deployment ingress requires raw bytes, strips request evidence and forward
     },
   ]);
 });
+
+test("coverage preflight forwards bounded machine headers and no browser identity", async () => {
+  const calls: unknown[] = [];
+  const http = {
+    preflight: async (request: unknown) => {
+      calls.push(request);
+      return { status: 200, body: { decision: "block" } };
+    },
+  } as unknown as DeploymentHttp;
+  const controller = new DeploymentController(http),
+    headers = new Map<string, string>();
+  let status = 0;
+  let body: unknown;
+  const res = {
+    setHeader: (key: string, value: string) => headers.set(key, value),
+    status: (code: number) => {
+      status = code;
+      return res;
+    },
+    json: (value: unknown) => {
+      body = value;
+      return res;
+    },
+  } as unknown as Response;
+  const req = {
+    body: Buffer.from("{}"),
+    headers: {
+      authorization: "Bearer token",
+      "idempotency-key": "preflight",
+      "content-type": "application/json",
+    },
+    session: { account: { accountId: "untrusted" } },
+  } as unknown as Request;
+  await controller.preflight(req, res);
+  assert.equal(status, 200);
+  assert.deepEqual(body, { decision: "block" });
+  assert.equal(req.body, undefined);
+  assert.equal(headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(calls, [
+    {
+      body: Buffer.from("{}"),
+      authorization: "Bearer token",
+      idempotencyKey: "preflight",
+      contentType: "application/json",
+    },
+  ]);
+});

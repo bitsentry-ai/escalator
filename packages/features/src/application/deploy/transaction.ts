@@ -279,6 +279,9 @@ export function deploymentTransaction(
               commit: deployment.commit,
               artifact: deployment.artifact,
               occurredAt: deployment.startedAt,
+              ...(deployment.coverageDecisionId === undefined
+                ? {}
+                : { coverageDecisionId: deployment.coverageDecisionId }),
             },
             {
               id: deployment.id,
@@ -367,7 +370,8 @@ export function deploymentTransaction(
             ).deployment;
             if (
               stored.revision !== value.result.revision ||
-              stored.status !== value.result.status
+              stored.status !== value.result.status ||
+              stored.coverageDecisionId !== value.result.coverageDecisionId
             )
               throw new DeploymentPersistenceError("invalid_receipt");
           }
