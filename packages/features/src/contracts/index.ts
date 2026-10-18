@@ -1,3 +1,4 @@
+export * from "./deploy-coverage.js";
 /** Package contract compatibility marker. */
 export const escalatorContractVersion = 0 as const;
 export interface EscalatorPackageInfo {

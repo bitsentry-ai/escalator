@@ -1,3 +1,7 @@
+export * from "./deploy/coverage-ports.js";
+export * from "./deploy/coverage-transaction.js";
+export * from "../domain/deploy/coverage.js";
+export * from "../domain/deploy/coverage-decision.js";
 import {
   escalatorContractVersion,
   type EscalatorPackageInfo,
