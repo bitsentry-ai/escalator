@@ -34,8 +34,12 @@ async function fixture() {
   );
   const repository: StuckDeploymentRepository = {
     transaction: (workspace, run) =>
-      storage.withExtensions(workspace, (deployment, configuration) =>
-        run(withDeploymentTimeout({ ...configuration, ...deployment })),
+      storage.withExtensions(
+        workspace,
+        (deployment, configuration, _extensions, guard) =>
+          run(
+            withDeploymentTimeout({ ...configuration, ...deployment }, guard),
+          ),
       ),
   };
   const start = (id = "deploy") =>
@@ -217,20 +221,26 @@ test("caller-edited lease hints cannot timeout a different deployment", async ()
 test("deadline enqueue failure rolls the accepted deployment back", async () => {
   const f = await fixture();
   await assert.rejects(
-    f.storage.withExtensions(f.scope, async (base, configuration) => {
-      const tx = withDeploymentTimeout({
-        ...configuration,
-        ...base,
-        work: {
-          ...base.work,
-          enqueue: async () => {
-            throw new Error("Jobs unavailable");
+    f.storage.withExtensions(
+      f.scope,
+      async (base, configuration, _extensions, guard) => {
+        const tx = withDeploymentTimeout(
+          {
+            ...configuration,
+            ...base,
+            work: {
+              ...base.work,
+              enqueue: async () => {
+                throw new Error("Jobs unavailable");
+              },
+            },
           },
-        },
-      });
-      const entry = await fixtureDeployment(tx, "deploy");
-      await tx.deployments.insert(entry);
-    }),
+          guard,
+        );
+        const entry = await fixtureDeployment(tx, "deploy");
+        await tx.deployments.insert(entry);
+      },
+    ),
     /Jobs unavailable/,
   );
   assert.equal(await f.get(), undefined);

@@ -12,28 +12,31 @@ import {
   DatabaseModule,
   StandaloneDatabase,
 } from "../../platform/database/database.module.js";
-import { PostgresCoverageRepository } from "../../platform/database/deployment-coverage.repository.js";
+import { PostgresDeploymentRuntimeRepository } from "../../platform/database/deployment-runtime.repository.js";
 import { DeploymentController } from "./deploy.controller.js";
 @Module({
   imports: [DatabaseModule],
   controllers: [DeploymentController],
   providers: [
     {
-      provide: PostgresCoverageRepository,
+      provide: PostgresDeploymentRuntimeRepository,
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
-        new PostgresCoverageRepository(db.pool),
+        new PostgresDeploymentRuntimeRepository(db.pool),
     },
     {
       provide: DeploymentManagement,
-      inject: [PostgresCoverageRepository],
-      useFactory: (repo: PostgresCoverageRepository) =>
+      inject: [PostgresDeploymentRuntimeRepository],
+      useFactory: (repo: PostgresDeploymentRuntimeRepository) =>
         new DeploymentManagement(repo, randomUUID),
     },
     {
       provide: DeploymentPreflight,
-      inject: [PostgresCoverageRepository, StandaloneDatabase],
-      useFactory: (repo: PostgresCoverageRepository, db: StandaloneDatabase) =>
+      inject: [PostgresDeploymentRuntimeRepository, StandaloneDatabase],
+      useFactory: (
+        repo: PostgresDeploymentRuntimeRepository,
+        db: StandaloneDatabase,
+      ) =>
         new DeploymentPreflight(
           repo,
           randomUUID,
@@ -43,12 +46,12 @@ import { DeploymentController } from "./deploy.controller.js";
     {
       provide: DeploymentHttp,
       inject: [
-        PostgresCoverageRepository,
+        PostgresDeploymentRuntimeRepository,
         StandaloneDatabase,
         DeploymentPreflight,
       ],
       useFactory: (
-        repo: PostgresCoverageRepository,
+        repo: PostgresDeploymentRuntimeRepository,
         db: StandaloneDatabase,
         preflight: DeploymentPreflight,
       ) => {

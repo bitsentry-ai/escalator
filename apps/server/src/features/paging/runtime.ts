@@ -1,3 +1,8 @@
+import {
+  withDeploymentTimeoutHandlers,
+  deploymentTimeoutLane,
+} from "@bitsentry-escalator/features/application";
+import { PostgresDeploymentRuntimeRepository } from "../../platform/database/deployment-runtime.repository.js";
 import { PostgresMetricsRepository } from "../../platform/database/metrics.repository.js";
 import { PostgresHeartbeatRepository } from "../../platform/database/heartbeats.repository.js";
 import { PostgresProbeRepository } from "../../platform/database/probes.repository.js";
@@ -73,7 +78,10 @@ export function standalonePagingRuntime(
     ),
   );
   const retainedHandlers = withRetentionHandlers(
-    handlers,
+    withDeploymentTimeoutHandlers(
+      handlers,
+      new PostgresDeploymentRuntimeRepository(pool),
+    ),
     new RetentionMaintenanceJobs(retention.repository),
     retention.admission,
   );
@@ -98,6 +106,7 @@ export function standalonePagingRuntime(
       ...monitoringJobLanes,
       probeJobLane,
       heartbeatJobLane,
+      deploymentTimeoutLane,
       metricJobLane,
       retentionJobLane,
       ...(watchdog ? [watchdog.lane] : []),

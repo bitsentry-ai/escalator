@@ -193,8 +193,26 @@ test("watchdog configuration requires a registered handler and fits the existing
   });
   const metrics = new MetricDeployment({
     destinations,
-    limits: { maxActive: 100, maxConfigured: 500, concurrency: 25 },
+    // Eight reserved lanes include the deployment timeout worker; 32 + 24 + 8 = 64.
+    limits: { maxActive: 100, maxConfigured: 500, concurrency: 24 },
   });
+  assert.throws(
+    () =>
+      standalonePagingRuntime(
+        pool,
+        scope,
+        keys,
+        "https://example.test",
+        () => {},
+        retentionFixture(),
+        probes,
+        new MetricDeployment({
+          destinations,
+          limits: { maxActive: 100, maxConfigured: 500, concurrency: 25 },
+        }),
+      ),
+    /scheduler limit/,
+  );
   const baseline = standalonePagingRuntime(
     pool,
     scope,

@@ -16,6 +16,7 @@ import {
 } from "../paging/create-page.js";
 import { pagingWorkId } from "../paging/work-ids.js";
 import type { DeploymentTransaction } from "./ports.js";
+import type { TransactionGuard } from "../ports/transaction-guard.js";
 import { stuckDeploymentPolicy } from "./stuck-policy.js";
 
 export interface StuckDeploymentTransaction
@@ -37,33 +38,35 @@ export const deploymentTimeoutLane = ["deployment.timeout"] as const;
  */
 export function withDeploymentTimeout<Tx extends DeploymentTransaction>(
   tx: Tx,
+  guard: TransactionGuard,
 ): Tx {
   return {
     ...tx,
     deployments: {
       ...tx.deployments,
-      insert: async (raw) => {
-        const entry = deploymentEntrySchema.parse(raw);
-        await tx.deployments.insert(entry);
-        const id = pagingWorkId(
-          tx.workspaceId,
-          "deployment.timeout",
-          entry.targetId,
-          entry.deployment.id,
-        );
-        await tx.work.enqueue("job", {
-          id,
-          kind: "deployment.timeout",
-          idempotencyKey: id,
-          priority: 90,
-          dueAt: entry.deployment.timeoutAt,
-          payload: {
-            targetId: entry.targetId,
-            deploymentId: entry.deployment.id,
-            timeoutAt: entry.deployment.timeoutAt,
-          },
-        });
-      },
+      insert: (raw) =>
+        guard.operation(async () => {
+          const entry = deploymentEntrySchema.parse(raw);
+          await tx.deployments.insert(entry);
+          const id = pagingWorkId(
+            tx.workspaceId,
+            "deployment.timeout",
+            entry.targetId,
+            entry.deployment.id,
+          );
+          await tx.work.enqueue("job", {
+            id,
+            kind: "deployment.timeout",
+            idempotencyKey: id,
+            priority: 90,
+            dueAt: entry.deployment.timeoutAt,
+            payload: {
+              targetId: entry.targetId,
+              deploymentId: entry.deployment.id,
+              timeoutAt: entry.deployment.timeoutAt,
+            },
+          });
+        }),
     },
   };
 }

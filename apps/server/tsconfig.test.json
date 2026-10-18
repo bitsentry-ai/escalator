@@ -63,6 +63,9 @@
       ],
       "@escalator-test/deployments": [
         "../../packages/features/test/conformance/deployments.ts"
+      ],
+      "@escalator-test/stuck": [
+        "../../packages/features/test/conformance/stuck.ts"
       ]
     }
   },
