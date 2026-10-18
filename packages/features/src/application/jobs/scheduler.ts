@@ -20,16 +20,45 @@ export class DurableWorkScheduler {
     runnerOptions: RunnerOptions,
     pollerOptions: Omit<PollerOptions, "onError"> & {
       onError(queue: WorkQueue): void;
+      /** Each registered job kind occurs once; independent loops reserve deadline capacity. */
+      jobLanes?: readonly (readonly string[])[];
     },
   ) {
-    const runner = new DurableWorkRunner(store, handlers, runnerOptions);
-    this.loops = (["job", "outbox"] as const).map(
-      (queue) =>
-        new WorkPoller(() => runner.runOne(workspaceId, queue), {
-          ...pollerOptions,
-          onError: () => pollerOptions.onError(queue),
-        }),
-    );
+    const lanes = pollerOptions.jobLanes ?? [[...handlers.job.keys()]];
+    const kinds = lanes.flat();
+    if (
+      lanes.length < 1 ||
+      lanes.length > 16 ||
+      (pollerOptions.jobLanes && lanes.some((lane) => lane.length === 0)) ||
+      new Set(kinds).size !== kinds.length ||
+      kinds.length !== handlers.job.size ||
+      kinds.some((kind) => !handlers.job.has(kind))
+    )
+      throw new Error("Job lanes must partition registered handlers");
+    const groups: { queue: WorkQueue; handlers: WorkHandlers }[] = [
+      ...lanes.map((lane) => ({
+        queue: "job" as const,
+        handlers: {
+          job: new Map(lane.map((kind) => [kind, handlers.job.get(kind)!])),
+          outbox: new Map<string, WorkHandler>(),
+        },
+      })),
+      {
+        queue: "outbox",
+        handlers: { job: new Map(), outbox: handlers.outbox },
+      },
+    ];
+    this.loops = groups.map((group) => {
+      const runner = new DurableWorkRunner(
+        store,
+        group.handlers,
+        runnerOptions,
+      );
+      return new WorkPoller(() => runner.runOne(workspaceId, group.queue), {
+        ...pollerOptions,
+        onError: () => pollerOptions.onError(group.queue),
+      });
+    });
   }
   start(): void {
     if (this.stopping) throw new Error("Work scheduler is stopping");

@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import {
   SecretAccessError,
+  approvedSecretIdsForWork,
   type SecretUse,
   type PersistedSecretClaim,
 } from "@bitsentry-escalator/features/application";
@@ -35,11 +36,12 @@ export class PostgresSecretReader implements EncryptedSecretReader {
         lease_token: string | null;
         lease_expires_at: Date | null;
         database_now: Date;
-        approved_secret_ids: unknown;
+        work_kind: string;
+        work_payload: unknown;
       }>(
         `SELECT s.id, s.workspace_id, s.envelope, s.disabled_at, w.id AS work_id,
         w.state, w.lease_token, w.lease_expires_at, clock_timestamp() AS database_now,
-        w.payload->'secretIds' AS approved_secret_ids
+        w.kind AS work_kind, w.payload AS work_payload
         FROM escalator_secret AS s JOIN ${relation} AS w ON w.workspace_id=s.workspace_id AND w.id=$2
         WHERE s.workspace_id=$1 AND s.id=$3 AND s.purpose='provider'`,
         [request.workspaceId, request.workId, request.secretId],
@@ -55,7 +57,11 @@ export class PostgresSecretReader implements EncryptedSecretReader {
         token: row.lease_token,
         expiresAt: row.lease_expires_at?.toISOString() ?? null,
         databaseNow: row.database_now.toISOString(),
-        approvedSecretIds: row.approved_secret_ids,
+        approvedSecretIds: approvedSecretIdsForWork(
+          request.queue,
+          row.work_kind,
+          row.work_payload,
+        ),
       };
       return {
         id: row.id,

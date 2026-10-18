@@ -135,6 +135,45 @@ for (const queue of ["job", "outbox"] as const) {
           ),
           "private-fixture",
         );
+        for (const kind of queue === "outbox"
+          ? ["paging.send"]
+          : ["paging.receipt", "paging.cancel"]) {
+          await fixture.repository.transaction(workspaceId, (tx) =>
+            tx.work.enqueue(queue, {
+              id: kind,
+              kind,
+              idempotencyKey: kind,
+              dueAt: tx.now,
+              payload: { secretId: secret.id, approvedSecretIds: [secret.id] },
+            }),
+          );
+          const pagingLease = await work.claim({
+            workspaceId,
+            queue,
+            kinds: [kind],
+            token: randomUUID(),
+            leaseMs: 30_000,
+          });
+          assert.ok(pagingLease);
+          const pagingRequest = {
+            ...request,
+            workId: pagingLease.id,
+            claimToken: pagingLease.token,
+          };
+          assert.equal(
+            await store.withSecret(pagingRequest, async (bytes) =>
+              Buffer.from(bytes).toString(),
+            ),
+            "private-fixture",
+          );
+          await assert.rejects(
+            store.withSecret(
+              { ...pagingRequest, secretId: active.id },
+              async () => true,
+            ),
+            { code: "secret_unavailable" },
+          );
+        }
         await assert.rejects(
           store.withSecret(
             { ...request, secretId: authentication.id },

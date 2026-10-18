@@ -59,3 +59,31 @@ export function assertSecretClaim(
     throw new SecretAccessError();
   }
 }
+
+/** Extract only from persisted work; hosts must still check scope, token and live expiry. */
+export function approvedSecretIdsForWork(
+  queue: WorkQueue,
+  kind: string,
+  payload: unknown,
+): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return [];
+  const data = payload as Record<string, unknown>;
+  if (!kind.startsWith("paging.")) return data.secretIds;
+  const expectedQueue =
+    kind === "paging.send"
+      ? "outbox"
+      : ["paging.receipt", "paging.cancel"].includes(kind)
+        ? "job"
+        : undefined;
+  if (
+    queue !== expectedQueue ||
+    "secretIds" in data ||
+    typeof data.secretId !== "string" ||
+    !Array.isArray(data.approvedSecretIds) ||
+    data.approvedSecretIds.length !== 1 ||
+    data.approvedSecretIds[0] !== data.secretId
+  )
+    return [];
+  return data.approvedSecretIds;
+}
