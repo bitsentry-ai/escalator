@@ -31,3 +31,6 @@ export type { SourcesClient } from "./sources-client.js";
 export { SourcesScreen } from "./sources/SourcesScreen.js";
 
 export type { DetectionClient } from "./detection-client.js";
+
+export type { HeartbeatsClient } from "./heartbeats-client.js";
+export { HeartbeatsScreen } from "./heartbeats/HeartbeatsScreen.js";

@@ -445,5 +445,23 @@
     "save": "Save automatic paging",
     "more": "Load more policies",
     "audit": "Changes are versioned and audited. Disabling automatic paging does not resolve existing incidents or cancel their escalation."
+  },
+  "heartbeats": {
+    "heading": "Heartbeats",
+    "guidance": "Detect a missing periodic signal. Create the monitor disabled, provision its token and sender, choose an automatic paging policy, then enable it.",
+    "create": "New heartbeat",
+    "empty": "No heartbeat monitors configured.",
+    "more": "Load more heartbeats",
+    "interval": "Expected interval (seconds)",
+    "grace": "Grace period (seconds)",
+    "save": "Save heartbeat",
+    "audit": "Configuration and grant changes are audited. Disabling monitoring does not resolve an existing incident.",
+    "status": "Recorded heartbeat state",
+    "lastAcceptedAt": "Last accepted heartbeat",
+    "deadlineAt": "Next persisted deadline",
+    "missedAt": "Recorded missed deadline",
+    "none": "None recorded",
+    "statusHelp": "An absent missed-deadline record does not prove current health. Compare the stored deadline and last accepted time, and monitor the application's readiness separately.",
+    "grantHelp": "Issue a token while the monitor is disabled, configure the sender using the documented heartbeat route, then enable monitoring. Expiry is checked by the server; an incorrect browser clock can cause rejection. Rotate by issuing a replacement before revoking the old token."
   }
 }

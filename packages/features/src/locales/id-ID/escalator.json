@@ -445,5 +445,23 @@
     "save": "Simpan paging otomatis",
     "more": "Muat kebijakan lainnya",
     "audit": "Perubahan memiliki versi dan dicatat dalam audit. Menonaktifkan paging otomatis tidak menyelesaikan insiden yang ada atau membatalkan eskalasinya."
+  },
+  "heartbeats": {
+    "heading": "Heartbeat",
+    "guidance": "Deteksi hilangnya sinyal berkala. Buat monitor dalam keadaan nonaktif, siapkan token dan pengirim, pilih kebijakan paging otomatis, lalu aktifkan.",
+    "create": "Heartbeat baru",
+    "empty": "Belum ada monitor heartbeat.",
+    "more": "Muat heartbeat lainnya",
+    "interval": "Interval yang diharapkan (detik)",
+    "grace": "Masa tenggang (detik)",
+    "save": "Simpan heartbeat",
+    "audit": "Perubahan konfigurasi dan izin dicatat dalam audit. Menonaktifkan pemantauan tidak menyelesaikan insiden yang ada.",
+    "status": "Status heartbeat tersimpan",
+    "lastAcceptedAt": "Heartbeat terakhir diterima",
+    "deadlineAt": "Tenggat tersimpan berikutnya",
+    "missedAt": "Tenggat terlewat yang tercatat",
+    "none": "Tidak tercatat",
+    "statusHelp": "Tidak adanya catatan tenggat terlewat tidak membuktikan kondisi saat ini. Bandingkan tenggat tersimpan dan waktu terakhir diterima, serta pantau kesiapan aplikasi secara terpisah.",
+    "grantHelp": "Terbitkan token saat monitor nonaktif, konfigurasikan pengirim menggunakan rute heartbeat yang didokumentasikan, lalu aktifkan pemantauan. Server memeriksa kedaluwarsa; jam browser yang salah dapat menyebabkan penolakan. Terbitkan pengganti sebelum mencabut token lama."
   }
 }

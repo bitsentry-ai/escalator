@@ -1,3 +1,4 @@
+import { HeartbeatsRoute } from "./heartbeats/HeartbeatsRoute.js";
 import { SourcesRoute } from "./sources/SourcesRoute.js";
 import { ProbesRoute } from "./probes/ProbesRoute.js";
 import { useState } from "react";
@@ -16,7 +17,13 @@ export function EscalatorShell({
 }) {
   const { t } = useTranslation("escalator");
   const [view, setView] = useState<
-    "services" | "incidents" | "oncall" | "contacts" | "probes" | "sources"
+    | "services"
+    | "incidents"
+    | "oncall"
+    | "contacts"
+    | "probes"
+    | "sources"
+    | "heartbeats"
   >("services");
   return (
     <>
@@ -57,11 +64,19 @@ export function EscalatorShell({
         >
           {t("sources.heading")}
         </button>
+        <button
+          aria-pressed={view === "heartbeats"}
+          onClick={() => setView("heartbeats")}
+        >
+          {t("heartbeats.heading")}
+        </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
       ) : view === "sources" ? (
         <SourcesRoute client={client} user={user} />
+      ) : view === "heartbeats" ? (
+        <HeartbeatsRoute client={client} user={user} />
       ) : view === "probes" ? (
         <ProbesRoute client={client} user={user} />
       ) : view === "contacts" ? (

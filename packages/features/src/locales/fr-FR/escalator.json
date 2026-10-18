@@ -445,5 +445,23 @@
     "save": "Enregistrer la notification automatique",
     "more": "Charger d'autres politiques",
     "audit": "Les changements sont versionnés et audités. Désactiver la notification automatique ne résout pas les incidents existants et n'annule pas leur escalade."
+  },
+  "heartbeats": {
+    "heading": "Signaux périodiques",
+    "guidance": "Détectez l'absence d'un signal périodique. Créez la supervision désactivée, configurez le jeton et l'émetteur, choisissez une politique de notification, puis activez-la.",
+    "create": "Nouveau signal périodique",
+    "empty": "Aucune supervision de signal périodique configurée.",
+    "more": "Charger d'autres signaux périodiques",
+    "interval": "Intervalle attendu (secondes)",
+    "grace": "Délai de grâce (secondes)",
+    "save": "Enregistrer le signal périodique",
+    "audit": "Les changements de configuration et d'autorisation sont audités. Désactiver la supervision ne résout pas un incident existant.",
+    "status": "État enregistré du signal périodique",
+    "lastAcceptedAt": "Dernier signal accepté",
+    "deadlineAt": "Prochaine échéance enregistrée",
+    "missedAt": "Échéance manquée enregistrée",
+    "none": "Aucun enregistrement",
+    "statusHelp": "L'absence d'échéance manquée enregistrée ne prouve pas le bon fonctionnement actuel. Comparez l'échéance et le dernier signal accepté, puis surveillez séparément la disponibilité de l'application.",
+    "grantHelp": "Émettez un jeton pendant que la supervision est désactivée, configurez l'émetteur selon la route documentée, puis activez la supervision. Le serveur vérifie l'expiration ; une horloge de navigateur incorrecte peut entraîner un rejet. Émettez un remplacement avant de révoquer l'ancien jeton."
   }
 }
