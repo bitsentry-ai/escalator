@@ -153,6 +153,15 @@ export function healthConformance(
     },
   );
   scenario(
+    "unclaimed or long-running investigations cannot fail job readiness",
+    async (f, a) => {
+      await enqueue(f, a, "job", "investigation.run");
+      assert.equal((await read(f, a)).oldestDueJobAt, null);
+      const job = await enqueue(f, a, "job", "signal.process");
+      assert.equal((await read(f, a)).oldestDueJobAt, job);
+    },
+  );
+  scenario(
     "failed and cancelled jobs are excluded from pending queue age",
     async (f, a) => {
       await enqueue(f, a, "job", "paging.step");

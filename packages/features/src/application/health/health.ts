@@ -9,6 +9,7 @@ export interface QueueHealthSnapshot {
 }
 /** Fresh scoped query, including running rows; implementations bound acquisition and SQL.
  * Exclude watchdogJobPrefix intents: monitoring delivery must not gate its own recovery.
+ * Exclude investigation.run from job age: investigations have their own bounded deadlines.
  */
 export interface OperationalHealthReader {
   read(
