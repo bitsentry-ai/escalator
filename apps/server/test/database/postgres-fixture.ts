@@ -102,6 +102,11 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       );
     }
     for (const table of [
+      "escalator_schedule",
+      "escalator_policy",
+      "escalator_contact",
+      "escalator_availability",
+      "escalator_schedule_preview",
       "escalator_incident",
       "escalator_page",
       "escalator_page_step",

@@ -15,6 +15,9 @@
       ],
       "@escalator-test/paging": [
         "../../packages/features/test/conformance/paging.ts"
+      ],
+      "@escalator-test/configuration": [
+        "../../packages/features/test/conformance/configuration.ts"
       ]
     }
   },
