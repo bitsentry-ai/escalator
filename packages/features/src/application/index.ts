@@ -237,3 +237,7 @@ export * from "./rules/backtest-ports.js";
 export * from "./rules/backtest-job.js";
 export * from "./rules/backtest-storage.js";
 export * from "./rules/backtest-transaction.js";
+
+export * from "./rules/compare.js";
+
+export * from "./rules/tuning.js";

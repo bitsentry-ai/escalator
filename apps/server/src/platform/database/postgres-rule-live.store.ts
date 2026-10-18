@@ -95,8 +95,8 @@ export function postgresRuleLiveStore(
     async decision(row, transition) {
       await db.query(
         `INSERT INTO escalator_rule_decision
-        (workspace_id,rule_id,rule_revision,generation,decision_at,data)
-        VALUES($1,$2,$3::bigint,$4::bigint,$5::timestamptz,$6::jsonb #- '{state,workspaceId}')`,
+        (workspace_id,rule_id,rule_revision,generation,decision_at,data,mode)
+        VALUES($1,$2,$3::bigint,$4::bigint,$5::timestamptz,$6::jsonb #- '{state,workspaceId}',$7)`,
         [
           scope,
           row.version.id,
@@ -104,6 +104,7 @@ export function postgresRuleLiveStore(
           row.generation,
           transition.state.lastDecisionAt,
           JSON.stringify(transition),
+          row.mode,
         ],
       );
     },

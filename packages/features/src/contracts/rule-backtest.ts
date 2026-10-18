@@ -1,3 +1,4 @@
+import { ruleComparisonSchema } from "./rule-comparison.js";
 import { z } from "zod";
 import { detectionRuleVersionSchema } from "./rule-state.js";
 import { opaqueIdSchema } from "./identity.js";
@@ -39,6 +40,7 @@ export const ruleBacktestReportSchema = z
     version: z.literal(1),
     evaluatorVersion: z.literal(1),
     matchingPolicy: z.literal("unique-overlap-v1"),
+    comparison: ruleComparisonSchema.nullable().default(null),
     snapshotId: opaqueIdSchema,
     rule: detectionRuleVersionSchema,
     status: z.enum(["BACKTESTED", "NOT_BACKTESTABLE"]),
@@ -93,6 +95,30 @@ export const ruleBacktestReportSchema = z
     labelCoverage: fraction.nullable(),
   })
   .superRefine((r, c) => {
+    if (
+      r.comparison &&
+      (r.comparison.candidatePredictedOpenings !== r.episodes.length ||
+        r.comparison.candidateEvaluatedDecisions !==
+          r.coverage.evaluatedDecisions)
+    )
+      c.addIssue({
+        code: "custom",
+        message: "Comparison candidate counts mismatch",
+      });
+    if (
+      r.comparison?.groups.some((g) => {
+        const a = g.observation.version.definition,
+          b = r.rule.definition;
+        return (
+          a.workspaceId !== b.workspaceId ||
+          a.serviceId !== b.serviceId ||
+          a.environmentId !== b.environmentId ||
+          a.selector.kind !== b.selector.kind ||
+          a.selector.streamId !== b.selector.streamId
+        );
+      })
+    )
+      c.addIssue({ code: "custom", message: "Comparison scope mismatch" });
     const cover = r.coverage,
       n = r.truePositives + r.falsePositives;
     if (

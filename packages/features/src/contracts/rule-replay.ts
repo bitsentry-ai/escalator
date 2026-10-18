@@ -1,3 +1,4 @@
+import { ruleBaselineCaptureSchema } from "./rule-comparison.js";
 import {
   ruleHistorySnapshotSchema,
   ruleMeasurementHashSchema,
@@ -15,6 +16,7 @@ import {
 } from "./rule-state.js";
 
 export const ruleRetainedEvidenceSchema = z.strictObject({
+  baselines: ruleBaselineCaptureSchema.optional(),
   history: ruleHistorySnapshotSchema,
   measurementHash: ruleMeasurementHashSchema,
   policyFacts: z.array(rulePolicyFactSchema).max(10000),
@@ -80,6 +82,28 @@ export const ruleReplaySnapshotSchema = z
           (sample.receivedAt !== null &&
             compareUtcTimestamps(sample.receivedAt, snapshot.snapshotAt) > 0),
       );
+      const baselines = snapshot.retained.baselines;
+      const wrongBaseline =
+        baselines &&
+        (compareUtcTimestamps(baselines.visibleAt, snapshot.snapshotAt) !== 0 ||
+          compareUtcTimestamps(
+            baselines.firstDecisionAt,
+            snapshot.firstDecisionAt,
+          ) !== 0 ||
+          compareUtcTimestamps(
+            baselines.lastDecisionAt,
+            snapshot.lastDecisionAt,
+          ) !== 0 ||
+          baselines.groups.some((g) => {
+            const d = g.version.definition;
+            return (
+              d.workspaceId !== rule.workspaceId ||
+              d.serviceId !== rule.serviceId ||
+              d.environmentId !== rule.environmentId ||
+              d.selector.kind !== rule.selector.kind ||
+              d.selector.streamId !== rule.selector.streamId
+            );
+          }));
       const wrongFact = policyFacts.some(
         (f) =>
           f.workspaceId !== rule.workspaceId ||
@@ -92,6 +116,7 @@ export const ruleReplaySnapshotSchema = z
         wrong ||
         wrongReceipt ||
         wrongFact ||
+        wrongBaseline ||
         snapshot.samples.length ||
         snapshot.coverage.length ||
         snapshot.policies.length ||

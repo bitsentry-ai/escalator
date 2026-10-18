@@ -30,6 +30,10 @@ export function postgresRuleReplayCaptureStore(
       const rule = version.definition;
       if (rule.workspaceId !== scope)
         throw new PersistenceError("scope_violation");
+      const first = new Date(
+        Date.parse(range.startAt) +
+          ((rule.collectionDelaySeconds ?? 0) + rule.windowSeconds) * 1000,
+      ).toISOString();
       const last = new Date(
         Date.parse(range.endAt) + (rule.collectionDelaySeconds ?? 0) * 1000,
       ).toISOString();
@@ -44,6 +48,7 @@ export function postgresRuleReplayCaptureStore(
           range.endAt,
           range.visibleAt,
           last,
+          first,
         ],
       );
       if (!result.rows[0]) throw new PersistenceError("not_found");

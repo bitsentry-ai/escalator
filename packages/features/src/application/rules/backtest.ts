@@ -1,3 +1,4 @@
+import { compareRecordedRules } from "./compare.js";
 import { backtestAvailability } from "./backtest-availability.js";
 import { ruleBacktestReportSchema } from "../../contracts/rule-backtest.js";
 import { z } from "zod";
@@ -196,7 +197,7 @@ export function summarizeRuleBacktest(
   const center = (p + z2 / (2 * (n || 1))) / denom,
     margin =
       (z95 * Math.sqrt((p * (1 - p) + z2 / (4 * (n || 1))) / (n || 1))) / denom;
-  return ruleBacktestReportSchema.parse({
+  const report = ruleBacktestReportSchema.parse({
     availability: backtestAvailability(decisions),
     version: 1,
     evaluatorVersion: 1,
@@ -241,4 +242,5 @@ export function summarizeRuleBacktest(
     },
     labelCoverage: episodes.length ? n / episodes.length : null,
   });
+  return { ...report, comparison: compareRecordedRules(snapshot, report) };
 }

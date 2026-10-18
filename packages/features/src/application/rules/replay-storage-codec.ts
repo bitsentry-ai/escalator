@@ -85,6 +85,20 @@ export function decodeRuleReplaySnapshot(
   const retained = snapshot.retained
     ? {
         ...snapshot.retained,
+        ...(snapshot.retained.baselines
+          ? {
+              baselines: {
+                ...snapshot.retained.baselines,
+                groups: snapshot.retained.baselines.groups.map((g) => ({
+                  ...g,
+                  version: {
+                    ...g.version,
+                    definition: { ...g.version.definition, workspaceId: scope },
+                  },
+                })),
+              },
+            }
+          : {}),
         history: {
           ...snapshot.retained.history,
           workspaceId: scope,

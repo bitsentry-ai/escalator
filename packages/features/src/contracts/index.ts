@@ -104,3 +104,7 @@ export * from "./replay-run.js";
 export * from "./rule-backtest.js";
 
 export * from "./backtest-record.js";
+
+export * from "./rule-comparison.js";
+
+export * from "./rule-tuning.js";

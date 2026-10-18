@@ -27,6 +27,24 @@ export function decodeRuleBacktest(
     workspaceId: scope,
     report: {
       ...r.report,
+      comparison: r.report.comparison
+        ? {
+            ...r.report.comparison,
+            groups: r.report.comparison.groups.map((g) => ({
+              ...g,
+              observation: {
+                ...g.observation,
+                version: {
+                  ...g.observation.version,
+                  definition: {
+                    ...g.observation.version.definition,
+                    workspaceId: scope,
+                  },
+                },
+              },
+            })),
+          }
+        : null,
       rule: {
         ...r.report.rule,
         definition: { ...r.report.rule.definition, workspaceId: scope },
