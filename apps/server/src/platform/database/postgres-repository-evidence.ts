@@ -24,6 +24,7 @@ export async function readRepositoryBinding(
   scopeInput: ModelScope,
   sourceIdInput: string,
   connections: RepositoryConnections,
+  lock = true,
 ) {
   const scope = investigationScopeSchema
     .pick({ workspaceId: true, serviceId: true, environmentId: true })
@@ -39,7 +40,7 @@ export async function readRepositoryBinding(
     `SELECT revision::text,COALESCE((data->>'enabled')::boolean,false) AS enabled
      FROM escalator_deploy_target
      WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4
-     FOR SHARE`,
+     ${lock ? "FOR SHARE" : ""}`,
     [
       scope.workspaceId,
       connection.targetId,
@@ -53,7 +54,7 @@ export async function readRepositoryBinding(
     const secret = await db.query(
       `SELECT id FROM escalator_secret
        WHERE workspace_id=$1 AND id=$2 AND purpose='provider' AND disabled_at IS NULL
-       FOR SHARE`,
+       ${lock ? "FOR SHARE" : ""}`,
       [scope.workspaceId, connection.secretId],
     );
     if (!secret.rowCount) return undefined;

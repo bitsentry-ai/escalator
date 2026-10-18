@@ -61,6 +61,7 @@ export const ruleLiveRecordSchema = z
   });
 export type RuleLiveRecord = z.infer<typeof ruleLiveRecordSchema>;
 export const ruleDecisionPolicySchema = z.strictObject({
+  pagingEnabled: z.boolean().optional(),
   known: z.boolean(),
   enabled: z.boolean(),
   maintenance: z.boolean(),

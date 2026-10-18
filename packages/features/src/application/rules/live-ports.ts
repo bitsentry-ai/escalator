@@ -17,7 +17,12 @@ export interface RuleLiveTransaction extends DetectionTransaction {
     policy(
       row: RuleLiveRecord,
       decisionAt: string,
-    ): Promise<{ known: boolean; enabled: boolean; maintenance: boolean }>;
+    ): Promise<{
+      known: boolean;
+      enabled: boolean;
+      maintenance: boolean;
+      pagingEnabled?: boolean;
+    }>;
     save(row: RuleLiveRecord, expectedRevision: number): Promise<boolean>;
     /** Immutable receipt; unique per (workspace, rule, generation, decisionAt). */
     decision(row: RuleLiveRecord, transition: RuleTransition): Promise<void>;

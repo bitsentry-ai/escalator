@@ -277,23 +277,19 @@ test("right-closed coverage does not advance the evidence cutoff; old half-open 
     [],
   );
 });
-test("signal event presence does not invent source continuity", () => {
-  const definition = detectionRuleSchema.parse({
-    ...rule(),
-    selector: { kind: "signal", streamId: "source", field: "events" },
-    aggregation: "count",
-  });
-  const data = ruleHistorySnapshotSchema.parse({
-    ...history(),
-    kind: "signal",
-    streamId: "source",
-    configurations: [],
-    receipts: [],
-  });
-  const window = ruleWindowFromHistory(definition, at(3), data, hash);
-  assert.equal(window.coverage, "unknown");
-  assert.equal(
-    evaluateRuleWindow(definition, window).state,
-    "insufficient_data",
+test("signal history cannot be promoted to a rule without continuity coverage", () => {
+  assert.throws(
+    () =>
+      ruleWindowFromHistory(
+        {
+          ...rule(),
+          selector: { kind: "signal", streamId: "source", field: "events" },
+          aggregation: "count",
+        },
+        at(3),
+        history(),
+        hash,
+      ),
+    /Signal rules are unavailable/,
   );
 });

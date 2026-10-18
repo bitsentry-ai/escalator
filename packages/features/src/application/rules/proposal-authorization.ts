@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { createHash } from "node:crypto";
 import { hasCapability } from "../../contracts/identity.js";
 import {
@@ -34,7 +35,10 @@ export async function loadRuleProposalSource(
     !source.snapshot.retained ||
     hash(source.snapshot) !== source.inputHash
   )
-    throw new Error("Proposal requires an intact original retained capture");
+    throw new RuleRequestError(
+      "PRECONDITION_FAILED",
+      "Proposal requires an intact original retained capture",
+    );
   return source;
 }
 export async function lockRuleProposalGeneration(
@@ -103,6 +107,6 @@ export async function authorizeRuleProposalModel(
     return undefined;
   const source = await loadRuleProposalSource(tx, row.sourceSnapshotId);
   if (source.inputHash !== row.sourceInputHash)
-    throw new Error("Proposal capture changed");
+    throw new RuleRequestError("CONFLICT", "Proposal capture changed");
   return ruleProposalModelProfile(tx, row, source);
 }

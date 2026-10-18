@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { z } from "zod";
 import {
   hasCapability,
@@ -21,6 +22,12 @@ import type {
   RuleCatalogRepository,
   RuleCatalogTransaction,
 } from "./activation-ports.js";
+function assertNoMetricPaging(
+  version: import("../../contracts/rule-state.js").DetectionRuleVersion,
+) {
+  if (version.definition.selector.kind === "metric")
+    throw new RuleRequestError("METRIC_PAGING_CONFLICT");
+}
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const reviewInput = z.strictObject({
   ruleId: opaqueIdSchema,
@@ -47,7 +54,7 @@ async function authorize(tx: RuleCatalogTransaction, actor: Actor) {
     person.role !== actor.role ||
     !hasCapability(person.role, "rule:approve")
   )
-    throw new Error("Rule approval forbidden");
+    throw new RuleRequestError("FORBIDDEN", "Rule approval forbidden");
 }
 async function locked(tx: RuleCatalogTransaction, id: string) {
   const raw = await tx.catalog.lock(id);
@@ -86,7 +93,7 @@ async function record(
   receiptId: string | null,
 ) {
   if (!(await tx.catalog.save(next, before.revision)))
-    throw new Error("Rule changed concurrently");
+    throw new RuleRequestError("CONFLICT", "Rule changed concurrently");
   const id = pagingWorkId(
     tx.workspaceId,
     "rule-activation-history",
@@ -138,17 +145,22 @@ export class ReviewRuleActivation {
       await authorize(tx, actor);
       const entry = await locked(tx, input.ruleId);
       if (entry.revision !== input.expectedRevision)
-        throw new Error("Rule changed concurrently");
+        throw new RuleRequestError("CONFLICT", "Rule changed concurrently");
       const version = await versionFor(tx, entry, input.versionRevision);
       const evidence = await tx.catalog.evidence(entry, version, input.runId);
       if (evidence.measurementHash !== evidence.fingerprint.measurementHash)
         throw new Error("Rule measurement evidence mismatch");
       if (input.mode === "active") {
+        assertNoMetricPaging(version);
         if (!evidence.policyKnown || !evidence.policyEnabled)
-          throw new Error("Current paging policy is unavailable");
+          throw new RuleRequestError(
+            "PRECONDITION_FAILED",
+            "Current paging policy is unavailable",
+          );
         const eligibility = ruleActivationEligibility(version, evidence.report);
         if (!eligibility.eligible)
-          throw new Error(
+          throw new RuleRequestError(
+            "PRECONDITION_FAILED",
             "Rule requires usable historical evidence: " + eligibility.reason,
           );
       }
@@ -192,7 +204,11 @@ export class ReviewRuleActivation {
           !evidence.policyEnabled ||
           !ruleActivationEligibility(version, evidence.report).eligible)
       )
-        throw new Error("Rule is no longer eligible for activation");
+        throw new RuleRequestError(
+          "PRECONDITION_FAILED",
+          "Rule is no longer eligible for activation",
+        );
+      if (receipt.mode === "active") assertNoMetricPaging(version);
       const previous = await tx.catalog.runtime(entry.id);
       if (
         previous &&
@@ -259,7 +275,7 @@ export class ReviewRuleActivation {
       await authorize(tx, actor);
       const entry = await locked(tx, input.ruleId);
       if (entry.revision !== input.expectedRevision)
-        throw new Error("Rule changed concurrently");
+        throw new RuleRequestError("CONFLICT", "Rule changed concurrently");
       if (entry.status === "retired") return entry;
       const previous = await tx.catalog.runtime(entry.id);
       if (

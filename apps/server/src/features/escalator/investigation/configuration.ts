@@ -60,6 +60,7 @@ export async function standaloneInvestigationConfiguration(
       continue;
     }
     let parent: string | undefined;
+    let parentAvailable = true;
     if (source.kind === "probe" || source.kind === "metric") {
       const hint = await db.query<{ source_id: string }>(
         `SELECT source_id FROM ${tables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4`,
@@ -76,8 +77,7 @@ export async function standaloneInvestigationConfiguration(
           "SELECT data FROM escalator_signal_source WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4 FOR SHARE",
           [scope.workspaceId, parent, scope.serviceId, scope.environmentId],
         );
-        if (!locked.rows[0] || locked.rows[0].data.enabled !== true)
-          return undefined;
+        parentAvailable = locked.rows[0]?.data.enabled === true;
       }
     }
     const found = await db.query<{
@@ -99,16 +99,18 @@ export async function standaloneInvestigationConfiguration(
       row.source_id !== parent
     )
       return undefined;
-    if (row && source.kind !== "deployment" && row.data.enabled !== true)
-      return undefined;
+    const available =
+      parentAvailable &&
+      (!row || source.kind === "deployment" || row.data.enabled === true);
     versions.push({
       kind: source.kind,
       sourceId: source.sourceId,
-      revision: row
-        ? String(
-            row.data[source.kind === "deployment" ? "revision" : "version"],
-          )
-        : "missing",
+      revision:
+        row && available
+          ? String(
+              row.data[source.kind === "deployment" ? "revision" : "version"],
+            )
+          : "missing",
     });
   }
   if (selected.profile.secretId) {

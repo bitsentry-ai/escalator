@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import {
   ruleReportDetailInputSchema,
   ruleReportDetailSchema,
@@ -26,7 +27,7 @@ async function authorize(tx: RuleResultsTransaction, actor: Actor) {
     r.role !== actor.role ||
     !hasCapability(r.role, "rule:read")
   )
-    throw new Error("Rule results read forbidden");
+    throw new RuleRequestError("FORBIDDEN", "Rule results read forbidden");
 }
 export class RuleResultsQueries {
   constructor(private readonly repository: RuleResultsRepository) {}

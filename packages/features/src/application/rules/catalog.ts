@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { z } from "zod";
 import {
   hasCapability,
@@ -40,7 +41,7 @@ async function authorize(tx: RuleCatalogTransaction, actor: Actor) {
     responder.role !== actor.role ||
     !hasCapability(responder.role, "rule:propose")
   )
-    throw new Error("Rule draft forbidden");
+    throw new RuleRequestError("FORBIDDEN", "Rule draft forbidden");
 }
 async function persistDraft(
   tx: RuleCatalogTransaction,
@@ -139,7 +140,10 @@ export class RuleDrafts {
       )
         throw new PersistenceError("scope_violation");
       if (proposal.status !== "ready" || !proposal.generation)
-        throw new Error("Proposal evaluation is not complete");
+        throw new RuleRequestError(
+          "PRECONDITION_FAILED",
+          "Proposal evaluation is not complete",
+        );
       return persistDraft(
         tx,
         actor,
@@ -169,7 +173,8 @@ export class RuleDrafts {
         entry.revision !== input.expectedRevision ||
         !["draft", "retired"].includes(entry.status)
       )
-        throw new Error(
+        throw new RuleRequestError(
+          "CONFLICT",
           "Retire the current rule before changing its definition",
         );
       const oldRaw = await tx.catalog.version(entry.id, entry.versionRevision);
@@ -185,7 +190,10 @@ export class RuleDrafts {
         old.definition.selector.kind !== d.selector.kind ||
         old.definition.selector.streamId !== d.selector.streamId
       )
-        throw new Error("A different source requires a new rule draft");
+        throw new RuleRequestError(
+          "PRECONDITION_FAILED",
+          "A different source requires a new rule draft",
+        );
       const version = detectionRuleVersionSchema.parse({
         id: entry.id,
         revision: (await tx.catalog.latestVersionRevision(entry.id)) + 1,
@@ -201,7 +209,7 @@ export class RuleDrafts {
         updatedAt: now,
       });
       if (!(await tx.catalog.save(next, entry.revision)))
-        throw new Error("Rule changed concurrently");
+        throw new RuleRequestError("CONFLICT", "Rule changed concurrently");
       const id = pagingWorkId(
         tx.workspaceId,
         "rule-activation-history",

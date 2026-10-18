@@ -143,8 +143,7 @@ BEGIN
  tenant=NEW.workspace_id;
  IF TG_TABLE_NAME='escalator_rule_catalog' THEN target=NEW.id; ELSE target=NEW.rule_id; END IF;
  SELECT * INTO c FROM escalator_rule_catalog WHERE workspace_id=tenant AND id=target;
- -- Legacy explicit runtime fixtures have no catalog; no migration activates them.
- IF NOT FOUND THEN RETURN NEW; END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Rule runtime requires a catalog row'; END IF;
  SELECT * INTO r FROM escalator_rule_runtime WHERE workspace_id=tenant AND rule_id=target AND retired_at IS NULL;
  IF c.status IN ('active','shadow') THEN
   IF NOT FOUND OR r.generation<>c.generation OR r.rule_revision<>c.version_revision OR r.data->>'mode' IS DISTINCT FROM c.status THEN

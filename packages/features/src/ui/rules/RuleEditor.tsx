@@ -151,7 +151,7 @@ export function RuleEditor({
               setAggregation(next === "signal" ? "count" : "maximum");
             }}
           >
-            {["probe", "metric", "signal"].map((value) => (
+            {["probe", "metric"].map((value) => (
               <option key={value} value={value}>
                 {t(`labels.${value}`)}
               </option>

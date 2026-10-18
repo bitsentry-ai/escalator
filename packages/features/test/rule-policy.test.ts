@@ -92,16 +92,16 @@ test("policy facts cannot cross tenant, service or environment scope", () => {
     });
   }
 });
-test("a signal stream can use its source fact once without duplicate metadata", () => {
-  const rows = facts().filter((row) => row.kind !== "probe");
-  const signal = detectionRuleSchema.parse({
-    ...rule,
-    selector: { kind: "signal", streamId: "source", field: "events" },
-    aggregation: "count",
-  });
-  assert.equal(resolveRulePolicy(signal, at, rows).enabled, true);
-  assert.throws(
-    () => resolveRulePolicy(signal, at, [...rows, rows[0]!]),
-    /Duplicate policy fact/,
-  );
+test("absent or null paging bindings allow source evaluation with paging off", () => {
+  for (const rows of [
+    facts().filter((f) => f.kind !== "binding" && f.kind !== "policy"),
+    facts().map((f) => (f.kind === "binding" ? { ...f, policyId: null } : f)),
+  ]) {
+    assert.deepEqual(resolveRulePolicy(rule, at, rows), {
+      known: true,
+      enabled: true,
+      maintenance: false,
+      pagingEnabled: false,
+    });
+  }
 });

@@ -15,24 +15,29 @@ const scope = {
   environmentId: environmentIdSchema,
 };
 /** IDs refer to configured streams, never SQL, URLs or provider query text. */
-export const detectionRuleSelectorSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("metric"),
-    streamId: opaqueIdSchema,
-    field: z.enum(["requests", "errors", "error_rate"]),
-    minimumRequests: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-  }),
-  z.strictObject({
-    kind: z.literal("probe"),
-    streamId: opaqueIdSchema,
-    field: z.enum(["failure", "duration_ms"]),
-  }),
-  z.strictObject({
-    kind: z.literal("signal"),
-    streamId: opaqueIdSchema,
-    field: z.literal("events"),
-  }),
-]);
+export const detectionRuleSelectorSchema = z
+  .discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("metric"),
+      streamId: opaqueIdSchema,
+      field: z.enum(["requests", "errors", "error_rate"]),
+      minimumRequests: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+    }),
+    z.strictObject({
+      kind: z.literal("probe"),
+      streamId: opaqueIdSchema,
+      field: z.enum(["failure", "duration_ms"]),
+    }),
+    z.strictObject({
+      kind: z.literal("signal"),
+      streamId: opaqueIdSchema,
+      field: z.literal("events"),
+    }),
+  ])
+  .refine(
+    (selector): boolean => selector.kind !== "signal",
+    "Signal rules are unavailable until source continuity coverage is supported",
+  );
 
 /** Version 1 detects elevated values with explicit, non-overlapping recovery. */
 export const detectionRuleSchema = z

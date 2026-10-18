@@ -60,12 +60,29 @@ export function resolveRulePolicy(
   const policy = binding?.policyId
     ? find("policy", binding.policyId)
     : undefined;
-  const required = [service, stream, source, binding, policy];
+  const required = [service, stream, source];
   // A recorded disable is sufficient to suppress, even when another component's
   // legacy history is missing. Missing history alone never means enabled.
   if (required.some((row) => row && (row.deleted || !row.enabled)))
     return { known: true, enabled: false, maintenance: false };
   if (required.some((row) => !row))
     return { known: false, enabled: false, maintenance: false };
+  // Missing/null paging bindings mean paging is off, not unknown source history.
+  // Shadow and replay still evaluate the source; active mode additionally gates paging.
+  if (!binding || binding.deleted || !binding.enabled || !binding.policyId)
+    return {
+      known: true,
+      enabled: true,
+      maintenance: false,
+      pagingEnabled: false,
+    };
+  if (!policy) return { known: false, enabled: false, maintenance: false };
+  if (policy.deleted || !policy.enabled)
+    return {
+      known: true,
+      enabled: true,
+      maintenance: false,
+      pagingEnabled: false,
+    };
   return { known: true, enabled: true, maintenance: false };
 }

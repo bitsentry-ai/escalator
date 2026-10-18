@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { createHash } from "node:crypto";
 import { hasCapability, type Actor } from "../../contracts/identity.js";
 import {
@@ -113,7 +114,7 @@ export class EvaluateHeldOutRule {
       if (tx.workspaceId !== actor.workspaceId)
         throw new PersistenceError("scope_violation");
       if (!hasCapability(actor.role, "rule:propose"))
-        throw new Error("Rule evaluation forbidden");
+        throw new RuleRequestError("FORBIDDEN", "Rule evaluation forbidden");
       const responder = await tx.responders.get(actor.responderId);
       if (
         !responder?.enabled ||
@@ -121,7 +122,7 @@ export class EvaluateHeldOutRule {
         responder.id !== actor.responderId ||
         responder.role !== actor.role
       )
-        throw new Error("Rule evaluation forbidden");
+        throw new RuleRequestError("FORBIDDEN", "Rule evaluation forbidden");
       const source = await tx.replay.snapshot(sourceSnapshotId);
       if (!source) throw new PersistenceError("not_found");
       if (

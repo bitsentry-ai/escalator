@@ -526,6 +526,22 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
         )
       )
         return denied();
+      const captured = this.captured(
+        claim.scope.workspaceId,
+        value.row,
+      ).configuration;
+      if (
+        captured.sourceVersions.some(
+          (source) =>
+            source.kind === query.kind &&
+            source.sourceId === query.sourceId &&
+            source.revision === "missing",
+        )
+      )
+        return {
+          status: "unavailable" as const,
+          unavailable: { query, reason: "not_found" as const },
+        };
       const clock = await db.query<{ now: Date }>(
         "SELECT clock_timestamp() AS now",
         [],

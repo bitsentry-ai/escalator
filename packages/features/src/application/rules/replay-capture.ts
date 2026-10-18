@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { createHash } from "node:crypto";
 import {
   hasCapability,
@@ -62,7 +63,7 @@ export class CaptureRuleReplay {
       )
         throw new PersistenceError("scope_violation");
       if (!hasCapability(actor.role, "rule:propose"))
-        throw new Error("Rule replay forbidden");
+        throw new RuleRequestError("FORBIDDEN", "Rule replay forbidden");
       const responder = await tx.responders.get(actor.responderId);
       if (
         !responder?.enabled ||
@@ -70,7 +71,7 @@ export class CaptureRuleReplay {
         responder.id !== actor.responderId ||
         responder.role !== actor.role
       )
-        throw new Error("Rule replay forbidden");
+        throw new RuleRequestError("FORBIDDEN", "Rule replay forbidden");
       const service = await tx.services.get(rule.serviceId),
         environment = await tx.environments.get(rule.environmentId);
       if (!service || !environment) throw new PersistenceError("not_found");

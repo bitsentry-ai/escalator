@@ -356,30 +356,15 @@ test("probe rules evaluate only stored outcomes or durations", () => {
   });
   assert.equal(evaluateRuleWindow(input, snapshot).reason, "unusable_samples");
 });
-test("signal counting requires independent coverage and excludes receipts arriving after the decision", () => {
-  const input = rule();
-  input.selector = { kind: "signal", streamId: "alerts", field: "events" };
-  input.aggregation = "count";
-  input.minimumSamples = 1;
-  const snapshot = window();
-  snapshot.samples = snapshot.samples.map((s) =>
-    ruleSampleSchema.parse({
-      ...scope,
-      id: s.id,
-      streamId: "alerts",
-      kind: "signal",
-      observedAt: s.observedAt,
-      receivedAt: s.receivedAt,
-    }),
-  );
-  snapshot.samples[1]!.receivedAt = at(4);
-  assert.equal(evaluateRuleWindow(input, snapshot).value, 2);
+test("signal rules are rejected until source continuity coverage is supported", () => {
+  const input = {
+    ...rule(),
+    selector: { kind: "signal", streamId: "alerts", field: "events" },
+    aggregation: "count",
+  };
+  assert.equal(detectionRuleSchema.safeParse(input).success, false);
   assert.equal(
-    evaluateRuleWindow(input, { ...snapshot, coverage: "unknown" }).reason,
-    "coverage_unknown",
-  );
-  assert.equal(
-    evaluateRuleWindow(input, { ...snapshot, samples: [] }).state,
-    "insufficient_data",
+    evaluateRuleWindow(input as ReturnType<typeof rule>, window()).reason,
+    "invalid_input",
   );
 });

@@ -52,7 +52,7 @@ function database(
   } as unknown as PoolClient;
   return { db, calls };
 }
-test("first-page repository capture reads target metadata once and only records opaque credential IDs", async () => {
+test("first-page repository capture only records available binding revisions and opaque credential IDs", async () => {
   const second = { ...connection, sourceId: "second", repository: "worker" };
   const connections = new RepositoryConnections([connection, second]);
   const fake = database([{ id: "target", revision: "7", enabled: true }]);
@@ -76,12 +76,6 @@ test("first-page repository capture reads target metadata once and only records 
     },
     { kind: "git_diff", sourceId: "missing", revision: "missing" },
   ]);
-  assert.equal(fake.calls.length, 1);
-  assert.deepEqual(fake.calls[0].values, ["org_a", "api", "prod", ["target"]]);
-  assert.doesNotMatch(
-    fake.calls[0].sql,
-    /escalator_secret|FOR UPDATE|FOR SHARE/,
-  );
 });
 test("native-only and cross-scope selections do not query repository metadata", async () => {
   const fake = database([]),
@@ -192,4 +186,67 @@ test("source count is bounded before any database work", async () => {
     ),
   );
   assert.equal(fake.calls.length, 0);
+});
+
+test("disabled repository secrets and native sources remain unavailable without failing configuration", async () => {
+  const sample = investigationFixture();
+  const now = "2026-10-01T00:00:00.000Z";
+  const settings = investigationSettingsSchema.parse({
+    profile: {
+      id: "profile",
+      revision: 1,
+      scope,
+      destination: sample.result.report.destination,
+      endpoint: "http://127.0.0.1:11434",
+      secretId: null,
+    },
+    enabled: true,
+    limits: sample.claim.limits,
+    sources: [
+      selection("first"),
+      { ...selection("disabled"), kind: "alert" },
+      { ...selection("healthy"), kind: "alert" },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  });
+  const db = {
+    query: async (sql: string, values: unknown[]) => {
+      const rows = sql.includes("FROM escalator_investigation_settings s")
+        ? [{ data: settings, sources: settings.sources }]
+        : sql.includes("FROM escalator_secret")
+          ? []
+          : sql.includes("FROM escalator_signal_source")
+            ? [{ data: { enabled: values[1] === "healthy", version: 2 } }]
+            : sql.includes("FROM escalator_deploy_target")
+              ? [{ enabled: true, revision: "7" }]
+              : [{ id: "present" }];
+      return { rows, rowCount: rows.length };
+    },
+  } as unknown as PoolClient;
+  const connections = new RepositoryConnections([connection]);
+  const captured = await captureRepositorySources(
+    db,
+    scope,
+    settings.sources,
+    connections,
+  );
+  const current = await standaloneInvestigationConfiguration(
+    db,
+    investigationScopeSchema.parse({ ...scope, incidentId: "incident" }),
+    "profile",
+    connections,
+  );
+  assert.deepEqual(captured, {
+    sourceVersions: [
+      { kind: "git_diff", sourceId: "first", revision: "missing" },
+    ],
+    secretIds: [],
+  });
+  assert.deepEqual(current?.sourceVersions, [
+    { kind: "alert", sourceId: "disabled", revision: "missing" },
+    { kind: "alert", sourceId: "healthy", revision: "2" },
+    ...captured.sourceVersions,
+  ]);
+  assert.deepEqual(current?.secretIds, []);
 });

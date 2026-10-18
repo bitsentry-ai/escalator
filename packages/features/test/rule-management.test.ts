@@ -1,3 +1,4 @@
+import { RuleRequestError } from "../src/application/rules/request-error.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fixture, at } from "./conformance/rule-backtest-fixture.js";
@@ -146,15 +147,22 @@ test("transport errors redact validation contents and unknown infrastructure det
       message: "Invalid rule request",
     });
   assert.equal(
+    ruleRequestFailure(new Error("Rule approval forbidden")),
+    undefined,
+  );
+  assert.equal(
     ruleRequestFailure(new Error("password=private database details")),
     undefined,
   );
   assert.equal(
-    ruleRequestFailure(new Error("Rule evidence changed after review"))?.code,
+    ruleRequestFailure(
+      new RuleRequestError("CONFLICT", "diagnostic wording changed"),
+    )?.code,
     "CONFLICT",
   );
   assert.equal(
-    ruleRequestFailure(new Error("Rule approval forbidden"))?.code,
+    ruleRequestFailure(new RuleRequestError("FORBIDDEN", "another diagnostic"))
+      ?.code,
     "FORBIDDEN",
   );
 });

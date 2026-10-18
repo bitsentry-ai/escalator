@@ -577,3 +577,26 @@ test("adoption rejects unfinished or substituted proposals", async () => {
   );
   assert.deepEqual(x.control.operations, []);
 });
+
+test("a metric monitor cannot be activated for double paging but remains available in shadow", async () => {
+  const x = await setup();
+  x.version.definition.selector = {
+    kind: "metric",
+    streamId: "monitor",
+    field: "error_rate",
+    minimumRequests: 1,
+  };
+  await assert.rejects(x.review(), /paging metric monitor; use shadow mode/);
+  const receipt = await x.reviews.review(x.actor, {
+    ruleId: x.version.id,
+    expectedRevision: x.state().entry.revision,
+    versionRevision: x.version.revision,
+    mode: "shadow",
+    runId: null,
+  });
+  const row = await x.reviews.activate(x.actor, {
+    ruleId: x.version.id,
+    receiptId: receipt.id,
+  });
+  assert.equal(row.status, "shadow");
+});

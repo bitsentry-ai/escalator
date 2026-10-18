@@ -1,3 +1,4 @@
+import { RuleRequestError } from "@bitsentry-escalator/features/application";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { AppContext } from "../../src/platform/trpc/context.js";
@@ -47,7 +48,7 @@ test("stale rule reviews return a redacted conflict", async () => {
     context({
       activation: {
         activate: async () => {
-          throw new Error("Rule evidence changed after review");
+          throw new RuleRequestError("CONFLICT", "diagnostic wording changed");
         },
       },
     }),

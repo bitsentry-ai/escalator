@@ -380,6 +380,35 @@ export function ruleCatalogConformance(
     },
   );
   scenario(
+    "the database rejects a runtime whose version has no catalog",
+    async (f, s) => {
+      const ruleId = randomUUID();
+      await assert.rejects(
+        f.repository.transaction(s.actor.workspaceId, async (tx) => {
+          const version = { id: ruleId, revision: 1, definition: s.definition };
+          await tx.catalog.insertVersion(version);
+          await tx.catalog.activateRuntime({
+            version,
+            generation: 1,
+            revision: 1,
+            mode: "shadow",
+            title: "Orphan",
+            measurementHash: "a".repeat(64),
+            state: null,
+            incidentId: null,
+            dueAt: await tx.catalog.currentTime(),
+            jobId: randomUUID(),
+          });
+        }),
+        /Rule runtime requires a catalog row/,
+      );
+      await f.repository.transaction(s.actor.workspaceId, async (tx) => {
+        assert.equal(await tx.catalog.runtime(ruleId), undefined);
+        assert.equal(await tx.catalog.version(ruleId, 1), undefined);
+      });
+    },
+  );
+  scenario(
     "the database rejects a live catalog without its matching runtime",
     async (f, s) => {
       await assert.rejects(

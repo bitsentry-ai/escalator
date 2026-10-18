@@ -100,7 +100,7 @@ export function buildRuleReviewEvidence(
       report: null,
       measurementHash,
       policyKnown: policy.known,
-      policyEnabled: policy.enabled,
+      policyEnabled: policy.enabled && policy.pagingEnabled !== false,
     };
   const run = ruleReplayRunSchema.parse(selected.run),
     stored = storedRuleReplaySnapshotSchema.parse(selected.snapshot),
@@ -217,6 +217,6 @@ export function buildRuleReviewEvidence(
     report: record,
     measurementHash,
     policyKnown: policy.known,
-    policyEnabled: policy.enabled,
+    policyEnabled: policy.enabled && policy.pagingEnabled !== false,
   };
 }

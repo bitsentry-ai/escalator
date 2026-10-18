@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { z } from "zod";
 import {
   ruleCatalogListSchema,
@@ -27,7 +28,7 @@ async function authorize(tx: RuleCatalogReadTransaction, actor: Actor) {
     current.role !== actor.role ||
     !hasCapability(current.role, "rule:read")
   )
-    throw new Error("Rule read forbidden");
+    throw new RuleRequestError("FORBIDDEN", "Rule read forbidden");
 }
 /** GET paths do not acquire live source locks or create policy history. */
 export class RuleCatalogQueries {

@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import {
   loadRuleProposalSource as sourceFor,
   lockRuleProposalGeneration as activeClaim,
@@ -37,7 +38,7 @@ async function authorize(tx: RuleProposalTransaction, actor: Actor) {
     responder.role !== actor.role ||
     !hasCapability(responder.role, "rule:propose")
   )
-    throw new Error("Rule proposal forbidden");
+    throw new RuleRequestError("FORBIDDEN", "Rule proposal forbidden");
 }
 async function audit(
   tx: RuleProposalTransaction,
@@ -76,7 +77,7 @@ async function save(
 ) {
   const parsed = ruleProposalSchema.parse(next);
   if (!(await tx.proposals.save(parsed, previous.revision)))
-    throw new Error("Proposal changed concurrently");
+    throw new RuleRequestError("CONFLICT", "Proposal changed concurrently");
   await audit(tx, parsed, action, actor);
   return parsed;
 }
@@ -160,7 +161,10 @@ export class RuleProposalGeneration {
         compareUtcTimestamps(label.startedAt, source.snapshot.lastDecisionAt) >
           0
       )
-        throw new Error("Proposal origin must be reviewed before capture");
+        throw new RuleRequestError(
+          "PRECONDITION_FAILED",
+          "Proposal origin must be reviewed before capture",
+        );
       const now = await tx.proposals.currentTime();
       if (compareUtcTimestamps(source.snapshot.snapshotAt, now) > 0)
         throw new Error("Capture is in the future");
@@ -205,7 +209,7 @@ export class RuleProposalGeneration {
       }
       const source = await sourceFor(tx, row.sourceSnapshotId);
       if (source.inputHash !== row.sourceInputHash)
-        throw new Error("Proposal capture changed");
+        throw new RuleRequestError("CONFLICT", "Proposal capture changed");
       if (!(await permitted(tx, row, source))) {
         await fail(tx, row, "authorization_changed", now);
         return undefined;
@@ -323,7 +327,10 @@ export class RuleProposalGeneration {
         actor.role !== "administrator" &&
         row.requestedBy !== actor.responderId
       )
-        throw new Error("Proposal cancellation forbidden");
+        throw new RuleRequestError(
+          "FORBIDDEN",
+          "Proposal cancellation forbidden",
+        );
       if (terminal(row)) return row;
       const next = await save(
         tx,

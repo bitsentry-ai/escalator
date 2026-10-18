@@ -44,15 +44,17 @@ export async function enqueueFirstPageInvestigation(
     revision: string;
   }>(
     `SELECT l.kind,l.source_id,COALESCE(CASE l.kind
-       WHEN 'probe' THEN p.data->>'version'
-       WHEN 'alert' THEN a.data->>'version'
-       WHEN 'metric' THEN m.data->>'version'
+       WHEN 'probe' THEN CASE WHEN p.data->>'enabled'='true' AND ps.data->>'enabled'='true' THEN p.data->>'version' END
+       WHEN 'alert' THEN CASE WHEN a.data->>'enabled'='true' THEN a.data->>'version' END
+       WHEN 'metric' THEN CASE WHEN m.data->>'enabled'='true' AND ms.data->>'enabled'='true' THEN m.data->>'version' END
        WHEN 'deployment' THEN d.data->>'revision' END,'missing') AS revision
      FROM escalator_investigation_source_link l
      LEFT JOIN escalator_probe p ON l.kind='probe' AND p.workspace_id=l.workspace_id AND p.id=l.source_id AND p.service_id=$3 AND p.environment_id=$4
      LEFT JOIN escalator_signal_source a ON l.kind='alert' AND a.workspace_id=l.workspace_id AND a.id=l.source_id AND a.service_id=$3 AND a.environment_id=$4
      LEFT JOIN escalator_metric_monitor m ON l.kind='metric' AND m.workspace_id=l.workspace_id AND m.id=l.source_id AND m.service_id=$3 AND m.environment_id=$4
      LEFT JOIN escalator_deploy_target d ON l.kind='deployment' AND d.workspace_id=l.workspace_id AND d.id=l.source_id AND d.service_id=$3 AND d.environment_id=$4
+     LEFT JOIN escalator_signal_source ps ON ps.workspace_id=p.workspace_id AND ps.id=p.source_id AND ps.service_id=$3 AND ps.environment_id=$4
+     LEFT JOIN escalator_signal_source ms ON ms.workspace_id=m.workspace_id AND ms.id=m.source_id AND ms.service_id=$3 AND ms.environment_id=$4
      WHERE l.workspace_id=$1 AND l.profile_id=$2 ORDER BY l.position LIMIT 33`,
     [
       workspaceId,

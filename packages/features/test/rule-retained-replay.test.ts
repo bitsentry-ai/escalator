@@ -129,3 +129,19 @@ test("receipt scopes and future availability are rejected before evaluation", ()
     /Retained replay/,
   );
 });
+
+test("replay still opens and recovers simulated episodes without a paging binding", () => {
+  for (const nullPolicy of [false, true]) {
+    const snapshot = fixture();
+    snapshot.retained!.policyFacts = snapshot
+      .retained!.policyFacts.filter(
+        (f) => f.kind !== "policy" && (nullPolicy || f.kind !== "binding"),
+      )
+      .map((f) => (f.kind === "binding" ? { ...f, policyId: null } : f));
+    const result = replayRuleWindows(snapshot, null, budget);
+    assert.deepEqual(
+      result.decisions.map((d) => d.action),
+      ["opened", "none", "recovered", "none"],
+    );
+  }
+});

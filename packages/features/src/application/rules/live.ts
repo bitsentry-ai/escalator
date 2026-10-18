@@ -127,7 +127,10 @@ export class LiveRuleEvaluation {
       if (!policy.known) window.coverage = "unknown";
       const transition = advanceRuleDecision(row.version, row.state, {
         window,
-        enabled: policy.known ? policy.enabled : true,
+        enabled: policy.known
+          ? policy.enabled &&
+            (row.mode === "shadow" || policy.pagingEnabled !== false)
+          : true,
         maintenance: policy.known && policy.maintenance,
       });
       if (transition.status === "duplicate" || transition.status === "stale")

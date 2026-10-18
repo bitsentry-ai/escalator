@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import {
   ruleCatalogEntrySchema,
   ruleReviewReceiptSchema,
@@ -28,14 +29,20 @@ export function assertCurrentRuleReview(
     receipt.ruleId !== entry.id ||
     receipt.reviewedBy !== actor.responderId
   )
-    throw new Error("Rule review belongs to another identity or scope");
+    throw new RuleRequestError(
+      "FORBIDDEN",
+      "Rule review belongs to another identity or scope",
+    );
   if (receipt.catalogRevision !== entry.revision)
-    throw new Error("Rule changed after review");
+    throw new RuleRequestError("CONFLICT", "Rule changed after review");
   if (
     compareUtcTimestamps(now, receipt.createdAt) < 0 ||
     compareUtcTimestamps(now, receipt.expiresAt) >= 0
   )
-    throw new Error("Rule review expired");
+    throw new RuleRequestError("CONFLICT", "Rule review expired");
   if (JSON.stringify(receipt.fingerprint) !== JSON.stringify(current))
-    throw new Error("Rule evidence changed after review");
+    throw new RuleRequestError(
+      "CONFLICT",
+      "Rule evidence changed after review",
+    );
 }

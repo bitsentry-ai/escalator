@@ -1,3 +1,4 @@
+import { RuleRequestError } from "./request-error.js";
 import { hasCapability, type Actor } from "../../contracts/identity.js";
 import {
   createRuleDraftSchema,
@@ -76,7 +77,7 @@ export class RuleManagement {
       found = await this.catalog.get(actor, { id: input.ruleId });
     if (!found) throw new PersistenceError("not_found");
     if (found.entry.revision !== input.expectedRevision)
-      throw new Error("Rule changed concurrently");
+      throw new RuleRequestError("CONFLICT", "Rule changed concurrently");
     // An edit after this read cannot alter the immutable version captured here.
     // Review later checks the current catalog revision and original sealed report.
     const run = await this.capture.create(actor, found.version, {
