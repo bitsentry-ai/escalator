@@ -1,3 +1,9 @@
+import {
+  AcknowledgementHttp,
+  PageAcknowledgements,
+} from "@bitsentry-escalator/features/application";
+import { PostgresPagingRepository } from "../../platform/database/paging.repository.js";
+import { EscalatorAcknowledgementController } from "../../platform/http/ack/ack.controller.js";
 import { Logger, Module } from "@nestjs/common";
 import {
   DatabaseModule,
@@ -9,7 +15,17 @@ import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.j
 import { standalonePagingRuntime } from "./runtime.js";
 @Module({
   imports: [DatabaseModule, SecretKeysModule],
+  controllers: [EscalatorAcknowledgementController],
   providers: [
+    {
+      provide: AcknowledgementHttp,
+      inject: [StandaloneDatabase],
+      useFactory: (db: StandaloneDatabase) =>
+        new AcknowledgementHttp(
+          new PageAcknowledgements(new PostgresPagingRepository(db.pool)),
+          (scope) => scope === db.workspaceId,
+        ),
+    },
     {
       provide: PostgresJobsRuntime,
       inject: [StandaloneDatabase, SecretKeyRing],

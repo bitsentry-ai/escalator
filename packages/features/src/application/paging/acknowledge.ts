@@ -9,14 +9,8 @@ import type { AuditActor } from "../ports/audit.js";
 import type { PagingRepository, PagingTransaction } from "./persistence.js";
 import { pagingWorkId } from "./work-ids.js";
 
-export type AcknowledgementResult =
-  | { state: "invalid" }
-  | { state: "open"; pageId: string; title: string }
-  | {
-      state: "acknowledged" | "resolved";
-      pageId: string;
-      ownerId: string | null;
-    };
+import type { AcknowledgementResult } from "../../contracts/index.js";
+export type { AcknowledgementResult } from "../../contracts/index.js";
 
 /** The raw credential is transient. Only its SHA-256 digest enters persistence. */
 export function acknowledgementDigest(token: string): string | undefined {

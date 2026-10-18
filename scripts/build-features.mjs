@@ -43,3 +43,22 @@ await build({
   platform: "neutral",
   packages: "external",
 });
+
+// Served as static bytes by host controllers; never imported by a server module.
+await build({
+  entryPoints: ["src/ui/ack/browser.tsx"],
+  outfile: "dist/ack/client.js",
+  bundle: true,
+  minify: true,
+  platform: "browser",
+  format: "iife",
+  define: { "process.env.NODE_ENV": '"production"' },
+  metafile: true,
+}).then((result) => {
+  if (
+    Object.keys(result.metafile.inputs).some((input) =>
+      /src\/(application|adapters|investigation)\//.test(input),
+    )
+  )
+    throw new Error("Server code entered acknowledgement browser asset");
+});

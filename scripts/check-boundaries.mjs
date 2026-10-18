@@ -43,7 +43,7 @@ export function checkSource(file, source, root = sourceRoot) {
       if (
         !("./" + subpath in manifest.exports) ||
         (browser && !browserAreas.has(subpath)) ||
-        (area !== "ui" && subpath === "ui")
+        (area !== "ui" && ["ui", "ack-assets"].includes(subpath))
       )
         errors.push(`${file}: forbidden export ${name}`);
     } else {

@@ -53,5 +53,16 @@
     "more": "加载更多",
     "retry": "重试",
     "unavailable": "此组织尚未启用 Escalator。"
+  },
+  "ack": {
+    "title": "确认告警",
+    "loading": "正在加载…",
+    "failed": "无法确认告警状态，请重试。",
+    "retry": "刷新状态",
+    "explanation": "确认后，此告警将由您负责，并停止进一步升级。",
+    "confirm": "确认",
+    "invalid": "此确认链接无效或已过期。",
+    "acknowledged": "此告警已被确认。",
+    "resolved": "此事件已解决。"
   }
 }

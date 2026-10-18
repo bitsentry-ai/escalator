@@ -53,5 +53,16 @@
     "more": "Muat lebih banyak",
     "retry": "Coba lagi",
     "unavailable": "Escalator belum diaktifkan untuk organisasi ini."
+  },
+  "ack": {
+    "title": "Konfirmasi panggilan",
+    "loading": "Memuat…",
+    "failed": "Status panggilan tidak dapat dikonfirmasi. Coba lagi.",
+    "retry": "Muat ulang status",
+    "explanation": "Dengan mengonfirmasi, Anda menjadi penanggung jawab dan eskalasi berikutnya dihentikan.",
+    "confirm": "Konfirmasi",
+    "invalid": "Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.",
+    "acknowledged": "Panggilan ini telah dikonfirmasi.",
+    "resolved": "Insiden ini telah diselesaikan."
   }
 }

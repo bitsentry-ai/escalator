@@ -69,6 +69,16 @@
         "types": "./dist/cjs/locales/index.d.ts",
         "default": "./dist/cjs/locales/index.js"
       }
+    },
+    "./ack-assets": {
+      "import": {
+        "types": "./dist/esm/ui/ack/browser.d.ts",
+        "default": "./dist/ack/client.js"
+      },
+      "require": {
+        "types": "./dist/cjs/ui/ack/browser.d.ts",
+        "default": "./dist/ack/client.js"
+      }
     }
   },
   "scripts": {
@@ -78,11 +88,14 @@
     "test": "pnpm run build && tsc -p tsconfig.test.json --noEmit && node ../../scripts/test-features.mjs"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

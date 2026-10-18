@@ -16,3 +16,5 @@ export * from "./paging.js";
 export * from "./contact.js";
 
 export * from "./configuration.js";
+
+export * from "./acknowledgement.js";

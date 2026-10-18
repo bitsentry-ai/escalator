@@ -53,5 +53,16 @@
     "more": "Charger la suite",
     "retry": "Réessayer",
     "unavailable": "Escalator n’est pas activé pour cette organisation."
+  },
+  "ack": {
+    "title": "Accuser réception",
+    "loading": "Chargement…",
+    "failed": "Impossible de confirmer l’état. Réessayez.",
+    "retry": "Actualiser",
+    "explanation": "En confirmant, vous prenez en charge cette alerte et arrêtez son escalade.",
+    "confirm": "Prendre en charge",
+    "invalid": "Ce lien est invalide ou a expiré.",
+    "acknowledged": "Cette alerte a été prise en charge.",
+    "resolved": "Cet incident a été résolu."
   }
 }

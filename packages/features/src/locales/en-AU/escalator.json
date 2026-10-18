@@ -53,5 +53,16 @@
     "more": "Load more",
     "retry": "Try again",
     "unavailable": "Escalator is not enabled for this organisation."
+  },
+  "ack": {
+    "title": "Acknowledge page",
+    "loading": "Loading…",
+    "failed": "Could not confirm the page state. Try again.",
+    "retry": "Refresh status",
+    "explanation": "Acknowledging assigns this page to you and stops further escalation.",
+    "confirm": "Acknowledge",
+    "invalid": "This acknowledgement link is invalid or expired.",
+    "acknowledged": "This page has been acknowledged.",
+    "resolved": "This incident has been resolved."
   }
 }

@@ -54,6 +54,16 @@ test("contracts cannot pull React or UI into a server consumer", () => {
   );
 });
 
+test("server modules cannot execute the browser acknowledgement asset", () => {
+  assert.ok(
+    checkSource(
+      "/src/application/index.ts",
+      ["im", 'port "@bitsentry-escalator/features/ack-assets";'].join(""),
+      "/src",
+    ).length,
+  );
+});
+
 test("boundary walker scans every TypeScript module extension", () => {
   const root = mkdtempSync(path.join(tmpdir(), "escalator-walk-"));
   try {
