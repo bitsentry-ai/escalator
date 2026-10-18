@@ -1,3 +1,5 @@
+import { PostgresInvestigationRepository } from "../../src/platform/database/postgres-investigation.repository.js";
+import { standaloneInvestigationConfiguration } from "../../src/features/escalator/investigation/configuration.js";
 import { readNativeEvidence } from "../../src/platform/database/postgres-native-evidence.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -246,6 +248,140 @@ test(
           "unavailable",
         );
       });
+    } finally {
+      await f.database.dispose();
+    }
+  },
+);
+
+test(
+  "standalone live policy consumes first-page capture and fences disabled settings",
+  { skip },
+  async () => {
+    const f = await fixture(true);
+    try {
+      await f.open();
+      await f.foundation.withConnection(f.workspaceId, async (_base, db) => {
+        const scope = investigationScopeSchema.parse({
+          workspaceId: f.workspaceId,
+          serviceId: "api",
+          environmentId: "prod",
+          incidentId: "first",
+        });
+        assert.ok(
+          await standaloneInvestigationConfiguration(db, scope, "profile"),
+        );
+        const peer = await f.database.app.connect();
+        try {
+          await peer.query("BEGIN");
+          await peer.query("SELECT set_config('app.workspace_id',$1,true)", [
+            f.workspaceId,
+          ]);
+          // These are the row lock modes acquired by FK checks while opening a page.
+          assert.equal(
+            (
+              await peer.query(
+                "SELECT id FROM escalator_service WHERE workspace_id=$1 AND id='api' FOR KEY SHARE NOWAIT",
+                [f.workspaceId],
+              )
+            ).rowCount,
+            1,
+          );
+          assert.equal(
+            (
+              await peer.query(
+                "SELECT id FROM escalator_environment WHERE workspace_id=$1 AND id='prod' FOR KEY SHARE NOWAIT",
+                [f.workspaceId],
+              )
+            ).rowCount,
+            1,
+          );
+        } finally {
+          await peer.query("ROLLBACK");
+          peer.release();
+        }
+      });
+      const repository = new PostgresInvestigationRepository(f.database.app, {
+        authorizeRuntime: async (_db, workspaceId, runtimeId) =>
+          workspaceId === f.workspaceId && runtimeId === "runner",
+        configuration: standaloneInvestigationConfiguration,
+      });
+      const claim = await repository.claim({
+        workspaceId: f.workspaceId,
+        runtimeId: "runner",
+        claimToken: "runner_claim",
+        leaseMs: 30000,
+      });
+      assert.ok(claim);
+      assert.equal((await repository.readProfile(claim))?.id, "profile");
+      const empty = await repository.readNativeEvidence(
+        claim,
+        claim.sources[0],
+        8192,
+      );
+      assert.equal(empty.status, "unavailable");
+      if (empty.status === "unavailable")
+        assert.equal(empty.unavailable.reason, "not_found");
+      assert.equal(
+        await repository.readModelSecret(claim, "unapproved"),
+        undefined,
+      );
+      await f.foundation.withConnection(f.workspaceId, async (base, db) => {
+        const store = postgresInvestigationSettingsStore(db, f.workspaceId);
+        const current = await store.selected(claim.scope);
+        assert.ok(current);
+        assert.equal(
+          await store.put(
+            {
+              ...current,
+              enabled: false,
+              profile: {
+                ...current.profile,
+                revision: current.profile.revision + 1,
+              },
+              updatedAt: base.now,
+            },
+            current.profile.revision,
+          ),
+          true,
+        );
+      });
+      assert.equal(await repository.readProfile(claim), undefined);
+      assert.equal(await repository.heartbeat(claim, 30000), undefined);
+    } finally {
+      await f.database.dispose();
+    }
+  },
+);
+
+test(
+  "standalone service disablement fences production investigation reads and renewal",
+  { skip },
+  async () => {
+    const f = await fixture(true);
+    try {
+      await f.open();
+      const repository = new PostgresInvestigationRepository(f.database.app, {
+        authorizeRuntime: async (_db, workspaceId, runtimeId) =>
+          workspaceId === f.workspaceId && runtimeId === "runner",
+        configuration: standaloneInvestigationConfiguration,
+      });
+      const claim = await repository.claim({
+        workspaceId: f.workspaceId,
+        runtimeId: "runner",
+        claimToken: "service_claim",
+        leaseMs: 30000,
+      });
+      assert.ok(claim);
+      assert.equal((await repository.readProfile(claim))?.id, "profile");
+      await f.foundation.withConnection(f.workspaceId, async (_base, db) => {
+        await db.query(
+          "UPDATE escalator_service SET enabled=false,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id='api'",
+          [f.workspaceId],
+        );
+      });
+      assert.equal(await repository.readProfile(claim), undefined);
+      assert.equal(await repository.heartbeat(claim, 30000), undefined);
     } finally {
       await f.database.dispose();
     }

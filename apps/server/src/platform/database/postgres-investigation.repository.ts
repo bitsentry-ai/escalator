@@ -1,3 +1,4 @@
+import type { SecretEnvelope } from "../secrets/keyring.js";
 import { readNativeEvidence } from "./postgres-native-evidence.js";
 import { investigationTransaction } from "./investigation-transaction.js";
 import type { Pool, PoolClient } from "pg";
@@ -328,6 +329,51 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
         return undefined;
       return (await this.fence(db, this.claimValue(key.workspaceId, row)))
         ?.claim;
+    });
+  }
+  /** Standalone-only encrypted envelope projection, never exposed as a machine endpoint. */
+  async readModelSecret(input: InvestigationClaim, secretId: string) {
+    const claim = investigationClaimSchema.parse(input);
+    opaqueIdSchema.parse(secretId);
+    return this.scoped(claim.scope.workspaceId, async (db) => {
+      const value = await this.fence(db, claim);
+      if (!value) return undefined;
+      const configuration = this.captured(
+        claim.scope.workspaceId,
+        value.row,
+      ).configuration;
+      if (
+        configuration.profile.secretId !== secretId ||
+        !configuration.secretIds.includes(secretId)
+      )
+        return undefined;
+      const records = await db.query<{ id: string; envelope: SecretEnvelope }>(
+        "SELECT id,envelope FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND purpose='provider' AND disabled_at IS NULL FOR SHARE",
+        [claim.scope.workspaceId, secretId],
+      );
+      if (!records.rows[0]) return undefined;
+      const current = await this.locked(db, claim.scope.workspaceId, claim.id);
+      if (!current?.live) return undefined;
+      const clock = await db.query<{ now: Date }>(
+        "SELECT clock_timestamp() AS now",
+        [],
+      );
+      return {
+        id: secretId,
+        workspaceId: claim.scope.workspaceId,
+        envelope: records.rows[0].envelope,
+        disabled: false,
+        claim: {
+          workspaceId: claim.scope.workspaceId,
+          workId: claim.id,
+          queue: "job" as const,
+          state: current.state,
+          token: current.lease_token,
+          expiresAt: current.lease_expires_at?.toISOString() ?? null,
+          databaseNow: clock.rows[0].now.toISOString(),
+          approvedSecretIds: [secretId],
+        },
+      };
     });
   }
   /** Internal runner access. A profile is returned only under the same live claim fence. */

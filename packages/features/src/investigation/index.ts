@@ -89,3 +89,8 @@ export {
   nativeEvidenceRowSchema,
   type NativeEvidenceRow,
 } from "./evidence/native.js";
+
+export {
+  InvestigationConsumer,
+  type InvestigationConsumerOptions,
+} from "./orchestration/consumer.js";
