@@ -19,6 +19,7 @@ type Data = {
   sources: string[];
   rows: ReplayPruneSnapshot["candidates"];
   bytes: number;
+  retiredRows?: number;
 };
 async function fixture(count = 105, sources = ["a"]) {
   let now = Date.parse("2026-10-03T12:00:00.000Z"),
@@ -110,6 +111,11 @@ async function fixture(count = 105, sources = ["a"]) {
                     locked = true;
                     return structuredClone(data.state);
                   }),
+                retireWork: async () => {
+                  const count = data.retiredRows ?? 0;
+                  data.retiredRows = 0;
+                  return count;
+                },
                 lockWork: async (id) => {
                   const row = workRecords.find(
                     (value) => value.queue === "job" && value.intent.id === id,
@@ -180,6 +186,10 @@ async function fixture(count = 105, sources = ["a"]) {
     advance: (ms: number) => {
       now += ms;
     },
+    retired: (count: number) =>
+      foundation.withExtensions(scope, async (_, extra) => {
+        (extra.maintenance as Record<string, Data>)[scope]!.retiredRows = count;
+      }),
     fail: (value: boolean) => {
       failSuccessor = value;
     },
@@ -402,4 +412,59 @@ test("cancelled handlers and invalid deployment cadences leave persisted state u
   assert.throws(() => new RetentionMaintenanceJobs(f.repository, 1));
   assert.throws(() => new RetentionMaintenanceJobs(f.repository, 3600000, 0));
   await assert.rejects(initializeRetentionMaintenance(f.repository, scope, 1));
+});
+
+test("retired jobs share the batch audit and successor transaction", async () => {
+  const f = await fixture();
+  await initializeRetentionMaintenance(f.repository, scope);
+  await f.step();
+  await f.retired(3);
+  const lease = await f.claim();
+  const before = await f.read();
+  f.fail(true);
+  await assert.rejects(f.jobs.run(lease, new AbortController().signal));
+  assert.deepEqual(await f.read(), before);
+  f.fail(false);
+  assert.deepEqual(await f.jobs.run(lease, new AbortController().signal), {
+    state: "completed",
+  });
+  assert.equal((await f.read()).retiredRows, 0);
+  assert.deepEqual(await f.jobs.run(lease, new AbortController().signal), {
+    state: "completed",
+  });
+  await f.foundation.transaction(scope, async (tx) => {
+    const records = (await tx.audit.list({ limit: 100 })).items.filter(
+      (row) => row.action === "retention.jobs.pruned",
+    );
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0]!.metadata, { deletedRows: 3 });
+  });
+});
+test("retired work cleanup rejects repeated calls and calls after accounting starts", async () => {
+  const f = await fixture();
+  await initializeRetentionMaintenance(f.repository, scope);
+  await f.step();
+  await f.retired(2);
+  const before = await f.read();
+  await assert.rejects(
+    f.repository.transaction(scope, "a", async (tx) => {
+      await tx.maintenance.lock();
+      await tx.retentionPrune.snapshot(null);
+      await assert.rejects(tx.maintenance.retireWork());
+    }),
+  );
+  assert.deepEqual(await f.read(), before);
+  await assert.rejects(
+    f.repository.transaction(scope, "a", async (tx) => {
+      await tx.maintenance.lock();
+      assert.equal(await tx.maintenance.retireWork(), 2);
+      await assert.rejects(tx.maintenance.retireWork());
+    }),
+  );
+  assert.deepEqual(await f.read(), before);
+  await f.retired(101);
+  const invalid = await f.read();
+  const lease = await f.claim();
+  await assert.rejects(f.jobs.run(lease, new AbortController().signal));
+  assert.deepEqual(await f.read(), invalid);
 });

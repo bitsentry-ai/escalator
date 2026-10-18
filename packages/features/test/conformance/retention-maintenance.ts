@@ -369,4 +369,145 @@ export function retentionMaintenanceConformance(
       );
     },
   );
+
+  scenario(
+    "obsolete maintenance jobs expire by exact identity without deleting live or foreign work",
+    async (f, a, b) => {
+      await seed(f, a);
+      await seed(f, b);
+      await initializeRetentionMaintenance(f.maintenance, a);
+      await initializeRetentionMaintenance(f.maintenance, b);
+      const obsolete = (await f.maintenance.read(a))!;
+      await step(f, a);
+      await step(f, b);
+      for (const scope of [a, b])
+        await f.query(
+          scope,
+          "UPDATE escalator_job SET completed_at=transaction_timestamp()-interval '8 days' WHERE kind='retention.sweep' AND state='completed'",
+        );
+      await f.detection.transaction(a, async (tx) => {
+        await tx.work.enqueue("job", {
+          id: "retention.sweep:malformed",
+          kind: "retention.sweep",
+          idempotencyKey: "malformed",
+          payload: { version: 999 },
+          dueAt: tx.now,
+        });
+        await tx.work.enqueue("job", {
+          id: "other-kind",
+          kind: "other.kind",
+          idempotencyKey: "other",
+          payload: {},
+          dueAt: tx.now,
+        });
+      });
+      await f.query(
+        a,
+        "UPDATE escalator_job SET state='completed',completed_at=transaction_timestamp()-interval '8 days' WHERE id IN ('retention.sweep:malformed','other-kind')",
+      );
+      const lease = await claim(f, a),
+        jobs = new RetentionMaintenanceJobs(f.maintenance);
+      assert.deepEqual(await jobs.run(lease, new AbortController().signal), {
+        state: "completed",
+      });
+      assert.deepEqual(
+        await f.query(a, "SELECT id FROM escalator_job WHERE id=$1", [
+          obsolete.jobId,
+        ]),
+        [],
+      );
+      assert.equal(
+        (
+          await f.query(
+            a,
+            "SELECT id FROM escalator_job WHERE id IN ('retention.sweep:malformed','other-kind')",
+          )
+        ).length,
+        2,
+      );
+      assert.equal(
+        (
+          await f.query(
+            b,
+            "SELECT id FROM escalator_job WHERE kind='retention.sweep'",
+          )
+        ).length,
+        2,
+      );
+      const after = (await f.maintenance.read(a))!;
+      assert.equal(
+        (
+          await f.query(
+            a,
+            "SELECT id FROM escalator_job WHERE id=ANY($1::text[])",
+            [[lease.id, after.jobId]],
+          )
+        ).length,
+        2,
+      );
+      assert.deepEqual(await jobs.run(lease, new AbortController().signal), {
+        state: "completed",
+      });
+      assert.equal(await f.work.settle(lease, { state: "completed" }), true);
+      await f.detection.transaction(a, async (tx) => {
+        const audit = (await tx.audit.list({ limit: 100 })).items.filter(
+          (row) => row.action === "retention.jobs.pruned",
+        );
+        assert.equal(audit.length, 1);
+        assert.deepEqual(audit[0]!.metadata, { deletedRows: 1 });
+      });
+    },
+  );
+  scenario(
+    "obsolete job deletion rolls back if its audit cannot commit",
+    async (f, a) => {
+      await seed(f, a);
+      await initializeRetentionMaintenance(f.maintenance, a);
+      const obsolete = (await f.maintenance.read(a))!;
+      await step(f, a);
+      await f.query(
+        a,
+        "UPDATE escalator_job SET completed_at=transaction_timestamp()-interval '8 days' WHERE id=$1",
+        [obsolete.jobId],
+      );
+      const before = (await f.maintenance.read(a))!;
+      await f.detection.transaction(a, (tx) =>
+        tx.audit.append({
+          id: `retention-work-audit:${before.jobId}`,
+          workspaceId: a,
+          actor: { kind: "system", component: "test" },
+          action: "test",
+          subjectType: "workspace",
+          subjectId: a,
+          recordedAt: tx.now,
+          metadata: {},
+        }),
+      );
+      const lease = await claim(f, a);
+      await assert.rejects(
+        new RetentionMaintenanceJobs(f.maintenance).run(
+          lease,
+          new AbortController().signal,
+        ),
+      );
+      assert.equal(
+        (
+          await f.query(a, "SELECT id FROM escalator_job WHERE id=$1", [
+            obsolete.jobId,
+          ])
+        ).length,
+        1,
+      );
+      assert.deepEqual(await f.maintenance.read(a), before);
+      assert.equal(
+        (
+          await f.query(
+            a,
+            "SELECT id FROM escalator_job WHERE kind='retention.sweep'",
+          )
+        ).length,
+        2,
+      );
+    },
+  );
 }

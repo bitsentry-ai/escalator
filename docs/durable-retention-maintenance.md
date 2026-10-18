@@ -65,7 +65,7 @@ store. They are not PostgreSQL lock, index or contention evidence. Run them with
 pnpm --dir apps/escalator --filter @bitsentry-escalator/features test
 ```
 
-Database scheduling conformance, production activation and authenticated
+Database runtime verification, production activation and authenticated
 retention/coverage management remain follow-up work before Phase 3 completion.
 
 ## PostgreSQL schedule adapters
@@ -85,7 +85,7 @@ existing pruning transaction. Payload deletion, byte accounting, audit, successo
 intent and cursor movement commit together. Source traversal uses an indexed ID
 seek without taking a second source lock. Statement and lock timeouts remain five
 and one seconds. These adapters do not yet start a production scheduler; runtime
-admission, obsolete maintenance-job cleanup and management screens follow.
+admission and management screens follow.
 
 ### Disposable database verification
 
@@ -99,14 +99,43 @@ pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
 pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand
 ```
 
-Verify that all four `retention maintenance` cases execute in each host, rather
+Verify that all six `retention maintenance` cases execute in each host, rather
 than skip. They exercise concurrent initialization, tenant isolation and foreign
 keys; 100/5-row continuation and retry after commit before lease settlement;
 audit-failure rollback; and expired-owner fencing with delayed repair after an
-exhausted job. Existing pruning cases use the same fixture and still run.
+exhausted job. Two further cases cover obsolete-job cleanup, cross-tenant and
+malformed-work protection, retry idempotency and cleanup-audit rollback. Existing
+pruning cases use the same fixture and still run.
 The fixture grants schedule SELECT/INSERT/UPDATE only to its restricted test role.
 
 Before operational activation, also measure query plans and lock contention with
 production-shaped histories in an authorized environment. Passing shared memory
 tests or compiling these opt-in cases does not establish PostgreSQL performance,
 physical locking behavior, or a completed database migration rehearsal.
+
+## Obsolete maintenance work
+
+Each valid current maintenance claim can retire at most 100 old maintenance jobs
+before it takes receipt/accounting locks. The same transaction commits deletion,
+a `retention.jobs.pruned` audit, any receipt pruning, and the successor schedule.
+The guard rejects repeated cleanup or cleanup after accounting has begun. A retry
+of an already-committed claim does not repeat cleanup or its audit.
+
+Eligibility is shared across hosts: exact `retention.sweep` kind, a closed version-1
+payload, deterministic workspace/revision identity older than the current schedule,
+terminal state, no lease, and completion at least seven days before database time.
+The current job, pending/running work, malformed records and unrelated kinds are
+never deleted. Seven days is an internal work-history grace period; it does not
+change the user's payload-retention policy or remove audit records.
+
+Both PostgreSQL adapters select at most 100 candidates with row locks and
+`SKIP LOCKED`, validate their identities through the shared helper, and reconcile
+the deletion count. An additive `(scope, kind, completed_at, id)` index supports
+that bounded query. Protected malformed rows remain in place and may delay later
+cleanup if they fill the candidate window; unexplained work requires inspection,
+not relaxed validation. The existing current-job foreign key also prevents deleting
+a schedule's active reference.
+
+Run the shared and both-host commands above. Database cases and physical query-plan
+and contention measurements remain **not runtime-verified** until an authorized
+disposable PostgreSQL environment is available. These changes do not start a timer.

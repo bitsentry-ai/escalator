@@ -1,3 +1,4 @@
+import { postgresRetireMaintenanceWork } from "./postgres-retired-work.js";
 import type { Pool, PoolClient } from "pg";
 import {
   opaqueIdSchema,
@@ -87,6 +88,8 @@ function maintenanceStore(
       );
       return result.rows.length === 1;
     },
+    retireWork: (state, now) =>
+      postgresRetireMaintenanceWork(db, scope, state, now),
     async nextSource(after) {
       const result = await db.query<{ id: string }>(
         'SELECT id FROM escalator_signal_source WHERE workspace_id=$1 AND ($2::text IS NULL OR id>$2) ORDER BY id COLLATE "C" LIMIT 1',

@@ -61,6 +61,8 @@ export interface RetentionMaintenanceTransaction extends ReplayPruneTransaction 
       value: RetentionMaintenanceState,
       expectedRevision: number | null,
     ): Promise<boolean>;
+    /** Once per locked schedule, before receipt/accounting locks. */
+    retireWork(): Promise<number>;
     /** Scoped indexed ID seek only; never takes another source row lock. */
     nextSource(after: string | null): Promise<string | undefined>;
   };
@@ -74,8 +76,15 @@ export interface RetentionMaintenanceRepository {
     run: (tx: RetentionMaintenanceTransaction) => Promise<T>,
   ): Promise<T>;
 }
-export type RetentionMaintenanceStore =
-  RetentionMaintenanceTransaction["maintenance"];
+export type RetentionMaintenanceStore = Omit<
+  RetentionMaintenanceTransaction["maintenance"],
+  "retireWork"
+> & {
+  retireWork(
+    state: RetentionMaintenanceState,
+    databaseNow: string,
+  ): Promise<number>;
+};
 /** Validation and poisoning are shared; hosts supply scoped physical locks and CAS. */
 export function retentionMaintenanceTransaction(
   base: ReplayPruneTransaction,
@@ -85,10 +94,20 @@ export function retentionMaintenanceTransaction(
   let lockStarted = false,
     locked = false,
     written = false;
+  let cleanupStarted = false,
+    pruningStarted = false;
+  let lockedState: RetentionMaintenanceState | undefined;
   let revision: number | null = null,
     jobId: string | null = null;
   return {
     ...base,
+    retentionPrune: {
+      ...base.retentionPrune,
+      snapshot(after) {
+        pruningStarted = true;
+        return base.retentionPrune.snapshot(after);
+      },
+    },
     maintenance: {
       lock: () =>
         guard.operation(async () => {
@@ -96,6 +115,7 @@ export function retentionMaintenanceTransaction(
           lockStarted = true;
           const raw = await store.lock();
           const state = raw ? checkedState(base.workspaceId, raw) : undefined;
+          lockedState = structuredClone(state);
           revision = state?.revision ?? null;
           jobId = state?.jobId ?? null;
           locked = true;
@@ -130,6 +150,25 @@ export function retentionMaintenanceTransaction(
           if (!(await store.put(structuredClone(state), expected)))
             throw new Error("Retention schedule conflict");
           return true;
+        }),
+      retireWork: () =>
+        guard.operation(async () => {
+          if (
+            !locked ||
+            !lockedState ||
+            cleanupStarted ||
+            pruningStarted ||
+            written
+          )
+            throw new Error("Invalid retention work cleanup order");
+          cleanupStarted = true;
+          const count = await store.retireWork(
+            structuredClone(lockedState),
+            base.now,
+          );
+          if (!Number.isSafeInteger(count) || count < 0 || count > 100)
+            throw new Error("Invalid retired work count");
+          return count;
         }),
       nextSource: (after) =>
         guard.operation(async () => {
@@ -321,6 +360,18 @@ export class RetentionMaintenanceJobs {
           input.sourceId !== state.sourceId
         )
           throw new Error("Retention payload mismatch");
+        const retiredWork = await tx.maintenance.retireWork();
+        if (retiredWork > 0)
+          await tx.audit.append({
+            id: `retention-work-audit:${state.jobId}`,
+            workspaceId: tx.workspaceId,
+            actor: { kind: "system", component: "retention" },
+            action: "retention.jobs.pruned",
+            subjectType: "workspace",
+            subjectId: tx.workspaceId,
+            recordedAt: tx.now,
+            metadata: { deletedRows: retiredWork },
+          });
         let sourceId: string | null,
           after: RetentionMaintenanceState["after"] = null;
         let sweepStartedAt = state.sweepStartedAt;
