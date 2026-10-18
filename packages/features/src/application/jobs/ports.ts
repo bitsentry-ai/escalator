@@ -12,6 +12,11 @@ export interface WorkIntent {
 }
 /** These operations join the host's surrounding domain transaction. */
 export interface WorkWriter {
+  /** Lock the persisted work row and return its authoritative payload only while
+   * this token owns a live lease. Lock the page first, then work, in paging flows.
+   * Caller-provided kind, payload, attempt and expiry are never authoritative.
+   */
+  lockClaim(lease: WorkLease): Promise<WorkLease | undefined>;
   enqueue(
     queue: WorkQueue,
     intent: WorkIntent,

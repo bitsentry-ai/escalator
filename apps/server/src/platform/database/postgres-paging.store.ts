@@ -73,10 +73,23 @@ export function postgresPagingStore(
       );
       return result.rows[0] ? parse(kind, result.rows[0].data) : undefined;
     },
-    async list(kind, query) {
+    async list(kind, query, parentId) {
+      const parentColumn = kind === "attempts" ? "delivery_id" : "page_id";
+      if (
+        parentId !== undefined &&
+        !["steps", "deliveries", "attempts"].includes(kind)
+      )
+        throw new Error("Unsupported paging parent filter");
+      const filter =
+        parentId === undefined ? "" : " AND " + parentColumn + "=$4";
       const result = await connection.query<{ data: unknown }>(
-        `SELECT data FROM ${tables[kind].table} WHERE workspace_id=$1 AND ($2::text IS NULL OR id > $2) ORDER BY id LIMIT $3`,
-        [scope, query.after ?? null, query.limit + 1],
+        `SELECT data FROM ${tables[kind].table} WHERE workspace_id=$1 AND ($2::text IS NULL OR id > $2)${filter} ORDER BY id LIMIT $3`,
+        [
+          scope,
+          query.after ?? null,
+          query.limit + 1,
+          ...(parentId === undefined ? [] : [parentId]),
+        ],
       );
       const rows = result.rows.map((row) => parse(kind, row.data));
       return {
@@ -124,7 +137,7 @@ export function postgresPagingStore(
     },
     async findGrant(tokenDigest) {
       const result = await connection.query<{ data: unknown }>(
-        "SELECT data FROM escalator_ack_grant WHERE workspace_id=$1 AND token_digest=$2 AND expires_at > transaction_timestamp()",
+        "SELECT data FROM escalator_ack_grant WHERE workspace_id=$1 AND token_digest=$2 AND expires_at > clock_timestamp()",
         [scope, tokenDigest],
       );
       return result.rows[0] ? parse("grants", result.rows[0].data) : undefined;

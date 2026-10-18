@@ -27,3 +27,5 @@ export * from "./paging/persistence.js";
 export * from "./paging/validation.js";
 export * from "./paging/record-store.js";
 export * from "./paging/transaction.js";
+export * from "./paging/work-ids.js";
+export * from "./paging/acknowledge.js";

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   acknowledgementGrantSchema,
+  opaqueIdSchema,
   deliveryAttemptSchema,
   operationalIncidentSchema,
   operationalPageSchema,
@@ -11,6 +12,7 @@ import {
   PersistenceError,
   type EntityRepository,
   type FoundationTransaction,
+  type PageRequest,
 } from "../ports/persistence.js";
 import type { TransactionGuard } from "../ports/transaction-guard.js";
 import type { PagingTransaction } from "./persistence.js";
@@ -36,6 +38,27 @@ export function pagingTransaction(
     if (value === undefined) throw new PersistenceError("not_found");
     return value;
   }
+  function validateQuery(query: PageRequest): void {
+    if (
+      !Number.isInteger(query.limit) ||
+      query.limit < 1 ||
+      query.limit > 100 ||
+      (query.after !== undefined &&
+        (typeof query.after !== "string" || query.after.length > 200))
+    )
+      throw new PersistenceError("invalid_page");
+  }
+  function forParent<K extends "steps" | "deliveries" | "attempts">(
+    kind: K,
+    parentId: string,
+    query: PageRequest,
+  ) {
+    return guard.operation(() => {
+      opaqueIdSchema.parse(parentId);
+      validateQuery(query);
+      return store.list(kind, query, parentId);
+    });
+  }
   function repository<K extends PagingRecordKind>(
     kind: K,
     schema: z.ZodType<PagingRecordMap[K]>,
@@ -45,14 +68,7 @@ export function pagingTransaction(
       get: (id) => guard.operation(() => store.get(kind, id)),
       list: (query) =>
         guard.operation(() => {
-          if (
-            !Number.isInteger(query.limit) ||
-            query.limit < 1 ||
-            query.limit > 100 ||
-            (query.after !== undefined &&
-              (typeof query.after !== "string" || query.after.length > 200))
-          )
-            throw new PersistenceError("invalid_page");
+          validateQuery(query);
           return store.list(kind, query);
         }),
       insert: (input) =>
@@ -123,8 +139,11 @@ export function pagingTransaction(
   return {
     ...base,
     incidents,
-    steps,
-    deliveries,
+    steps: { ...steps, forPage: (id, query) => forParent("steps", id, query) },
+    deliveries: {
+      ...deliveries,
+      forPage: (id, query) => forParent("deliveries", id, query),
+    },
     pages: {
       ...pages,
       lock: (id) =>
@@ -150,6 +169,7 @@ export function pagingTransaction(
     },
     attempts: {
       ...attempts,
+      forDelivery: (id, query) => forParent("attempts", id, query),
       finish: (input) =>
         guard.operation(async () => {
           const value = deliveryAttemptSchema.parse(input);

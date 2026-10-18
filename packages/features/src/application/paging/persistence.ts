@@ -9,6 +9,8 @@ import type {
 } from "../../contracts/index.js";
 import type {
   EntityRepository,
+  Page,
+  PageRequest,
   FoundationTransaction,
 } from "../ports/persistence.js";
 
@@ -21,10 +23,21 @@ export interface PagingTransaction extends FoundationTransaction {
     replace(value: OperationalPage, expectedRevision: number): Promise<boolean>;
   };
   /** Unique (workspace, page, logicalStepId); insert never overwrites a resolution. */
-  steps: EntityRepository<PageStep>;
+  steps: EntityRepository<PageStep> & {
+    forPage(pageId: string, query: PageRequest): Promise<Page<PageStep>>;
+  };
   /** Unique (workspace, page, step, recipient); all references are scope checked. */
-  deliveries: EntityRepository<RecipientDelivery>;
+  deliveries: EntityRepository<RecipientDelivery> & {
+    forPage(
+      pageId: string,
+      query: PageRequest,
+    ): Promise<Page<RecipientDelivery>>;
+  };
   attempts: EntityRepository<DeliveryAttempt> & {
+    forDelivery(
+      deliveryId: string,
+      query: PageRequest,
+    ): Promise<Page<DeliveryAttempt>>;
     /** First result for this attempt wins. Acknowledging a page does not discard an in-flight result.
      * The claim token must match the persisted attempt, not a caller's current outbox lease.
      * A later attempt has a different ID, so a late result cannot overwrite it.

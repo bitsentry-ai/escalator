@@ -49,6 +49,7 @@ export function protectFoundationTransaction(
   });
   return {
     work: {
+      lockClaim: (lease) => guard.operation(() => raw.work.lockClaim(lease)),
       enqueue: (queue, intent) =>
         guard.operation(() => raw.work.enqueue(queue, intent)),
       cancel: (queue, ids) =>

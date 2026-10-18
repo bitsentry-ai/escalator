@@ -335,4 +335,83 @@ export function workConformance(
       assert.equal(await claim(fixture, scope), undefined);
     },
   );
+  scenario(
+    "transaction claim fence uses stored payload and rejects foreign scope",
+    async (fixture, scope) => {
+      await enqueue(fixture, scope);
+      const lease = (await claim(fixture, scope))!;
+      assert.ok(lease);
+      await fixture.repository.transaction(scope, async (tx) => {
+        const persisted = await tx.work.lockClaim({
+          ...lease,
+          kind: "forged",
+          payload: { pageId: "forged" },
+          attempt: 999,
+          dueAt: "2099-01-01T00:00:00.000Z",
+          leaseExpiresAt: "2099-01-01T00:00:00.000Z",
+        });
+        assert.deepEqual(persisted, lease);
+        assert.equal(
+          await tx.work.lockClaim({ ...lease, token: "wrong" }),
+          undefined,
+        );
+      });
+      await assert.rejects(
+        fixture.repository.transaction(scope, (tx) =>
+          tx.work.lockClaim({
+            ...lease,
+            workspaceId: workspaceIdSchema.parse("foreign"),
+          }),
+        ),
+      );
+    },
+  );
+  scenario(
+    "expired or replaced claim cannot authorize domain writes",
+    async (fixture, scope) => {
+      await enqueue(fixture, scope);
+      const first = (await claim(fixture, scope))!;
+      await fixture.expire(first);
+      await fixture.repository.transaction(scope, async (tx) => {
+        assert.equal(await tx.work.lockClaim(first), undefined);
+      });
+      const next = (await claim(fixture, scope))!;
+      await fixture.repository.transaction(scope, async (tx) => {
+        assert.equal(await tx.work.lockClaim(first), undefined);
+        assert.deepEqual(await tx.work.lockClaim(next), next);
+      });
+    },
+  );
+  scenario(
+    "cancellation and settlement revoke the transaction claim fence",
+    async (fixture, scope) => {
+      await enqueue(fixture, scope);
+      const lease = (await claim(fixture, scope))!;
+      await fixture.repository.transaction(scope, async (tx) => {
+        assert.ok(await tx.work.lockClaim(lease));
+        await tx.work.cancel("outbox", [lease.id]);
+        assert.equal(await tx.work.lockClaim(lease), undefined);
+      });
+      await fixture.repository.transaction(scope, (tx) =>
+        tx.work.enqueue("outbox", {
+          id: "second",
+          kind: "send",
+          idempotencyKey: "second",
+          payload: {},
+          dueAt: tx.now,
+        }),
+      );
+      const second = (await claim(fixture, scope))!;
+      assert.equal(
+        await fixture.store.settle(second, {
+          state: "completed",
+          outcome: "accepted",
+        }),
+        true,
+      );
+      await fixture.repository.transaction(scope, async (tx) => {
+        assert.equal(await tx.work.lockClaim(second), undefined);
+      });
+    },
+  );
 }

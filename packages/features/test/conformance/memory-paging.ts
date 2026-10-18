@@ -37,7 +37,7 @@ function naturalKey(kind: PagingRecordKind, value: Stored): string {
 /** Serialized transactional storage; the same application invariants serve all adapters. */
 export class MemoryPagingRepository implements PagingRepository {
   readonly foundation: MemoryFoundationRepository;
-  constructor(clock: Clock) {
+  constructor(private readonly clock: Clock) {
     this.foundation = new MemoryFoundationRepository(clock);
   }
   transaction<T>(
@@ -60,12 +60,22 @@ export class MemoryPagingRepository implements PagingRepository {
           data[kind].filter(
             (row) => row.workspaceId === scope,
           ) as PagingRecordMap[K][];
+        const now = () => this.clock.now().getTime();
         const store: PagingRecordStore = {
           async get(kind, id) {
             return structuredClone(rows(kind).find((row) => row.id === id));
           },
-          async list(kind, query) {
+          async list(kind, query, parentId) {
             const values = rows(kind)
+              .filter(
+                (row) =>
+                  parentId === undefined ||
+                  ("deliveryId" in row
+                    ? row.deliveryId
+                    : "pageId" in row
+                      ? row.pageId
+                      : undefined) === parentId,
+              )
               .filter((row) => !query.after || row.id > query.after)
               .sort((a, b) => (a.id < b.id ? -1 : 1));
             return structuredClone({
@@ -97,7 +107,7 @@ export class MemoryPagingRepository implements PagingRepository {
               rows("grants").find(
                 (row) =>
                   row.tokenDigest === digest &&
-                  Date.parse(row.expiresAt) > Date.parse(base.now),
+                  Date.parse(row.expiresAt) > now(),
               ),
             );
           },

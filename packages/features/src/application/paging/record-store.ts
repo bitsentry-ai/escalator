@@ -27,6 +27,7 @@ export interface PagingRecordStore {
   list<K extends PagingRecordKind>(
     kind: K,
     query: PageRequest,
+    parentId?: string,
   ): Promise<Page<PagingRecordMap[K]>>;
   insert<K extends PagingRecordKind>(
     kind: K,

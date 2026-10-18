@@ -209,7 +209,9 @@ export class MemoryFoundationRepository
           };
         }
         const raw: FoundationTransaction = {
-          work: memoryWorkWriter(state.work, workspaceId, exists),
+          work: memoryWorkWriter(state.work, workspaceId, exists, () =>
+            this.clock.now(),
+          ),
           workspaceId,
           now: this.clock.now().toISOString(),
           workspace: {

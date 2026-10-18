@@ -2,6 +2,7 @@ import type { WorkspaceId } from "../../src/contracts/index.js";
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import {
   validateWorkIntent,
+  validateWorkFence,
   validateWorkClaim,
   validateWorkResult,
   validateWorkCancellation,
@@ -28,8 +29,38 @@ export function memoryWorkWriter(
   rows: MemoryWork[],
   workspaceId: WorkspaceId,
   exists: () => void,
+  now: () => Date,
 ): WorkWriter {
   return {
+    async lockClaim(lease) {
+      validateWorkFence(lease);
+      if (lease.workspaceId !== workspaceId)
+        throw new PersistenceError("scope_violation");
+      const row = rows.find(
+        (entry) =>
+          entry.workspaceId === workspaceId &&
+          entry.queue === lease.queue &&
+          entry.intent.id === lease.id,
+      );
+      if (
+        !row ||
+        row.state !== "running" ||
+        row.token !== lease.token ||
+        Date.parse(row.leaseExpiresAt!) <= now().getTime()
+      )
+        return undefined;
+      return structuredClone({
+        workspaceId,
+        queue: row.queue,
+        id: row.intent.id,
+        kind: row.intent.kind,
+        payload: row.intent.payload,
+        token: lease.token,
+        attempt: row.attempt,
+        dueAt: row.intent.dueAt,
+        leaseExpiresAt: row.leaseExpiresAt!,
+      });
+    },
     async enqueue(queue, input) {
       const intent = validateWorkIntent(queue, input);
       exists();

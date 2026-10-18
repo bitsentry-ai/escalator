@@ -92,3 +92,7 @@ export function validateWorkCancellation(
   queueSchema.parse(queue);
   z.array(opaqueIdSchema).max(1000).parse(ids);
 }
+
+export function validateWorkFence(lease: WorkLease): void {
+  fenceSchema.parse(lease);
+}
