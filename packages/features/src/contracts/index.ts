@@ -26,3 +26,5 @@ export * from "./configuration-inputs.js";
 export * from "./channel-credentials.js";
 
 export * from "./signal.js";
+
+export * from "./signal-management.js";

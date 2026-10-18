@@ -54,3 +54,6 @@ export * from "./configuration/configuration.use-cases.js";
 export * from "./signals/ports.js";
 export * from "./signals/ingest.js";
 export * from "./signals/transaction.js";
+
+export * from "./signals/management.js";
+export * from "./signals/http.js";
