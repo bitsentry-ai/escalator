@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src test",
     "test": "pnpm run build && tsc --noEmit -p tsconfig.test.json && node ../../scripts/test-server.mjs",
-    "db:migrate": "node dist/platform/database/migrate-cli.js"
+    "db:migrate": "node dist/platform/database/migrate-cli.js",
+    "secrets:rotate": "node dist/platform/secrets/rotate-cli.js"
   },
   "dependencies": {
     "@bitsentry-escalator/features": "workspace:*",

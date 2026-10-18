@@ -16,3 +16,5 @@ export * from "./jobs/validation.js";
 
 export * from "./jobs/poller.js";
 export * from "./jobs/scheduler.js";
+
+export * from "./ports/secrets.js";

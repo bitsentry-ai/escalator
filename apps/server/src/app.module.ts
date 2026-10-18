@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { Module } from "@nestjs/common";
-/** Empty host composition. No scheduler, persistence, or auth in Phase 0. */
-@Module({})
+import { SecretKeysModule } from "./platform/secrets/secrets.module.js";
+/** Mounted keys are required before the host can accept requests. */
+@Module({ imports: [SecretKeysModule] })
 export class AppModule {}

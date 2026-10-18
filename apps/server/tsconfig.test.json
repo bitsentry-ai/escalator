@@ -9,6 +9,9 @@
       ],
       "@escalator-test/work": [
         "../../packages/features/test/conformance/work.ts"
+      ],
+      "@escalator-test/secrets": [
+        "../../packages/features/test/conformance/secrets.ts"
       ]
     }
   },
