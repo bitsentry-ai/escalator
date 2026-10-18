@@ -6,6 +6,7 @@ import {
   type Actor,
 } from "@bitsentry-escalator/features/contracts";
 import type {
+  ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
@@ -40,6 +41,7 @@ function fixture() {
     res: {} as Response,
     auth: auth as unknown as LocalAuthService,
     incidents: {} as IncidentUseCases,
+    configuration: {} as ConfigurationUseCases,
     services: services as unknown as ServiceUseCases,
     workspaceId: workspaceIdSchema.parse("local"),
   });

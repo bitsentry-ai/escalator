@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { IncidentUseCases } from "@bitsentry-escalator/features/application";
+import {
+  ConfigurationUseCases,
+  IncidentUseCases,
+} from "@bitsentry-escalator/features/application";
 import { PostgresConfigurationRepository } from "../../platform/database/configuration.repository.js";
 import {
   AcknowledgementHttp,
@@ -19,8 +22,17 @@ import { standalonePagingRuntime } from "./runtime.js";
 @Module({
   imports: [DatabaseModule, SecretKeysModule],
   controllers: [EscalatorAcknowledgementController],
-  exports: [IncidentUseCases],
+  exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
+    {
+      provide: ConfigurationUseCases,
+      inject: [StandaloneDatabase],
+      useFactory: (db: StandaloneDatabase) =>
+        new ConfigurationUseCases(
+          new PostgresConfigurationRepository(db.pool),
+          randomUUID,
+        ),
+    },
     {
       provide: IncidentUseCases,
       inject: [StandaloneDatabase],

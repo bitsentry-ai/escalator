@@ -20,3 +20,5 @@ export * from "./configuration.js";
 export * from "./acknowledgement.js";
 
 export * from "./incidents.js";
+
+export * from "./configuration-inputs.js";

@@ -3,12 +3,14 @@ import type { Request, Response } from "express";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import type { LocalAuthService } from "../auth/auth.service.js";
 import type {
+  ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
   services: ServiceUseCases;
   incidents: IncidentUseCases;
+  configuration: ConfigurationUseCases;
   req: Request;
   res: Response;
   auth: LocalAuthService;

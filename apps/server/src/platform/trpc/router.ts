@@ -1,3 +1,4 @@
+import { configurationRouter } from "../../features/configuration/configuration.router.js";
 import { incidentsRouter } from "../../features/incidents/incidents.router.js";
 import { t } from "./context.js";
 import { authRouter } from "../auth/auth.router.js";
@@ -7,5 +8,6 @@ export const appRouter = t.router({
   auth: authRouter,
   services: servicesRouter,
   incidents: incidentsRouter,
+  configuration: configurationRouter,
   packageInfo: t.procedure.query(() => getEscalatorPackageInfo()),
 });

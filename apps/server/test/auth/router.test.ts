@@ -8,6 +8,7 @@ import { appRouter } from "../../src/platform/trpc/router.js";
 import type { LocalAuthService } from "../../src/platform/auth/auth.service.js";
 import { AuthenticationError } from "../../src/platform/auth/credentials.js";
 import type {
+  ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
@@ -75,6 +76,7 @@ function fixture() {
   };
   const context = {
     incidents: {} as IncidentUseCases,
+    configuration: {} as ConfigurationUseCases,
     services: {} as ServiceUseCases,
     req,
     res: {} as Response,

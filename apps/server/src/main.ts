@@ -14,6 +14,7 @@ import {
   sessionOptions,
 } from "./platform/auth/session-security.js";
 import {
+  ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
@@ -37,6 +38,7 @@ export async function createApp() {
     const auth = app.get(LocalAuthService);
     const services = app.get(ServiceUseCases);
     const incidents = app.get(IncidentUseCases);
+    const configuration = app.get(ConfigurationUseCases);
     const keys = app.get(SecretKeyRing);
     (app.getHttpAdapter().getInstance() as Express).set(
       "trust proxy",
@@ -64,6 +66,7 @@ export async function createApp() {
           auth,
           services,
           incidents,
+          configuration,
           workspaceId: db.workspaceId,
         }),
       }),

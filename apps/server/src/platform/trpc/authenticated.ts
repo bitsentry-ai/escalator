@@ -28,6 +28,25 @@ export const authenticated = t.procedure
       const code = (result.error.cause as { code?: string } | undefined)?.code;
       if (code === "not_found") throw new TRPCError({ code: "NOT_FOUND" });
       if (code === "forbidden") throw new TRPCError({ code: "FORBIDDEN" });
+      if (code === "conflict") throw new TRPCError({ code: "CONFLICT" });
+      if (code === "stale_preview")
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Review the current schedule preview",
+        });
+      if (
+        [
+          "invalid_configuration",
+          "invalid_schedule",
+          "conflicting_override",
+          "preview_limit",
+          "identity_change",
+        ].includes(code ?? "")
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid on-call configuration",
+        });
       if (code === "already_exists") throw new TRPCError({ code: "CONFLICT" });
       if (code === "paging_unavailable")
         throw new TRPCError({

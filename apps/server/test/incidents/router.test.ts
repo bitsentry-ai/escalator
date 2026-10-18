@@ -7,6 +7,7 @@ import {
   type Actor,
 } from "@bitsentry-escalator/features/contracts";
 import type {
+  ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
@@ -36,6 +37,7 @@ test("standalone incident routes require current identity, reject injected scope
     res: {} as Response,
     services: {} as ServiceUseCases,
     incidents,
+    configuration: {} as ConfigurationUseCases,
     workspaceId: workspaceIdSchema.parse("local"),
     auth: {
       current: async () => ({ id: "owner", role: "responder" }),
