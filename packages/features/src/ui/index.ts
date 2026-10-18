@@ -59,3 +59,7 @@ export * from "./investigation/InvestigationReportPanel.js";
 export type { LabelsClient } from "./labels/client.js";
 
 export { LabelsScreen } from "./labels/LabelsScreen.js";
+
+export * from "./rules/client.js";
+export { RuleEditor } from "./rules/RuleEditor.js";
+export { RuleImport } from "./rules/RuleImport.js";
