@@ -23,3 +23,5 @@ export * from "./services/services.use-cases.js";
 
 export * from "../domain/schedule/resolve.js";
 export * from "../domain/escalation/ladder.js";
+export * from "./paging/persistence.js";
+export * from "./paging/validation.js";

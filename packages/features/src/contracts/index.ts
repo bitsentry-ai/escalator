@@ -11,3 +11,4 @@ export * from "./services.js";
 
 export * from "./schedule.js";
 export * from "./escalation.js";
+export * from "./paging.js";

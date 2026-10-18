@@ -44,6 +44,7 @@ type State = {
   responders: Responder[];
   audits: AuditEvent[];
   work: MemoryWork[];
+  extensions: Record<string, unknown>;
 };
 function page<T extends { id: string }>(
   values: T[],
@@ -72,6 +73,7 @@ export class MemoryFoundationRepository
     responders: [],
     audits: [],
     work: [],
+    extensions: {},
   };
   private tail: Promise<void> = Promise.resolve();
   constructor(private readonly clock: Clock) {}
@@ -141,6 +143,16 @@ export class MemoryFoundationRepository
   async transaction<T>(
     workspaceId: WorkspaceId,
     work: (tx: FoundationTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(workspaceId, (tx) => work(tx));
+  }
+  async withExtensions<T>(
+    workspaceId: WorkspaceId,
+    work: (
+      tx: FoundationTransaction,
+      extensions: Record<string, unknown>,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.serialized(async () => {
       const guard = new TransactionGuard();
@@ -253,7 +265,7 @@ export class MemoryFoundationRepository
           },
         };
         const tx = protectFoundationTransaction(raw, guard);
-        const result = await work(tx);
+        const result = await work(tx, state.extensions, guard);
         guard.assertCommittable();
         this.state = state;
         return result;
