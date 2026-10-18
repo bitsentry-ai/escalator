@@ -1,3 +1,8 @@
+import {
+  investigationReportConformance,
+  type InvestigationReportFixture,
+} from "@escalator-test/investigation-reports";
+import { PostgresInvestigationReportRepository } from "../../src/platform/database/postgres-investigation-report.repository.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PoolClient } from "pg";
@@ -23,7 +28,7 @@ import {
 import { readMigrations } from "../../src/platform/database/migrate.js";
 import { postgresFixture, testDatabaseConfigured } from "./postgres-fixture.js";
 async function create(): Promise<
-  InvestigationPersistenceFixture & { expireDuringAuthorization(): void }
+  InvestigationReportFixture & { expireDuringAuthorization(): void }
 > {
   const database = await postgresFixture(
     await readMigrations(resolve("migrations")),
@@ -126,6 +131,15 @@ async function create(): Promise<
       }
     };
     return {
+      reports: new PostgresInvestigationReportRepository(database.app),
+      async disableResponder() {
+        await query(scope, async (db) => {
+          await db.query(
+            "UPDATE escalator_responder SET enabled=false WHERE workspace_id=$1 AND id='primary'",
+            [scope],
+          );
+        });
+      },
       expireDuringAuthorization() {
         expireDuringAuthorization = true;
       },
@@ -243,4 +257,10 @@ test(
       await f.dispose();
     }
   },
+);
+
+investigationReportConformance(
+  "PostgreSQL human investigation reports",
+  create,
+  (name, run) => test(name, { skip: !configured }, run),
 );

@@ -85,3 +85,5 @@ export * from "./model-secret.js";
 export * from "./investigation-settings.js";
 
 export * from "./investigation-source-options.js";
+
+export * from "./investigation-report.js";

@@ -75,6 +75,9 @@
       ],
       "@escalator-test/investigation-fixture": [
         "../../packages/features/test/fixtures/investigation.ts"
+      ],
+      "@escalator-test/investigation-reports": [
+        "../../packages/features/test/conformance/investigation-reports.ts"
       ]
     }
   },

@@ -201,3 +201,5 @@ export * from "./investigation-settings/transaction.js";
 export * from "./investigation-settings/management.js";
 
 export * from "./investigation-settings/source-options.js";
+
+export * from "./investigation-report/reader.js";
