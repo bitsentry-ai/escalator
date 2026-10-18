@@ -58,6 +58,9 @@
       "@escalator-test/retention-pruning": [
         "../../packages/features/test/conformance/retention-pruning.ts"
       ],
+      "@escalator-test/coverage": [
+        "../../packages/features/test/conformance/coverage.ts"
+      ],
       "@escalator-test/deployments": [
         "../../packages/features/test/conformance/deployments.ts"
       ]

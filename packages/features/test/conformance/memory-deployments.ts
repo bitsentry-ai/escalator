@@ -1,3 +1,5 @@
+import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
+import type { ConfigurationTransaction } from "../../src/application/configuration/ports.js";
 import {
   workspaceIdSchema,
   type Clock,
@@ -75,6 +77,17 @@ export class MemoryDeploymentRepository implements DeploymentRepository {
   transaction<T>(
     scope: WorkspaceId,
     run: (tx: DeploymentTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(scope, (tx) => run(tx));
+  }
+  withExtensions<T>(
+    scope: WorkspaceId,
+    run: (
+      tx: DeploymentTransaction,
+      configuration: ConfigurationTransaction,
+      extensions: Record<string, unknown>,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.configuration.withExtensions(
       scope,
@@ -198,7 +211,12 @@ export class MemoryDeploymentRepository implements DeploymentRepository {
             data.receipts.push(copy(value));
           },
         };
-        return run(deploymentTransaction(base, store, guard));
+        return run(
+          deploymentTransaction(base, store, guard),
+          base,
+          extensions,
+          guard,
+        );
       },
     );
   }
