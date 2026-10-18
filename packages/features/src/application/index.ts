@@ -275,3 +275,7 @@ export * from "./rules/catalog-transaction.js";
 export * from "./rules/catalog-storage.js";
 
 export * from "./rules/catalog-provenance.js";
+
+export * from "./rules/export.js";
+export * from "./rules/catalog-read-ports.js";
+export * from "./rules/catalog-queries.js";

@@ -13,6 +13,9 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   RuleDrafts,
+  RuleCatalogQueries,
+  importRule,
+  type RuleCatalogReadRepository,
   ReviewRuleActivation,
   type RuleCatalogRepository,
   type FoundationRepository,
@@ -20,6 +23,8 @@ import {
 } from "@bitsentry-escalator/features/application";
 export interface RuleCatalogFixture {
   repository: RuleCatalogRepository;
+  reader: RuleCatalogReadRepository;
+  policyFacts(scope: WorkspaceId): Promise<number>;
   foundation: FoundationRepository;
   seedStream(stream: LabelStream): Promise<void>;
   queued(scope: WorkspaceId): Promise<number>;
@@ -151,6 +156,59 @@ export function ruleCatalogConformance(
       }
     });
   }
+  scenario(
+    "catalog reads preserve policy history and immutable version scope",
+    async (f, s) => {
+      const queries = new RuleCatalogQueries(f.reader),
+        before = await f.policyFacts(s.actor.workspaceId);
+      const list = await queries.list(s.actor, {
+        serviceId: s.definition.serviceId,
+        environmentId: s.definition.environmentId,
+        limit: 1,
+      });
+      assert.equal(list.items[0].id, s.entry.id);
+      const view = await queries.get(s.actor, { id: s.entry.id });
+      assert.deepEqual(view?.version.definition, s.definition);
+      assert.equal(
+        (await queries.history(s.actor, { ruleId: s.entry.id })).items[0]
+          .action,
+        "drafted",
+      );
+      assert.equal(
+        (await queries.export(s.actor, { id: s.entry.id })).title,
+        "Candidate",
+      );
+      assert.equal(await queries.get(s.actor, { id: "missing" }), undefined);
+      assert.equal(await f.policyFacts(s.actor.workspaceId), before);
+    },
+  );
+  scenario(
+    "portable import creates a fresh draft without copying activation",
+    async (f, s) => {
+      const receipt = await s.receipt();
+      await s.review.activate(s.actor, {
+        ruleId: s.entry.id,
+        receiptId: receipt.id,
+      });
+      const queries = new RuleCatalogQueries(f.reader),
+        document = await queries.export(s.actor, { id: s.entry.id }),
+        before = await f.queued(s.actor.workspaceId);
+      const imported = await importRule(s.drafts, s.actor, document, {
+        serviceId: s.definition.serviceId,
+        environmentId: s.definition.environmentId,
+        streamId: s.definition.selector.streamId,
+      });
+      assert.notEqual(imported.id, s.entry.id);
+      assert.equal(imported.status, "draft");
+      assert.equal(imported.generation, 0);
+      assert.equal(imported.originProposalId, null);
+      assert.deepEqual(
+        (await queries.get(s.actor, { id: imported.id }))?.version.definition,
+        s.definition,
+      );
+      assert.equal(await f.queued(s.actor.workspaceId), before);
+    },
+  );
   scenario(
     "concurrent consumption of one receipt creates one runtime and one job",
     async (f, s) => {

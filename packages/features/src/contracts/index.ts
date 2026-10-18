@@ -116,3 +116,6 @@ export * from "./rule-proposal.js";
 export * from "./rule-candidate-input.js";
 
 export * from "./rule-catalog.js";
+
+export * from "./portable-rule.js";
+export * from "./rule-catalog-query.js";

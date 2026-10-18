@@ -1,3 +1,4 @@
+import { PostgresRuleCatalogReadRepository } from "../../src/platform/database/rule-catalog-read.repository.js";
 import { randomUUID } from "node:crypto";
 import { serviceEnvironmentSchema } from "@bitsentry-escalator/features/contracts";
 import { resolve } from "node:path";
@@ -23,6 +24,15 @@ ruleCatalogConformance(
     };
     return {
       repository: new PostgresRuleCatalogRepository(database.app),
+      reader: new PostgresRuleCatalogReadRepository(database.app),
+      policyFacts: (scope: WorkspaceId) =>
+        database.repository.withConnection(scope, async (_base, db) => {
+          const rows = await db.query<{ n: number }>(
+            "SELECT count(*)::integer AS n FROM escalator_rule_policy_fact WHERE workspace_id=$1",
+            [scope],
+          );
+          return rows.rows[0]!.n;
+        }),
       foundation: database.repository,
       seedStream: (stream: Parameters<typeof seedRuleLabelStream>[1]) =>
         seedRuleLabelStream(streams, stream),
