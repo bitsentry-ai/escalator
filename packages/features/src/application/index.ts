@@ -100,3 +100,7 @@ export * from "./probes/heartbeat-intake.js";
 export * from "./probes/heartbeat-management.js";
 export * from "./probes/heartbeat-http.js";
 export * from "./probes/heartbeat-handlers.js";
+
+export * from "../adapters/metrics/normalize.js";
+export * from "../adapters/metrics/reader.js";
+export * from "../domain/rules/sustained-floor.js";
