@@ -258,3 +258,19 @@ test("report details require completed scoped evidence and current read authorit
     f.queries.detail(f.actor, { runId: "run", section: "episodes", limit: 26 }),
   );
 });
+
+test("incident label proposal filters reject substitution and cannot affect replay queries", async () => {
+  const f = await setup(),
+    input = { serviceId: f.d.serviceId, environmentId: f.d.environmentId };
+  const rows = await f.queries.proposals(f.actor, {
+    ...input,
+    originLabelId: "label",
+  });
+  assert.equal(rows.items[0].originLabelId, "label");
+  await assert.rejects(
+    f.queries.proposals(f.actor, { ...input, originLabelId: "other-label" }),
+  );
+  await assert.rejects(async () =>
+    f.queries.replays(f.actor, { ...input, originLabelId: "label" }),
+  );
+});

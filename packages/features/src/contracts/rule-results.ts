@@ -62,6 +62,10 @@ export const ruleResultsListSchema = z.strictObject({
   after: opaqueIdSchema.optional(),
   limit: z.number().int().min(1).max(25).default(10),
 });
+export const ruleProposalsListSchema = ruleResultsListSchema.extend({
+  originLabelId: opaqueIdSchema.optional(),
+});
+export type RuleProposalsList = z.infer<typeof ruleProposalsListSchema>;
 export const ruleResultIdSchema = z.strictObject({ id: opaqueIdSchema });
 export const ruleReplayResultSchema = z
   .strictObject({

@@ -13,6 +13,7 @@ import {
   captureRuleSchema,
   ruleProposalRequestSchema,
   ruleResultsListSchema,
+  ruleProposalsListSchema,
   ruleResultIdSchema,
 } from "@bitsentry-escalator/features/contracts";
 import { authenticated } from "../../platform/trpc/authenticated.js";
@@ -101,7 +102,7 @@ export const rulesRouter = t.router({
       ruleRequest(() => ctx.rules.results.replay(ctx.actor, input)),
     ),
   proposals: authenticated
-    .input(ruleResultsListSchema)
+    .input(ruleProposalsListSchema)
     .query(({ ctx, input }) =>
       ruleRequest(() => ctx.rules.results.proposals(ctx.actor, input)),
     ),

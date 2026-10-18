@@ -5,6 +5,7 @@ import {
 import { z } from "zod";
 import {
   ruleResultsListSchema,
+  ruleProposalsListSchema,
   ruleResultIdSchema,
   ruleReplayResultSchema,
   ruleProposalViewSchema,
@@ -101,7 +102,7 @@ export class RuleResultsQueries {
     });
   }
   proposals(actor: Actor, raw: unknown) {
-    const input = ruleResultsListSchema.parse(raw);
+    const input = ruleProposalsListSchema.parse(raw);
     return this.repository.transaction(actor.workspaceId, async (tx) => {
       await authorize(tx, actor);
       const rows = z
@@ -114,7 +115,8 @@ export class RuleResultsQueries {
             r.workspaceId !== tx.workspaceId ||
             r.serviceId !== input.serviceId ||
             r.environmentId !== input.environmentId ||
-            (input.ruleId && r.candidateId !== input.ruleId),
+            (input.ruleId && r.candidateId !== input.ruleId) ||
+            (input.originLabelId && r.originLabelId !== input.originLabelId),
         )
       )
         throw new PersistenceError("scope_violation");

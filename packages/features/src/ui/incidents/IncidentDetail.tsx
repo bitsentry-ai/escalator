@@ -1,3 +1,5 @@
+import { IncidentRuleProposals } from "../rules/IncidentRuleProposals.js";
+import type { RulesClient } from "../rules/client.js";
 import { IncidentLabels } from "../labels/LabelsScreen.js";
 import type { LabelsClient } from "../labels/client.js";
 import { InvestigationReportPanel } from "../investigation/InvestigationReportPanel.js";
@@ -13,6 +15,7 @@ export function IncidentDetail({
   client,
   reports,
   labels,
+  rules,
   id,
   canResolve,
   onResolved,
@@ -21,6 +24,7 @@ export function IncidentDetail({
   client: IncidentsClient;
   reports?: InvestigationReportsClient;
   labels?: LabelsClient;
+  rules?: RulesClient;
   id: string;
   canResolve: boolean;
   onResolved: () => void;
@@ -151,6 +155,14 @@ export function IncidentDetail({
       {detail && (
         <>
           <h2>{detail.incident.title}</h2>
+          {rules && (
+            <IncidentRuleProposals
+              key={detail.incident.id}
+              client={rules}
+              incident={detail.incident}
+              t={t}
+            />
+          )}
           {labels && (
             <IncidentLabels
               key={detail.incident.id}

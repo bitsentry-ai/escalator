@@ -1,6 +1,7 @@
 import type { WorkspaceId } from "../../contracts/identity.js";
 import type {
   RuleResultsList,
+  RuleProposalsList,
   RuleReplayResult,
   RuleProposalView,
 } from "../../contracts/rule-results.js";
@@ -14,7 +15,7 @@ export interface RuleResultsStore {
   detail(input: RuleReportDetailInput): Promise<RuleReportDetail | undefined>;
   replays(input: RuleResultsList): Promise<RuleReplayResult[]>;
   replay(id: string): Promise<RuleReplayResult | undefined>;
-  proposals(input: RuleResultsList): Promise<RuleProposalView[]>;
+  proposals(input: RuleProposalsList): Promise<RuleProposalView[]>;
   proposal(id: string): Promise<RuleProposalView | undefined>;
 }
 export interface RuleResultsTransaction extends FoundationTransaction {

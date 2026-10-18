@@ -113,8 +113,8 @@ export function postgresRuleResultsStore(
     proposals: (input) =>
       proposals(
         proposalProjection +
-          " WHERE p.workspace_id=$1 AND s.service_id=$2 AND s.environment_id=$3 AND ($4::text IS NULL OR p.candidate_id=$4) AND ($5::text IS NULL OR p.id>$5) ORDER BY p.id LIMIT $6::integer",
-        params(input),
+          " WHERE p.workspace_id=$1 AND s.service_id=$2 AND s.environment_id=$3 AND ($4::text IS NULL OR p.candidate_id=$4) AND ($5::text IS NULL OR p.id>$5) AND ($7::text IS NULL OR p.data->>'originLabelId'=$7) ORDER BY p.id LIMIT $6::integer",
+        [...params(input), input.originLabelId ?? null],
       ),
     async proposal(id) {
       return (

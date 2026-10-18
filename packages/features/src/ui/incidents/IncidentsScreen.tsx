@@ -1,3 +1,4 @@
+import type { RulesClient } from "../rules/client.js";
 import type { LabelsClient } from "../labels/client.js";
 import type { InvestigationReportsClient } from "../investigation-reports-client.js";
 import { useState } from "react";
@@ -11,6 +12,7 @@ export function IncidentsScreen({
   client,
   reports,
   labels,
+  rules,
   canCreate,
   canResolve,
   canManageEnvironment,
@@ -19,6 +21,7 @@ export function IncidentsScreen({
   client: IncidentsClient;
   reports?: InvestigationReportsClient;
   labels?: LabelsClient;
+  rules?: RulesClient;
   canCreate: boolean;
   canResolve: boolean;
   canManageEnvironment: boolean;
@@ -113,6 +116,7 @@ export function IncidentsScreen({
           client={client}
           reports={reports}
           labels={labels}
+          rules={rules}
           canResolve={canResolve}
           onResolved={list.refresh}
           t={t}

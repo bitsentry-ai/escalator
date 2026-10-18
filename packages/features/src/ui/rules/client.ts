@@ -17,6 +17,7 @@ import type {
   ImportRuleDraftInput,
   CaptureRuleInput,
   RuleResultsList,
+  RuleProposalsList,
   RuleReplayResult,
   RuleProposalView,
   IncidentLabelsQuery,
@@ -58,7 +59,7 @@ export interface RulesClient extends Pick<
   ): Promise<IncidentCollection<RuleReplayResult>>;
   replayResult(input: { id: string }): Promise<RuleReplayResult | undefined>;
   proposals(
-    input: RuleResultsList,
+    input: RuleProposalsList,
   ): Promise<IncidentCollection<RuleProposalView>>;
   proposal(input: { id: string }): Promise<RuleProposalView | undefined>;
   labels(

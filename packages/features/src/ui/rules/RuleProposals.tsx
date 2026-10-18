@@ -203,7 +203,7 @@ function ProposalRequest({
     </fieldset>
   );
 }
-function ProposalCard({
+export function ProposalCard({
   client,
   t,
   proposal,
@@ -214,7 +214,7 @@ function ProposalCard({
   proposal: RuleProposalView;
   canPropose: boolean;
   onRun: (id: string) => void;
-  onAdopt: (id: string) => void;
+  onAdopt?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(t("rules.proposalDraftTitle"));
   const action = useRuleAction();
@@ -240,7 +240,7 @@ function ProposalCard({
       {proposal.heldOut === "insufficient_span" && (
         <p>{t("rules.insufficientHeldOut")}</p>
       )}
-      {canPropose && proposal.status === "ready" && (
+      {canPropose && onAdopt && proposal.status === "ready" && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
