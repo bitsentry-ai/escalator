@@ -29,6 +29,10 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/replay-recording": path.resolve(
+      process.cwd(),
+      "../../packages/features/test/conformance/replay-recording.ts",
+    ),
     "@escalator-test/health": path.resolve(
       server,
       "../../packages/features/test/conformance/health.ts",

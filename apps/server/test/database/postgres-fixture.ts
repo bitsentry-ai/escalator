@@ -147,10 +147,26 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       );
     }
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
+    const grantRecording = async (list: readonly Migration[]) => {
+      if (!list.some((item) => item.name === "0011_replay_recording.sql"))
+        return;
+      for (const table of [
+        "escalator_source_version",
+        "escalator_probe_version",
+      ])
+        await admin.query(
+          `GRANT SELECT, INSERT ON ${identifier(table)} TO ${identifier(current.role)}`,
+        );
+    };
+    await grantRecording(migrations);
     await app.query("SELECT id FROM escalator_workspace LIMIT 0");
     return {
       repository: new PostgresFoundationRepository(app),
       app,
+      async upgrade(next: readonly Migration[]) {
+        await migrate(admin, next);
+        await grantRecording(next);
+      },
       async dispose() {
         try {
           await app.end();

@@ -42,6 +42,9 @@
       ],
       "@escalator-test/health": [
         "../../packages/features/test/conformance/health.ts"
+      ],
+      "@escalator-test/replay-recording": [
+        "../../packages/features/test/conformance/replay-recording.ts"
       ]
     }
   },
