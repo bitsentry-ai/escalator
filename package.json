@@ -1,0 +1,17 @@
+{
+  "name": "escalator-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "build:packages": "pnpm --filter @bitsentry-escalator/features build",
+    "build": "pnpm run build:packages",
+    "typecheck": "pnpm run build:packages && pnpm -r typecheck",
+    "lint": "node scripts/check-boundaries.mjs && node scripts/check-locales.mjs",
+    "i18n:audit:integrity": "node scripts/check-locales.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "^22.0.0",
+    "esbuild": "0.28.1"
+  }
+}

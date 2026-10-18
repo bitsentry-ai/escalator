@@ -1,0 +1,86 @@
+{
+  "name": "@bitsentry-escalator/features",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./contracts": {
+      "import": {
+        "types": "./dist/esm/contracts/index.d.ts",
+        "default": "./dist/esm/contracts/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/contracts/index.d.ts",
+        "default": "./dist/cjs/contracts/index.js"
+      }
+    },
+    "./application": {
+      "browser": null,
+      "import": {
+        "types": "./dist/esm/application/index.d.ts",
+        "default": "./dist/esm/application/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/application/index.d.ts",
+        "default": "./dist/cjs/application/index.js"
+      }
+    },
+    "./channels": {
+      "browser": null,
+      "import": {
+        "types": "./dist/esm/channels/index.d.ts",
+        "default": "./dist/esm/channels/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/channels/index.d.ts",
+        "default": "./dist/cjs/channels/index.js"
+      }
+    },
+    "./investigation": {
+      "browser": null,
+      "import": {
+        "types": "./dist/esm/investigation/index.d.ts",
+        "default": "./dist/esm/investigation/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/investigation/index.d.ts",
+        "default": "./dist/cjs/investigation/index.js"
+      }
+    },
+    "./ui": {
+      "import": {
+        "types": "./dist/esm/ui/index.d.ts",
+        "default": "./dist/esm/ui/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/ui/index.d.ts",
+        "default": "./dist/cjs/ui/index.js"
+      }
+    },
+    "./locales": {
+      "import": {
+        "types": "./dist/esm/locales/index.d.ts",
+        "default": "./dist/esm/locales/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/locales/index.d.ts",
+        "default": "./dist/cjs/locales/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-features.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "node ../../scripts/check-boundaries.mjs && node ../../scripts/check-locales.mjs"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "react": "^19.0.0",
+    "@types/react": "^19.0.0"
+  }
+}
