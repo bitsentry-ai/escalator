@@ -1,3 +1,4 @@
+import { deploymentsRouter } from "../../features/deploy/deploy.router.js";
 import { retentionRouter } from "../../features/retention/retention.router.js";
 import { monitoringSecretsRouter } from "../../features/configuration/monitoring-secrets.router.js";
 import { heartbeatsRouter } from "../../features/heartbeats/heartbeats.router.js";
@@ -21,6 +22,7 @@ export const appRouter = t.router({
   metrics: metricsRouter,
   retention: retentionRouter,
   heartbeats: heartbeatsRouter,
+  deployments: deploymentsRouter,
   incidents: incidentsRouter,
   configuration: configurationRouter,
   channelSecrets: channelSecretsRouter,

@@ -25,6 +25,8 @@ import {
   MetricManagement,
   RetentionManagement,
   HeartbeatManagement,
+  DeploymentManagement,
+  DEPLOYMENT_MAX_BYTES,
   HEARTBEAT_MAX_BYTES,
 } from "@bitsentry-escalator/features/application";
 /** Construction only: importing this module never starts a listener. */
@@ -52,6 +54,8 @@ export async function createApp() {
     const metrics = app.get(MetricManagement);
     const retention = app.get(RetentionManagement);
     const heartbeats = app.get(HeartbeatManagement);
+    const deployments = app.get(DeploymentManagement);
+    app.use("/v1/deploys", signalBodyParser(DEPLOYMENT_MAX_BYTES));
     app.use("/v1/heartbeats", signalBodyParser(HEARTBEAT_MAX_BYTES));
     app.use("/v1/ingest", signalBodyParser());
     const incidents = app.get(IncidentUseCases);
@@ -89,6 +93,7 @@ export async function createApp() {
           metrics,
           retention,
           heartbeats,
+          deployments,
           incidents,
           configuration,
           secretWriter,

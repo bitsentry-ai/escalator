@@ -13,6 +13,7 @@ import type {
   MetricManagement,
   RetentionManagement,
   HeartbeatManagement,
+  DeploymentManagement,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
   secretWriter: PostgresSecretWriter;
@@ -23,6 +24,7 @@ export interface AppContext {
   metrics: MetricManagement;
   retention: RetentionManagement;
   heartbeats: HeartbeatManagement;
+  deployments: DeploymentManagement;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;
   req: Request;

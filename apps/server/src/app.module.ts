@@ -1,3 +1,4 @@
+import { DeploymentsModule } from "./features/deploy/deploy.module.js";
 import { RetentionModule } from "./features/retention/retention.module.js";
 import { HeartbeatsModule } from "./features/heartbeats/heartbeats.module.js";
 import { MetricsModule } from "./features/metrics/metrics.module.js";
@@ -21,6 +22,7 @@ import { ServicesModule } from "./features/services/services.module.js";
     MetricsModule,
     RetentionModule,
     HeartbeatsModule,
+    DeploymentsModule,
   ],
 })
 export class AppModule {}

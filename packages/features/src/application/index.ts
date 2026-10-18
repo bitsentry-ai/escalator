@@ -2,6 +2,7 @@ import {
   escalatorContractVersion,
   type EscalatorPackageInfo,
 } from "../contracts/index.js";
+export * from "./deploy/http.js";
 export function getEscalatorPackageInfo(): EscalatorPackageInfo {
   return { contractVersion: escalatorContractVersion };
 }
