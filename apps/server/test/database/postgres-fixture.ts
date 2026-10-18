@@ -193,6 +193,16 @@ export async function postgresFixture(
         );
     };
     await grantWatches(migrations);
+    const grantCadence = async (list: readonly Migration[]) => {
+      if (!list.some((item) => item.name === "0020_watch_cadence.sql")) return;
+      await admin.query(
+        `GRANT SELECT,INSERT,UPDATE,DELETE ON escalator_watch_cadence_lease TO ${identifier(current.role)}`,
+      );
+      await admin.query(
+        `GRANT SELECT,INSERT ON escalator_watch_cadence_receipt TO ${identifier(current.role)}`,
+      );
+    };
+    await grantCadence(migrations);
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
@@ -252,6 +262,7 @@ export async function postgresFixture(
         await grantCoverage(next);
         await grantBaselines(next);
         await grantWatches(next);
+        await grantCadence(next);
         await grantRecording(next);
         await grantAccounting(next);
         await grantMaintenance(next);
