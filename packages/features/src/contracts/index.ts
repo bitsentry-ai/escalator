@@ -79,3 +79,7 @@ export * from "./deploy-cadence.js";
 export * from "./deploy-watch-view.js";
 
 export * from "./investigation.js";
+
+export * from "./model-profile.js";
+export * from "./model-secret.js";
+export * from "./investigation-settings.js";

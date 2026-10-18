@@ -195,3 +195,7 @@ export * from "./deploy/watch-read.js";
 export * from "./deploy/watch-http.js";
 
 export { DeploymentQueries } from "./deploy/queries.js";
+
+export * from "./investigation-settings/ports.js";
+export * from "./investigation-settings/transaction.js";
+export * from "./investigation-settings/management.js";

@@ -79,3 +79,5 @@ export {
 } from "./orchestration/lease-runner.js";
 
 export * from "./orchestration/capture.js";
+
+export * from "./models/credential-projection.js";
