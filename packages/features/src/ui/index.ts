@@ -21,3 +21,6 @@ export type {
   ContactSettingsClient,
 } from "./settings-client.js";
 export { SettingsScreen } from "./settings/SettingsScreen.js";
+
+export type { ProbesClient } from "./probes-client.js";
+export { ProbesScreen } from "./probes/ProbesScreen.js";

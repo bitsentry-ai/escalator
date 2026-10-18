@@ -1,3 +1,4 @@
+import { ProbesRoute } from "./probes/ProbesRoute.js";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LocalAuthClient, LocalUser } from "../auth/auth-client.js";
@@ -14,7 +15,7 @@ export function EscalatorShell({
 }) {
   const { t } = useTranslation("escalator");
   const [view, setView] = useState<
-    "services" | "incidents" | "oncall" | "contacts"
+    "services" | "incidents" | "oncall" | "contacts" | "probes"
   >("services");
   return (
     <>
@@ -43,9 +44,17 @@ export function EscalatorShell({
         >
           {t("settings.heading")}
         </button>
+        <button
+          aria-pressed={view === "probes"}
+          onClick={() => setView("probes")}
+        >
+          {t("probes.heading")}
+        </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
+      ) : view === "probes" ? (
+        <ProbesRoute client={client} user={user} />
       ) : view === "contacts" ? (
         <SettingsRoute client={client} user={user} />
       ) : view === "oncall" ? (
