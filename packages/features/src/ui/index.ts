@@ -37,3 +37,9 @@ export { HeartbeatsScreen } from "./heartbeats/HeartbeatsScreen.js";
 
 export type { MetricsClient } from "./metrics-client.js";
 export { MetricsScreen } from "./metrics/MetricsScreen.js";
+
+export type {
+  RetentionClient,
+  RetentionPolicyView,
+} from "./retention-client.js";
+export { RetentionScreen } from "./retention/RetentionScreen.js";

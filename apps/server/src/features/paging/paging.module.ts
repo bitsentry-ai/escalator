@@ -1,3 +1,4 @@
+import { RetentionModule } from "../retention/retention.module.js";
 import { StandaloneRetentionResources } from "../retention/resources.js";
 import {
   HealthDeployment,
@@ -30,24 +31,19 @@ import { SecretKeyRing } from "../../platform/secrets/keyring.js";
 import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.js";
 import { standalonePagingRuntime } from "./runtime.js";
 @Module({
-  imports: [DatabaseModule, SecretKeysModule, ProbesModule, MetricsModule],
+  imports: [
+    DatabaseModule,
+    SecretKeysModule,
+    ProbesModule,
+    MetricsModule,
+    RetentionModule,
+  ],
   controllers: [
     EscalatorAcknowledgementController,
     OperationalHealthController,
   ],
   exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
-    {
-      provide: StandaloneRetentionResources,
-      useFactory: () =>
-        new StandaloneRetentionResources(
-          process.env.ESCALATOR_DATABASE_URL ?? "",
-          () =>
-            new Logger("EscalatorRetention").error(
-              "Maintenance database unavailable",
-            ),
-        ),
-    },
     {
       provide: HealthDeployment,
       useFactory: () => HealthDeployment.fromJSON(process.env.ESCALATOR_HEALTH),

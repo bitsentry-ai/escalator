@@ -1,3 +1,4 @@
+import { RetentionModule } from "./features/retention/retention.module.js";
 import { HeartbeatsModule } from "./features/heartbeats/heartbeats.module.js";
 import { MetricsModule } from "./features/metrics/metrics.module.js";
 import { ProbesModule } from "./features/probes/probes.module.js";
@@ -18,6 +19,7 @@ import { ServicesModule } from "./features/services/services.module.js";
     SignalsModule,
     ProbesModule,
     MetricsModule,
+    RetentionModule,
     HeartbeatsModule,
   ],
 })

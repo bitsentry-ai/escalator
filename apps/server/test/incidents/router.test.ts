@@ -1,3 +1,4 @@
+import type { RetentionManagement } from "@bitsentry-escalator/features/application";
 import type { MetricManagement } from "@bitsentry-escalator/features/application";
 import type { HeartbeatManagement } from "@bitsentry-escalator/features/application";
 import type {
@@ -49,6 +50,7 @@ test("standalone incident routes require current identity, reject injected scope
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
+    retention: {} as RetentionManagement,
     heartbeats: {} as HeartbeatManagement,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
