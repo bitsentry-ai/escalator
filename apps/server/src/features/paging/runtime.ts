@@ -1,3 +1,9 @@
+import { PostgresRuleLiveRepository } from "../../platform/database/rule-live.repository.js";
+import { postgresRulePolicyStore } from "../../platform/database/postgres-rule-policy.store.js";
+import {
+  withRuleEvaluationHandlers,
+  ruleEvaluationLane,
+} from "@bitsentry-escalator/features/application";
 import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import {
   withDeploymentTimeoutHandlers,
@@ -103,6 +109,14 @@ export function standalonePagingRuntime(
     new RetentionMaintenanceJobs(retention.repository),
     retention.admission,
   );
+  const ruleHandlers = withRuleEvaluationHandlers(
+    retainedHandlers,
+    new PostgresRuleLiveRepository(
+      pool,
+      postgresRulePolicyStore,
+      repositoryConnections,
+    ),
+  );
   const watchdog = health.watchdog
     ? new WatchdogJobs(
         repository,
@@ -116,9 +130,7 @@ export function standalonePagingRuntime(
   const runtime: PostgresJobsRuntime = new PostgresJobsRuntime(
     pool,
     scope,
-    watchdog
-      ? withWatchdogHandlers(retainedHandlers, watchdog)
-      : retainedHandlers,
+    watchdog ? withWatchdogHandlers(ruleHandlers, watchdog) : ruleHandlers,
     onError,
     [
       ...monitoringJobLanes,
@@ -129,11 +141,13 @@ export function standalonePagingRuntime(
       deploymentWatchCadenceLane,
       metricJobLane,
       retentionJobLane,
+      ruleEvaluationLane,
       ...(watchdog ? [watchdog.lane] : []),
     ],
     {
       "probe.execute": deployment.limits.concurrency,
       "metrics.poll": metrics.limits.concurrency,
+      "rules.evaluate": 1,
     },
     health,
     new RetentionCoordinator(
