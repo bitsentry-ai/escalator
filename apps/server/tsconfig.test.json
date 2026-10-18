@@ -78,6 +78,12 @@
       ],
       "@escalator-test/investigation-reports": [
         "../../packages/features/test/conformance/investigation-reports.ts"
+      ],
+      "@escalator-test/rule-labels": [
+        "../../packages/features/test/conformance/rule-labels.ts"
+      ],
+      "@escalator-test/rule-label-seed": [
+        "../../packages/features/test/fixtures/rule-label-seed.ts"
       ]
     }
   },

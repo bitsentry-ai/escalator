@@ -37,6 +37,7 @@ export async function postgresFixture(
     coverageMutationPrivileges?: boolean;
     baselineMutationPrivileges?: boolean;
     replayPruningDeletes?: boolean;
+    labelMutationPrivileges?: boolean;
   } = {},
 ) {
   if (!testDatabaseConfigured())
@@ -227,6 +228,13 @@ export async function postgresFixture(
       }
     };
     await grantInvestigationSettings(migrations);
+    const grantLabels = async (list: readonly Migration[]) => {
+      if (list.some((item) => item.name === "0023_incident_labels.sql"))
+        await admin.query(
+          `GRANT SELECT,INSERT,UPDATE${options.labelMutationPrivileges ? ",DELETE" : ""} ON escalator_incident_label TO ${identifier(current.role)}`,
+        );
+    };
+    await grantLabels(migrations);
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
@@ -289,6 +297,7 @@ export async function postgresFixture(
         await grantCadence(next);
         await grantInvestigations(next);
         await grantInvestigationSettings(next);
+        await grantLabels(next);
         await grantRecording(next);
         await grantAccounting(next);
         await grantMaintenance(next);
