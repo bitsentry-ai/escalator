@@ -377,5 +377,23 @@
       "secret_unavailable": "Secret indisponible",
       "cancelled": "Requête annulée"
     }
+  },
+  "monitoring": {
+    "externalCredentials": "Demandez la création des identifiants de supervision à l'administrateur de votre organisation. Cet hôte n'accepte pas de valeurs secrètes ici.",
+    "newCredential": "Nouvel identifiant de supervision",
+    "writeOnly": "Saisissez la valeur une seule fois. Les valeurs enregistrées ne sont pas consultables. Si la réponse est incertaine, vérifiez la liste avant de réessayer.",
+    "header": "En-tête de requête",
+    "signingKey": "Clé de signature du webhook",
+    "headerValue": "Valeur complète de l'en-tête",
+    "credential": "Identifiant",
+    "noCredential": "Aucun identifiant",
+    "retainedReference": "Référence enregistrée",
+    "matchingFormat": "Choisissez un identifiant créé pour ce type de supervision. La liste affiche uniquement les noms et ne valide pas le format enregistré.",
+    "moreCredentials": "Charger d'autres identifiants",
+    "status": "Dernière observation traitée",
+    "snapshotHelp": "Il s'agit d'un état enregistré, pas d'un contrôle en direct. Vérifiez l'heure de l'observation avant de vous y fier.",
+    "failureActive": "Une défaillance active reste enregistrée.",
+    "noActiveFailure": "Aucune défaillance active n'est enregistrée. Cela ne prouve pas à lui seul le bon fonctionnement actuel.",
+    "previousVersion": "Cette observation utilisait une ancienne configuration. Elle ne valide pas les paramètres actuels."
   }
 }

@@ -1,3 +1,5 @@
+import { MonitoringCredentialForm } from "../monitoring/MonitoringCredentialForm.js";
+import { MonitoringSecretPicker } from "../monitoring/MonitoringSecretPicker.js";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   type Probe,
@@ -24,6 +26,8 @@ export function ProbeEditor({
   t: (key: string) => string;
   onSaved: (probe: Probe) => void;
 }) {
+  const [secretId, setSecretId] = useState(initial?.config.authSecretId ?? "");
+  const [credentialRevision, setCredentialRevision] = useState(0);
   const [method, setMethod] = useState(initial?.config.method ?? "GET");
   const [critical, setCritical] = useState(initial?.critical ?? false);
   const [saving, setSaving] = useState(false);
@@ -261,16 +265,22 @@ export function ProbeEditor({
               <p>{t("probes.jsonHelp")}</p>
             </>
           )}
-          <label style={styles.label}>
-            {t("probes.secret")}
-            <input
-              style={styles.input}
+          {canManage ? (
+            <MonitoringSecretPicker
+              key={credentialRevision}
+              client={client}
+              value={secretId}
+              onChange={setSecretId}
+              disabled={saving}
               name="authSecretId"
-              maxLength={128}
-              defaultValue={initial?.config.authSecretId ?? ""}
-              autoComplete="off"
+              t={t}
             />
-          </label>
+          ) : (
+            <label style={styles.label}>
+              {t("probes.secret")}
+              <input style={styles.input} value={secretId} readOnly />
+            </label>
+          )}
           <p>{t("probes.secretHelp")}</p>
           <label style={styles.label}>
             {t("probes.timeout")}
@@ -374,6 +384,17 @@ export function ProbeEditor({
         >
           {t("probes.disable")}
         </button>
+      )}
+      {canManage && (
+        <MonitoringCredentialForm
+          client={client}
+          kind="http-probe"
+          t={t}
+          onCreated={(value) => {
+            setSecretId(value.id);
+            setCredentialRevision((value) => value + 1);
+          }}
+        />
       )}
       <p>{t("probes.auditNotice")}</p>
     </article>

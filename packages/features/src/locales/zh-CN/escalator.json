@@ -377,5 +377,23 @@
       "secret_unavailable": "凭据不可用",
       "cancelled": "请求已取消"
     }
+  },
+  "monitoring": {
+    "externalCredentials": "请通过组织的凭据管理员创建监控凭据。此主机不在此处接收密钥值。",
+    "newCredential": "新建监控凭据",
+    "writeOnly": "仅输入一次。已保存的值无法显示。如果响应不确定，请先检查凭据列表再重试。",
+    "header": "请求标头",
+    "signingKey": "Webhook 签名密钥",
+    "headerValue": "完整的标头值",
+    "credential": "凭据",
+    "noCredential": "无凭据",
+    "retainedReference": "已保存的引用",
+    "matchingFormat": "请选择为此监控类型创建的凭据。列表仅包含名称，不验证已保存的格式。",
+    "moreCredentials": "加载更多凭据",
+    "status": "最近处理的观测",
+    "snapshotHelp": "这是已保存的快照，并非实时健康检查。使用前请核对观测时间。",
+    "failureActive": "仍有活动故障记录。",
+    "noActiveFailure": "未记录活动故障。仅凭此信息无法证明当前健康状态。",
+    "previousVersion": "此观测使用旧配置，不能验证当前设置。"
   }
 }

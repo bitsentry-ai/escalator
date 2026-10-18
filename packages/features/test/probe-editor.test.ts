@@ -52,6 +52,10 @@ test("read-only probe details escape configured names and expose no write action
   assert.doesNotMatch(html, /<img|type="submit"|probes\.disable</);
   assert.match(html, /&lt;img/);
   assert.match(html, /probes\.version/);
+  assert.doesNotMatch(
+    html,
+    /monitoring.newCredential|monitoring.credential|type="password"/,
+  );
 });
 test("administrators can save and disable an existing enabled probe", () => {
   const html = render(true);

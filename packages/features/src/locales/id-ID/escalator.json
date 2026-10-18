@@ -377,5 +377,23 @@
       "secret_unavailable": "Kredensial tidak tersedia",
       "cancelled": "Permintaan dibatalkan"
     }
+  },
+  "monitoring": {
+    "externalCredentials": "Buat kredensial pemantauan melalui administrator kredensial organisasi Anda. Host ini tidak menerima nilai rahasia di sini.",
+    "newCredential": "Kredensial pemantauan baru",
+    "writeOnly": "Masukkan nilai sekali. Nilai tersimpan tidak dapat ditampilkan. Jika respons tidak pasti, periksa daftar kredensial sebelum mencoba lagi.",
+    "header": "Header permintaan",
+    "signingKey": "Kunci penandatanganan webhook",
+    "headerValue": "Nilai header lengkap",
+    "credential": "Kredensial",
+    "noCredential": "Tanpa kredensial",
+    "retainedReference": "Referensi tersimpan",
+    "matchingFormat": "Pilih kredensial yang dibuat untuk jenis pemantauan ini. Daftar hanya memuat nama dan tidak memvalidasi format tersimpan.",
+    "moreCredentials": "Muat kredensial lainnya",
+    "status": "Pengamatan terakhir yang diproses",
+    "snapshotHelp": "Ini adalah rekaman tersimpan, bukan pemeriksaan kesehatan langsung. Periksa waktu pengamatan sebelum mengandalkannya.",
+    "failureActive": "Kegagalan aktif masih tercatat.",
+    "noActiveFailure": "Tidak ada kegagalan aktif yang tercatat. Ini saja tidak membuktikan kondisi saat ini.",
+    "previousVersion": "Pengamatan ini menggunakan konfigurasi lama. Pengamatan ini tidak memvalidasi pengaturan saat ini."
   }
 }

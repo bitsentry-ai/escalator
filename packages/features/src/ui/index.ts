@@ -24,3 +24,5 @@ export { SettingsScreen } from "./settings/SettingsScreen.js";
 
 export type { ProbesClient } from "./probes-client.js";
 export { ProbesScreen } from "./probes/ProbesScreen.js";
+
+export type { MonitoringSecretsClient } from "./monitoring-client.js";

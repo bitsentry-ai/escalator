@@ -1,8 +1,10 @@
+import type { MonitoringSecretsClient } from "./monitoring-client.js";
 import type {
   CreateProbeInput,
   UpdateProbeInput,
   Probe,
   ProbeResult,
+  ProbeInspection,
   Service,
   Environment,
 } from "../contracts/index.js";
@@ -15,7 +17,8 @@ export interface ProbePageInput {
   limit?: number;
 }
 /** Authenticated hosts supply scope. This interface contains no server imports. */
-export interface ProbesClient {
+export interface ProbesClient extends MonitoringSecretsClient {
+  get(input: { id: string }): Promise<ProbeInspection>;
   list(input: ProbePageInput): Promise<ProbeCollection<Probe>>;
   create(input: CreateProbeInput): Promise<Probe>;
   update(input: UpdateProbeInput): Promise<Probe>;

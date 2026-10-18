@@ -1,3 +1,4 @@
+import { ProbeStatus } from "./ProbeStatus.js";
 import { useState } from "react";
 import type { Probe } from "../../contracts/index.js";
 import type { ProbesClient } from "../probes-client.js";
@@ -112,6 +113,15 @@ export function ProbesScreen({
             setSelection({ client, probe });
             probes.refresh();
           }}
+        />
+      )}
+      {selected && (
+        <ProbeStatus
+          key={selected.id + ":" + selected.version}
+          client={client}
+          id={selected.id}
+          version={selected.version}
+          t={t}
         />
       )}
       {selected && (

@@ -377,5 +377,23 @@
       "secret_unavailable": "Credential unavailable",
       "cancelled": "Request cancelled"
     }
+  },
+  "monitoring": {
+    "externalCredentials": "Create monitoring credentials through your organization's credential administrator. This host does not accept secret values here.",
+    "newCredential": "New monitoring credential",
+    "writeOnly": "Enter the value once. Saved values cannot be displayed. After an uncertain response, check the credential list before retrying.",
+    "header": "Request header",
+    "signingKey": "Webhook signing key",
+    "headerValue": "Complete header value",
+    "credential": "Credential",
+    "noCredential": "No credential",
+    "retainedReference": "Saved reference",
+    "matchingFormat": "Choose a credential created for this monitor type. The list contains names only and does not validate the stored format.",
+    "moreCredentials": "Load more credentials",
+    "status": "Last processed observation",
+    "snapshotHelp": "This is a stored snapshot, not a live health check. Check the observation time before relying on it.",
+    "failureActive": "An active failure remains recorded.",
+    "noActiveFailure": "No active failure is recorded. This alone does not prove current health.",
+    "previousVersion": "This observation used an older configuration. It does not validate the current settings."
   }
 }
