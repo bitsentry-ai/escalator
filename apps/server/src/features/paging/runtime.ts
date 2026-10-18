@@ -1,9 +1,14 @@
+import { PostgresMetricsRepository } from "../../platform/database/metrics.repository.js";
 import { PostgresHeartbeatRepository } from "../../platform/database/heartbeats.repository.js";
 import { PostgresProbeRepository } from "../../platform/database/probes.repository.js";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
   ProbeDeployment,
+  MetricDeployment,
+  PrometheusMetricsReader,
+  withMetricHandlers,
+  metricJobLane,
   HttpProbeRunner,
   PolicyHttpProbeTransport,
   withProbeHandlers,
@@ -30,6 +35,7 @@ export function standalonePagingRuntime(
   publicUrl: string,
   onError: (queue: WorkQueue) => void,
   deployment = new ProbeDeployment(),
+  metrics = new MetricDeployment(),
 ) {
   const repository = new PostgresDetectionRepository(pool);
   const secrets = new EncryptedSecretStore(
@@ -45,20 +51,30 @@ export function standalonePagingRuntime(
     runtime: new PostgresJobsRuntime(
       pool,
       scope,
-      withHeartbeatHandlers(
-        withProbeHandlers(
-          createMonitoringHandlers(repository, channels, publicUrl),
-          new PostgresProbeRepository(pool),
-          new HttpProbeRunner(
-            new PolicyHttpProbeTransport(deployment.policy),
-            secrets,
+      withMetricHandlers(
+        withHeartbeatHandlers(
+          withProbeHandlers(
+            createMonitoringHandlers(repository, channels, publicUrl),
+            new PostgresProbeRepository(pool),
+            new HttpProbeRunner(
+              new PolicyHttpProbeTransport(deployment.policy),
+              secrets,
+            ),
           ),
+          new PostgresHeartbeatRepository(pool),
         ),
-        new PostgresHeartbeatRepository(pool),
+        new PostgresMetricsRepository(pool),
+        new PrometheusMetricsReader(
+          new PolicyHttpProbeTransport(metrics.policy),
+          secrets,
+        ),
       ),
       onError,
-      [...monitoringJobLanes, probeJobLane, heartbeatJobLane],
-      { "probe.execute": deployment.limits.concurrency },
+      [...monitoringJobLanes, probeJobLane, heartbeatJobLane, metricJobLane],
+      {
+        "probe.execute": deployment.limits.concurrency,
+        "metrics.poll": metrics.limits.concurrency,
+      },
     ),
   };
 }

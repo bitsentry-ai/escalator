@@ -25,7 +25,8 @@ export class MetricPersistenceError extends Error {
       | "invalid_metric"
       | "invalid_observation"
       | "invalid_schedule"
-      | "identity_change",
+      | "identity_change"
+      | "invalid_lock_order",
   ) {
     super(code);
   }
@@ -52,6 +53,7 @@ export function metricsTransaction(
   guard: TransactionGuard,
 ): MetricsTransaction {
   const locked = new Map<string, MetricMonitor>();
+  let capacityLocked = false;
   const scoped = (value: { workspaceId: string }) => {
     if (value.workspaceId !== base.workspaceId)
       throw new PersistenceError("scope_violation");
@@ -98,7 +100,14 @@ export function metricsTransaction(
   return {
     ...base,
     metrics: {
-      lockCapacity: () => guard.operation(() => store.lockCapacity()),
+      lockCapacity: () =>
+        guard.operation(async () => {
+          if (capacityLocked) return;
+          if (locked.size)
+            throw new MetricPersistenceError("invalid_lock_order");
+          await store.lockCapacity();
+          capacityLocked = true;
+        }),
       get: (id) => guard.operation(() => store.get(opaqueIdSchema.parse(id))),
       lock: (id) =>
         guard.operation(async () => {

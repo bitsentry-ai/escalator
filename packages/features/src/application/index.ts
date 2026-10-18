@@ -109,3 +109,8 @@ export * from "./metrics/ports.js";
 export * from "./metrics/schedule.js";
 export * from "./metrics/transaction.js";
 export * from "./metrics/jobs.js";
+
+export * from "./metrics/management.js";
+export * from "./metrics/capacity.js";
+export * from "./metrics/deployment.js";
+export * from "./metrics/handlers.js";

@@ -54,8 +54,12 @@ export class DurableWorkScheduler {
     const counts = lanes.map((lane) =>
       lane.length === 1 ? (parallel.get(lane[0]) ?? 1) : 1,
     );
-    if (counts.reduce((sum, count) => sum + count, 0) > 64)
-      throw new Error("Job concurrency exceeds the scheduler limit");
+    const workers = counts.reduce((sum, count) => sum + count, 0);
+    // Per-kind settings are validated alone; name the combined budget they broke.
+    if (workers > 64)
+      throw new Error(
+        `Job concurrency exceeds the scheduler limit: ${[...parallel].map(([kind, count]) => `${kind} ${count}`).join(" + ")} + ${workers - [...parallel.values()].reduce((sum, count) => sum + count, 0)} other job lanes need ${workers} workers, above 64; lower the probe or metric concurrency setting`,
+      );
     const groups: { queue: WorkQueue; handlers: WorkHandlers }[] = [
       ...lanes.flatMap((lane, index) =>
         Array.from({ length: counts[index] }, () => ({

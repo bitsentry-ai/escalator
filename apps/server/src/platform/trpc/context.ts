@@ -10,6 +10,7 @@ import type {
   SignalManagement,
   DetectionManagement,
   ProbeManagement,
+  MetricManagement,
   HeartbeatManagement,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
@@ -18,6 +19,7 @@ export interface AppContext {
   signals: SignalManagement;
   detection: DetectionManagement;
   probes: ProbeManagement;
+  metrics: MetricManagement;
   heartbeats: HeartbeatManagement;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;

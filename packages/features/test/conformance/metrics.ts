@@ -5,10 +5,12 @@ import {
   metricMonitorSchema,
   signalSourceSchema,
   workspaceIdSchema,
+  responderIdSchema,
   type MetricMonitor,
 } from "@bitsentry-escalator/features/contracts";
 import {
   normalizeMetricCounts,
+  MetricManagement,
   metricPointAt,
   type MetricsRepository,
   type MetricsTransaction,
@@ -342,6 +344,66 @@ export function metricsConformance(
           });
         }),
         { code: "invalid_observation" },
+      );
+    },
+  );
+  check(
+    "workspace capacity serializes simultaneous metric creation",
+    async ({ repository }) => {
+      const scope = workspaceIdSchema.parse(randomUUID());
+      await repository.transaction(scope, seedSignalFixture);
+      const actor = {
+        workspaceId: scope,
+        responderId: responderIdSchema.parse("admin"),
+        role: "administrator" as const,
+      };
+      const management = new MetricManagement(
+        repository,
+        randomUUID,
+        { target: () => undefined },
+        { maxActive: 1, maxConfigured: 1, concurrency: 1 },
+      );
+      const input = {
+        name: "Requests",
+        serviceId: "service",
+        environmentId: "production",
+        enabled: true,
+        stepSeconds: 60,
+        query: {
+          connection: {
+            provider: "prometheus" as const,
+            baseUrl: "https://example.test",
+            authSecretId: null,
+          },
+          requestsQuery: "requests",
+          errorsQuery: "errors",
+        },
+        rule: {
+          windowSeconds: 120,
+          minimumSamples: 2,
+          minimumRequests: 100,
+          errorRateFloor: 0.05,
+        },
+      };
+      const outcomes = await Promise.allSettled([
+        management.create(actor, input),
+        management.create(actor, input),
+      ]);
+      assert.equal(
+        outcomes.filter((result) => result.status === "fulfilled").length,
+        1,
+      );
+      assert.equal(
+        outcomes.filter((result) => result.status === "rejected").length,
+        1,
+      );
+      assert.equal((await management.list(actor)).items.length, 1);
+      assert.equal(
+        await repository.transaction(
+          scope,
+          async (tx) => (await tx.audit.list({ limit: 100 })).items.length,
+        ),
+        1,
       );
     },
   );

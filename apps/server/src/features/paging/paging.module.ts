@@ -1,3 +1,5 @@
+import { MetricsModule } from "../metrics/metrics.module.js";
+import { MetricDeployment } from "@bitsentry-escalator/features/application";
 import { ProbesModule } from "../probes/probes.module.js";
 import { ProbeDeployment } from "@bitsentry-escalator/features/application";
 import { randomUUID } from "node:crypto";
@@ -22,7 +24,7 @@ import { SecretKeyRing } from "../../platform/secrets/keyring.js";
 import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.js";
 import { standalonePagingRuntime } from "./runtime.js";
 @Module({
-  imports: [DatabaseModule, SecretKeysModule, ProbesModule],
+  imports: [DatabaseModule, SecretKeysModule, ProbesModule, MetricsModule],
   controllers: [EscalatorAcknowledgementController],
   exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
@@ -55,11 +57,17 @@ import { standalonePagingRuntime } from "./runtime.js";
     },
     {
       provide: PostgresJobsRuntime,
-      inject: [StandaloneDatabase, SecretKeyRing, ProbeDeployment],
+      inject: [
+        StandaloneDatabase,
+        SecretKeyRing,
+        ProbeDeployment,
+        MetricDeployment,
+      ],
       useFactory: (
         db: StandaloneDatabase,
         keys: SecretKeyRing,
         deployment: ProbeDeployment,
+        metrics: MetricDeployment,
       ) => {
         const logger = new Logger("EscalatorPaging");
         return standalonePagingRuntime(
@@ -69,6 +77,7 @@ import { standalonePagingRuntime } from "./runtime.js";
           process.env.ESCALATOR_PUBLIC_URL ?? "",
           (queue) => logger.error(`Paging poll failed: ${queue}`),
           deployment,
+          metrics,
         ).runtime;
       },
     },

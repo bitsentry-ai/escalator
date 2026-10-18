@@ -226,3 +226,27 @@ test("job concurrency rejects unknown kinds, mixed lanes and excessive allocatio
         ),
     );
 });
+
+test("combined parallel concurrency names the settings that exceed the scheduler limit", () => {
+  const handler = async () => ({ state: "completed" });
+  const kinds = ["probe.execute", "metrics.poll", "a", "b"];
+  assert.throws(
+    () =>
+      new DurableWorkScheduler(
+        { claim: async () => undefined, settle: async () => true },
+        "org_fixture",
+        {
+          job: new Map(kinds.map((kind) => [kind, handler])),
+          outbox: new Map(),
+        },
+        options,
+        {
+          intervalMs: 1000,
+          onError() {},
+          jobLanes: [["probe.execute"], ["metrics.poll"], ["a"], ["b"]],
+          jobConcurrency: { "probe.execute": 32, "metrics.poll": 32 },
+        },
+      ),
+    /exceeds the scheduler limit: probe\.execute 32 \+ metrics\.poll 32 \+ 2 other job lanes need 66 workers, above 64; lower the probe or metric concurrency setting/,
+  );
+});

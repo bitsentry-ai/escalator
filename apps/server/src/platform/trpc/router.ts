@@ -1,4 +1,5 @@
 import { heartbeatsRouter } from "../../features/heartbeats/heartbeats.router.js";
+import { metricsRouter } from "../../features/metrics/metrics.router.js";
 import { probesRouter } from "../../features/probes/probes.router.js";
 import { detectionRouter } from "../../features/detection/detection.router.js";
 import { signalsRouter } from "../../features/signals/signals.router.js";
@@ -15,6 +16,7 @@ export const appRouter = t.router({
   signals: signalsRouter,
   detection: detectionRouter,
   probes: probesRouter,
+  metrics: metricsRouter,
   heartbeats: heartbeatsRouter,
   incidents: incidentsRouter,
   configuration: configurationRouter,

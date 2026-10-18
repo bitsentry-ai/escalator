@@ -22,6 +22,7 @@ import {
   SignalManagement,
   DetectionManagement,
   ProbeManagement,
+  MetricManagement,
   HeartbeatManagement,
   HEARTBEAT_MAX_BYTES,
 } from "@bitsentry-escalator/features/application";
@@ -47,6 +48,7 @@ export async function createApp() {
     const signals = app.get(SignalManagement);
     const detection = app.get(DetectionManagement);
     const probes = app.get(ProbeManagement);
+    const metrics = app.get(MetricManagement);
     const heartbeats = app.get(HeartbeatManagement);
     app.use("/v1/heartbeats", signalBodyParser(HEARTBEAT_MAX_BYTES));
     app.use("/v1/ingest", signalBodyParser());
@@ -82,6 +84,7 @@ export async function createApp() {
           signals,
           detection,
           probes,
+          metrics,
           heartbeats,
           incidents,
           configuration,

@@ -45,3 +45,5 @@ export * from "./metrics.js";
 export * from "./sustained-floor.js";
 
 export * from "./metric-records.js";
+
+export * from "./metric-inputs.js";
