@@ -55,6 +55,7 @@ function store(): RuleCatalogStore {
     lock: unexpected,
     version: unexpected,
     latestVersionRevision: unexpected,
+    proposal: unexpected,
     insert: unexpected,
     insertVersion: unexpected,
     save: unexpected,

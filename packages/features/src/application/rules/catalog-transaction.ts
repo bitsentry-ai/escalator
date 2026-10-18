@@ -15,6 +15,7 @@ export function withRuleCatalog<T extends FoundationTransaction>(
     ...base,
     catalog: {
       currentTime: () => guard.operation(() => store.currentTime()),
+      proposal: (id) => guard.operation(() => store.proposal(id)),
       lockDefinition: (version) =>
         guard.operation(() => store.lockDefinition(version)),
       lock: (id) => guard.operation(() => store.lock(id)),

@@ -5,7 +5,11 @@ import {
   type Actor,
 } from "../../contracts/identity.js";
 import { detectionRuleSchema } from "../../contracts/rules.js";
-import { detectionRuleVersionSchema } from "../../contracts/rule-state.js";
+import { ruleProposalSchema } from "../../contracts/rule-proposal.js";
+import {
+  detectionRuleVersionSchema,
+  type DetectionRuleVersion,
+} from "../../contracts/rule-state.js";
 import {
   ruleCatalogEntrySchema,
   ruleActivationHistorySchema,
@@ -38,6 +42,68 @@ async function authorize(tx: RuleCatalogTransaction, actor: Actor) {
   )
     throw new Error("Rule draft forbidden");
 }
+async function persistDraft(
+  tx: RuleCatalogTransaction,
+  actor: Actor,
+  version: DetectionRuleVersion,
+  title: string,
+  originProposalId: string | null,
+) {
+  await tx.catalog.lockDefinition(version);
+  const now = await tx.catalog.currentTime();
+  const definition = version.definition;
+  const entry = ruleCatalogEntrySchema.parse({
+    id: version.id,
+    workspaceId: tx.workspaceId,
+    serviceId: definition.serviceId,
+    environmentId: definition.environmentId,
+    title,
+    revision: 1,
+    versionRevision: 1,
+    generation: 0,
+    status: "draft",
+    originProposalId,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await tx.catalog.insert(entry, version);
+  // Re-read and lock the persisted proposal, original candidate and evaluation seals.
+  // Any mismatch rolls back the draft insertion before history or audit is written.
+  if (originProposalId) await tx.catalog.evidence(entry, version, null);
+  const id = pagingWorkId(
+    tx.workspaceId,
+    "rule-activation-history",
+    entry.id,
+    "1",
+  );
+  await tx.catalog.history(
+    ruleActivationHistorySchema.parse({
+      id,
+      workspaceId: tx.workspaceId,
+      ruleId: entry.id,
+      catalogRevision: 1,
+      versionRevision: 1,
+      generation: 0,
+      action: "drafted",
+      actorId: actor.responderId,
+      previousVersionRevision: null,
+      previousIncidentId: null,
+      receiptId: null,
+      recordedAt: now,
+    }),
+  );
+  await tx.audit.append({
+    id,
+    workspaceId: tx.workspaceId,
+    actor: { kind: "responder", responderId: actor.responderId },
+    action: "rule.drafted",
+    subjectType: "rule",
+    subjectId: entry.id,
+    recordedAt: now,
+    metadata: { versionRevision: 1 },
+  });
+  return entry;
+}
 export class RuleDrafts {
   constructor(
     private readonly repository: RuleCatalogRepository,
@@ -55,56 +121,32 @@ export class RuleDrafts {
         revision: 1,
         definition,
       });
-      await tx.catalog.lockDefinition(version);
-      const now = await tx.catalog.currentTime();
-      const entry = ruleCatalogEntrySchema.parse({
-        id: version.id,
-        workspaceId: tx.workspaceId,
-        serviceId: definition.serviceId,
-        environmentId: definition.environmentId,
-        title: input.title,
-        revision: 1,
-        versionRevision: 1,
-        generation: 0,
-        status: "draft",
-        originProposalId: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await tx.catalog.insert(entry, version);
-      const id = pagingWorkId(
-        tx.workspaceId,
-        "rule-activation-history",
-        entry.id,
-        "1",
+      return persistDraft(tx, actor, version, input.title, null);
+    });
+  }
+  adopt(actor: Actor, raw: unknown) {
+    const input = z
+      .strictObject({ proposalId: opaqueIdSchema, title: ruleTitleSchema })
+      .parse(raw);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      await authorize(tx, actor);
+      const hint = await tx.catalog.proposal(input.proposalId);
+      if (!hint) throw new PersistenceError("not_found");
+      const proposal = ruleProposalSchema.parse(hint);
+      if (
+        proposal.workspaceId !== tx.workspaceId ||
+        proposal.id !== input.proposalId
+      )
+        throw new PersistenceError("scope_violation");
+      if (proposal.status !== "ready" || !proposal.generation)
+        throw new Error("Proposal evaluation is not complete");
+      return persistDraft(
+        tx,
+        actor,
+        proposal.generation.candidate,
+        input.title,
+        proposal.id,
       );
-      await tx.catalog.history(
-        ruleActivationHistorySchema.parse({
-          id,
-          workspaceId: tx.workspaceId,
-          ruleId: entry.id,
-          catalogRevision: 1,
-          versionRevision: 1,
-          generation: 0,
-          action: "drafted",
-          actorId: actor.responderId,
-          previousVersionRevision: null,
-          previousIncidentId: null,
-          receiptId: null,
-          recordedAt: now,
-        }),
-      );
-      await tx.audit.append({
-        id,
-        workspaceId: tx.workspaceId,
-        actor: { kind: "responder", responderId: actor.responderId },
-        action: "rule.drafted",
-        subjectType: "rule",
-        subjectId: entry.id,
-        recordedAt: now,
-        metadata: { versionRevision: 1 },
-      });
-      return entry;
     });
   }
   edit(actor: Actor, raw: unknown) {

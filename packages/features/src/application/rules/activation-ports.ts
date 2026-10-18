@@ -3,6 +3,7 @@ import type {
   RuleLiveRecord,
   DetectionRuleVersion,
   RuleBacktestRecord,
+  RuleProposal,
 } from "../../contracts/index.js";
 import type {
   RuleCatalogEntry,
@@ -16,6 +17,8 @@ import type { FoundationTransaction } from "../ports/persistence.js";
  * poisons the transaction, including errors a caller attempts to catch. */
 export interface RuleCatalogStore {
   currentTime(): Promise<string>;
+  /** Unlocked hint only. Adoption locks the source first and rechecks provenance via evidence. */
+  proposal(id: string): Promise<RuleProposal | undefined>;
   /** Validate and lock a new draft's source scope using the live evaluator order. */
   lockDefinition(version: DetectionRuleVersion): Promise<void>;
   lock(ruleId: string): Promise<RuleCatalogEntry | undefined>;

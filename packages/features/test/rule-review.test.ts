@@ -1,4 +1,8 @@
 import test from "node:test";
+import {
+  ruleProposalSchema,
+  type RuleProposal,
+} from "../src/contracts/rule-proposal.js";
 import assert from "node:assert/strict";
 import { MemoryFoundationRepository } from "./conformance/memory.js";
 import { fixture, at } from "./conformance/rule-backtest-fixture.js";
@@ -47,6 +51,9 @@ async function setup() {
     changedCoverage: false,
     failEnqueue: false,
     policy: true,
+    proposal: undefined as RuleProposal | undefined,
+    failEvidence: false,
+    operations: [] as string[],
   };
   const foundation = new MemoryFoundationRepository({
     now: () => new Date(control.now),
@@ -110,13 +117,18 @@ async function setup() {
       const result = await foundation.transaction(scope, async (tx) => {
         const catalog: RuleCatalogStore = {
           currentTime: async () => control.now,
-          lockDefinition: async () => {},
+          proposal: async () => control.proposal,
+          lockDefinition: async () => {
+            control.operations.push("source");
+          },
           lock: async (id) => (id === draft.entry.id ? draft.entry : undefined),
           version: async (id, revision) =>
             draft.versions.find((v) => v.id === id && v.revision === revision),
           latestVersionRevision: async () =>
             Math.max(...draft.versions.map((v) => v.revision)),
           insert: async (entry, v) => {
+            if (entry.id === draft.entry.id) throw new Error("duplicate draft");
+            control.operations.push("insert");
             draft.entry = entry;
             draft.versions = [v];
           },
@@ -142,20 +154,25 @@ async function setup() {
           history: async (row) => {
             draft.history.push(row);
           },
-          evidence: async (_entry, _version, runId) => ({
-            measurementHash: "a".repeat(64),
-            policyKnown: true,
-            policyEnabled: control.policy,
-            report: runId ? record : null,
-            fingerprint: {
-              versionHash: "a".repeat(64),
+          evidence: async (_entry, _version, runId) => {
+            control.operations.push("evidence");
+            if (control.failEvidence)
+              throw new Error("proposal provenance changed");
+            return {
               measurementHash: "a".repeat(64),
-              coverageHash: (control.changedCoverage ? "c" : "a").repeat(64),
-              policyHash: (control.policy ? "a" : "b").repeat(64),
-              labelHash: "b".repeat(64),
-              reportHash: runId ? "a".repeat(64) : null,
-            },
-          }),
+              policyKnown: true,
+              policyEnabled: control.policy,
+              report: runId ? record : null,
+              fingerprint: {
+                versionHash: "a".repeat(64),
+                measurementHash: "a".repeat(64),
+                coverageHash: (control.changedCoverage ? "c" : "a").repeat(64),
+                policyHash: (control.policy ? "a" : "b").repeat(64),
+                labelHash: "b".repeat(64),
+                reportHash: runId ? "a".repeat(64) : null,
+              },
+            };
+          },
         };
         return work({
           ...tx,
@@ -452,4 +469,111 @@ test("isolated post-gap history cannot satisfy a persistence interval", () => {
   assert.equal(evaluate().reason, "insufficient_history");
   snapshot.samples = all.slice(-4);
   assert.equal(evaluate().eligible, true);
+});
+
+function readyProposal(version: Awaited<ReturnType<typeof setup>>["version"]) {
+  const destination = {
+    provider: "ollama",
+    model: "local",
+    location: "local",
+    origin: "http://localhost:11434",
+  };
+  return ruleProposalSchema.parse({
+    id: "proposal",
+    workspaceId: version.definition.workspaceId,
+    requestedBy: "reviewer",
+    originLabelId: "label",
+    sourceSnapshotId: "source",
+    sourceInputHash: "a".repeat(64),
+    candidateId: "adopted",
+    profileId: "model",
+    profileRevision: 1,
+    destination,
+    revision: 4,
+    status: "ready",
+    failure: null,
+    fullRunId: "full",
+    heldOutRunId: null,
+    heldOut: "insufficient_span",
+    createdAt: at(0),
+    updatedAt: at(20),
+    expiresAt: at(60),
+    generation: {
+      candidate: { ...version, id: "adopted", revision: 1 },
+      rationale: "Review this candidate",
+      destination,
+      sourceSnapshotId: "source",
+      sourceInputHash: "a".repeat(64),
+      trainingCutoffAt: at(10),
+      usage: { modelCalls: 1, outputTokens: 1 },
+      reviewable: false,
+    },
+  });
+}
+test("human adoption preserves evaluated candidate provenance and never activates", async () => {
+  const x = await setup();
+  x.control.proposal = readyProposal(x.version);
+  const entry = await x.drafts.adopt(x.actor, {
+    proposalId: "proposal",
+    title: "Reviewed candidate",
+  });
+  assert.equal(entry.id, "adopted");
+  assert.equal(entry.originProposalId, "proposal");
+  assert.equal(entry.status, "draft");
+  assert.equal(entry.generation, 0);
+  assert.equal(x.state().runtime, undefined);
+  assert.deepEqual(
+    x.state().versions[0],
+    x.control.proposal.generation!.candidate,
+  );
+  assert.deepEqual(x.control.operations, ["source", "insert", "evidence"]);
+  assert.equal(x.state().history[0].action, "drafted");
+  await assert.rejects(
+    x.drafts.adopt(x.actor, { proposalId: "proposal", title: "Duplicate" }),
+    /duplicate/,
+  );
+  assert.equal(x.state().history.length, 1);
+});
+test("failed locked provenance rolls back the draft and its history", async () => {
+  const x = await setup(),
+    before = structuredClone(x.state());
+  x.control.proposal = readyProposal(x.version);
+  x.control.failEvidence = true;
+  await assert.rejects(
+    x.drafts.adopt(x.actor, { proposalId: "proposal", title: "Candidate" }),
+    /provenance changed/,
+  );
+  assert.deepEqual(x.state(), before);
+});
+test("adoption rejects disabled and read-only responders before writing", async () => {
+  const x = await setup();
+  x.control.proposal = readyProposal(x.version);
+  x.control.revoked = true;
+  await assert.rejects(
+    x.drafts.adopt(x.actor, { proposalId: "proposal", title: "Candidate" }),
+    /forbidden/,
+  );
+  x.control.revoked = false;
+  await assert.rejects(
+    x.drafts.adopt(
+      { ...x.actor, role: "viewer" },
+      { proposalId: "proposal", title: "Candidate" },
+    ),
+    /forbidden/,
+  );
+  assert.deepEqual(x.control.operations, []);
+});
+test("adoption rejects unfinished or substituted proposals", async () => {
+  const x = await setup();
+  const proposal = readyProposal(x.version);
+  x.control.proposal = { ...proposal, status: "evaluating" };
+  await assert.rejects(
+    x.drafts.adopt(x.actor, { proposalId: "proposal", title: "Candidate" }),
+    /not complete/,
+  );
+  x.control.proposal = { ...proposal, id: "other" };
+  await assert.rejects(
+    x.drafts.adopt(x.actor, { proposalId: "proposal", title: "Candidate" }),
+  );
+  assert.deepEqual(x.control.operations, []);
 });

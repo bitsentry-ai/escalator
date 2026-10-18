@@ -7,6 +7,7 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   encodeRuleCatalogData,
+  decodeRuleProposal,
   decodeRuleCatalogData,
   PersistenceError,
   type RuleCatalogStore,
@@ -56,6 +57,13 @@ export function postgresRuleCatalogStore(
     );
   }
   return {
+    async proposal(id) {
+      const r = await db.query<{ data: unknown }>(
+        "SELECT data FROM escalator_rule_proposal WHERE workspace_id=$1 AND id=$2",
+        [scope, id],
+      );
+      return r.rows[0] ? decodeRuleProposal(scope, r.rows[0].data) : undefined;
+    },
     lockDefinition: bindings.lockDefinition,
     evidence: bindings.evidence,
     async currentTime() {
