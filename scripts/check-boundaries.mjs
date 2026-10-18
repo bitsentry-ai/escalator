@@ -52,7 +52,10 @@ export function checkSource(file, source, root = sourceRoot) {
         : name.split("/")[0];
       if (
         browser
-          ? area !== "ui" || !["react", "react-dom"].includes(dependency)
+          ? !(
+              (area === "ui" && ["react", "react-dom"].includes(dependency)) ||
+              (["contracts", "ui"].includes(area) && dependency === "zod")
+            )
           : (!dependencies.has(dependency) && !name.startsWith("node:")) ||
             (!browser && ["react", "react-dom"].includes(dependency))
       )
