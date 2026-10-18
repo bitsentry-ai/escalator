@@ -54,3 +54,6 @@ export { validateSyntheticProbe } from "./probe-validation.js";
 
 export * from "./signal-grants.js";
 export * from "./monitoring-credentials.js";
+
+export * from "./retention.js";
+export * from "./replay-coverage.js";

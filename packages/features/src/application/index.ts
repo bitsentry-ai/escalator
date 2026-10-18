@@ -125,3 +125,7 @@ export * from "./health/deployment.js";
 export * from "./health/http.js";
 
 export { encodeMonitoringSecret } from "./secrets/monitoring-secret.js";
+
+export * from "./retention/policy.js";
+export * from "./retention/coverage.js";
+export * from "./retention/prune.js";
