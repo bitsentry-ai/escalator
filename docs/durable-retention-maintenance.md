@@ -1,8 +1,8 @@
 # Durable retention maintenance
 
 This shared T3.12 implementation defines the schedule state, guarded transaction,
-bootstrap/repair operation and job handler. PostgreSQL schedule storage and runtime
-registration follow in the next part; no production timer or deletion handler is
+bootstrap/repair operation, job handler and PostgreSQL schedule adapters. Runtime
+registration follows separately; no production timer or deletion handler is
 registered here.
 
 Each workspace has one schedule with a monotonically increasing revision, current
@@ -67,3 +67,46 @@ pnpm --dir apps/escalator --filter @bitsentry-escalator/features test
 
 Database scheduling conformance, production activation and authenticated
 retention/coverage management remain follow-up work before Phase 3 completion.
+
+## PostgreSQL schedule adapters
+
+Both hosts persist the shared maintenance state in a workspace-scoped singleton.
+The Dashboard column is `organization_id`, using the WorkOS organization ID.
+An advisory transaction lock serializes first initialization; subsequent writes
+also lock the row and compare its revision. Foreign keys bind the current work to the same workspace and protect it from
+deletion. Source IDs are traversal hints, selected by a scoped query and validated
+under a source lock before pruning. They deliberately have no foreign key: moving
+the cursor must not implicitly lock the next source after byte accounting. A
+foreign or missing source hint fails before the pruning transaction is exposed.
+A nullable JSON cursor preserves the receipt timestamp's PostgreSQL precision.
+
+Each batch locks its source before the singleton and work rows, then composes the
+existing pruning transaction. Payload deletion, byte accounting, audit, successor
+intent and cursor movement commit together. Source traversal uses an indexed ID
+seek without taking a second source lock. Statement and lock timeouts remain five
+and one seconds. These adapters do not yet start a production scheduler; runtime
+admission, obsolete maintenance-job cleanup and management screens follow.
+
+### Disposable database verification
+
+**Not runtime-verified:** no test database was available. Follow the role and
+explicit-variable setup in [the pruning procedure](postgres-retention-pruning.md),
+then run from the root checkout:
+
+```sh
+pnpm run escalator:build:packages
+pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
+pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand
+```
+
+Verify that all four `retention maintenance` cases execute in each host, rather
+than skip. They exercise concurrent initialization, tenant isolation and foreign
+keys; 100/5-row continuation and retry after commit before lease settlement;
+audit-failure rollback; and expired-owner fencing with delayed repair after an
+exhausted job. Existing pruning cases use the same fixture and still run.
+The fixture grants schedule SELECT/INSERT/UPDATE only to its restricted test role.
+
+Before operational activation, also measure query plans and lock contention with
+production-shaped histories in an authorized environment. Passing shared memory
+tests or compiling these opt-in cases does not establish PostgreSQL performance,
+physical locking behavior, or a completed database migration rehearsal.

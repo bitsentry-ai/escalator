@@ -52,6 +52,9 @@
       "@escalator-test/retention-accounting": [
         "../../packages/features/test/conformance/retention-accounting.ts"
       ],
+      "@escalator-test/retention-maintenance": [
+        "../../packages/features/test/conformance/retention-maintenance.ts"
+      ],
       "@escalator-test/retention-pruning": [
         "../../packages/features/test/conformance/retention-pruning.ts"
       ]

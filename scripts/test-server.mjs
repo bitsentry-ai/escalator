@@ -29,6 +29,10 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/retention-maintenance": path.resolve(
+      server,
+      "../../packages/features/test/conformance/retention-maintenance.ts",
+    ),
     "@escalator-test/retention-pruning": path.resolve(
       server,
       "../../packages/features/test/conformance/retention-pruning.ts",

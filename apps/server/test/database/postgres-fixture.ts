@@ -193,6 +193,13 @@ export async function postgresFixture(
         await admin.query(
           `GRANT DELETE ON ${identifier(table)} TO ${identifier(current.role)}`,
         );
+    const grantMaintenance = async (list: readonly Migration[]) => {
+      if (list.some((item) => item.name === "0014_retention_schedule.sql"))
+        await admin.query(
+          `GRANT SELECT,INSERT,UPDATE ON escalator_retention_schedule TO ${identifier(current.role)}`,
+        );
+    };
+    await grantMaintenance(migrations);
     await grantRecording(migrations);
     await grantAccounting(migrations);
     await app.query("SELECT id FROM escalator_workspace LIMIT 0");
@@ -203,6 +210,7 @@ export async function postgresFixture(
         await migrate(admin, next);
         await grantRecording(next);
         await grantAccounting(next);
+        await grantMaintenance(next);
       },
       async dispose() {
         try {
