@@ -48,6 +48,9 @@
       ],
       "@escalator-test/replay-coverage": [
         "../../packages/features/test/conformance/replay-coverage.ts"
+      ],
+      "@escalator-test/retention-accounting": [
+        "../../packages/features/test/conformance/retention-accounting.ts"
       ]
     }
   },

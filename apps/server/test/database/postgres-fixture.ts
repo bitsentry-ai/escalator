@@ -30,7 +30,10 @@ export function scopedTestUrl(value: string, schema: string): string {
 }
 const identifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
-export async function postgresFixture(migrations: readonly Migration[]) {
+export async function postgresFixture(
+  migrations: readonly Migration[],
+  options: { replayAccountingDeletes?: boolean } = {},
+) {
   if (!testDatabaseConfigured())
     throw new Error("No explicitly configured Escalator test database");
   const schema = `escalator_test_${randomUUID().replaceAll("-", "")}`;
@@ -158,7 +161,32 @@ export async function postgresFixture(migrations: readonly Migration[]) {
           `GRANT SELECT, INSERT ON ${identifier(table)} TO ${identifier(current.role)}`,
         );
     };
+    const grantAccounting = async (list: readonly Migration[]) => {
+      if (!list.some((item) => item.name === "0012_retention_accounting.sql"))
+        return;
+      for (const table of [
+        "escalator_retention_policy",
+        "escalator_replay_usage",
+      ])
+        await admin.query(
+          `GRANT SELECT,INSERT,UPDATE ON ${identifier(table)} TO ${identifier(current.role)}`,
+        );
+      await admin.query(
+        `GRANT SELECT,INSERT ON escalator_signal_tombstone TO ${identifier(current.role)}`,
+      );
+      // Only accounting fixtures exercise raw DELETE; ordinary producer fixtures retain INSERT-only receipts.
+      if (options.replayAccountingDeletes)
+        for (const table of [
+          "escalator_signal_event",
+          "escalator_probe_result",
+          "escalator_metric_observation",
+        ])
+          await admin.query(
+            `GRANT DELETE ON ${identifier(table)} TO ${identifier(current.role)}`,
+          );
+    };
     await grantRecording(migrations);
+    await grantAccounting(migrations);
     await app.query("SELECT id FROM escalator_workspace LIMIT 0");
     return {
       repository: new PostgresFoundationRepository(app),
@@ -166,6 +194,7 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       async upgrade(next: readonly Migration[]) {
         await migrate(admin, next);
         await grantRecording(next);
+        await grantAccounting(next);
       },
       async dispose() {
         try {

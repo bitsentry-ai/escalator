@@ -130,3 +130,5 @@ export * from "./retention/policy.js";
 export * from "./retention/coverage.js";
 export * from "./retention/prune.js";
 export * from "./retention/reader.js";
+export * from "./retention/policy-management.js";
+export * from "./retention/policy-transaction.js";
