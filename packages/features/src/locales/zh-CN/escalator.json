@@ -196,5 +196,46 @@
       "earlier": "较早时刻",
       "later": "较晚时刻"
     }
+  },
+  "settings": {
+    "contacts": "呼叫联系人",
+    "contactsHelp": "选择每位响应人员接收呼叫的方式。",
+    "contact": "联系人",
+    "channel": "渠道",
+    "chooseCredential": "选择凭据",
+    "chooseResponder": "选择响应人员",
+    "createCredential": "创建凭据",
+    "credentialError": "无法确认创建结果。重试前请检查可用凭据。",
+    "credentialLabel": "凭据",
+    "credentialsUnavailable": "此工作区暂时无法使用凭据。",
+    "disabled": "已禁用",
+    "discard": "放弃修改",
+    "edit": "编辑",
+    "enabled": "已启用",
+    "externalCredentials": "请在工作区凭据设置中管理凭据，然后刷新可用凭据。",
+    "loadError": "无法加载设置。请刷新后重试。",
+    "loading": "正在加载设置…",
+    "moreContacts": "加载更多联系人",
+    "moreCredentials": "加载更多凭据",
+    "moreResponders": "加载更多响应人员",
+    "name": "名称",
+    "newContact": "新建联系人",
+    "newCredential": "新建凭据",
+    "noContacts": "尚无呼叫联系人。",
+    "priority": "优先级（数值较小者优先）",
+    "refresh": "刷新列表",
+    "responder": "响应人员",
+    "save": "保存联系人",
+    "saveError": "保存失败，您的修改仍保留在表单中。请放弃修改并刷新以加载最新版本。",
+    "saving": "正在保存…",
+    "unlistedCredential": "当前凭据（不在已加载的结果中）",
+    "writeOnly": "凭据值在服务器上加密，无法在此读取。",
+    "credential": {
+      "token": "应用令牌",
+      "user": "用户密钥",
+      "device": "设备（可选）",
+      "url": "Webhook URL",
+      "bearerToken": "Bearer 令牌（可选）"
+    }
   }
 }

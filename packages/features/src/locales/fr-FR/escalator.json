@@ -196,5 +196,46 @@
       "earlier": "Instant antérieur",
       "later": "Instant ultérieur"
     }
+  },
+  "settings": {
+    "contacts": "Contacts d’astreinte",
+    "contactsHelp": "Choisissez comment chaque intervenant reçoit les alertes.",
+    "contact": "Contact",
+    "channel": "Canal",
+    "chooseCredential": "Choisir un identifiant",
+    "chooseResponder": "Choisir un intervenant",
+    "createCredential": "Créer l’identifiant",
+    "credentialError": "Création non confirmée. Vérifiez les identifiants disponibles avant de réessayer.",
+    "credentialLabel": "Identifiant",
+    "credentialsUnavailable": "Les identifiants ne sont pas encore disponibles pour cet espace.",
+    "disabled": "Désactivé",
+    "discard": "Abandonner les modifications",
+    "edit": "Modifier",
+    "enabled": "Activé",
+    "externalCredentials": "Gérez les identifiants dans les paramètres de votre espace, puis actualisez les identifiants disponibles.",
+    "loadError": "Chargement impossible. Actualisez pour réessayer.",
+    "loading": "Chargement des paramètres…",
+    "moreContacts": "Charger plus de contacts",
+    "moreCredentials": "Charger plus d’identifiants",
+    "moreResponders": "Charger plus d’intervenants",
+    "name": "Nom",
+    "newContact": "Nouveau contact",
+    "newCredential": "Nouvel identifiant",
+    "noContacts": "Aucun contact d’astreinte.",
+    "priority": "Priorité (valeur la plus basse en premier)",
+    "refresh": "Actualiser les listes",
+    "responder": "Intervenant",
+    "save": "Enregistrer le contact",
+    "saveError": "Enregistrement impossible. Vos modifications sont conservées. Abandonnez-les et actualisez pour charger la dernière version.",
+    "saving": "Enregistrement…",
+    "unlistedCredential": "Identifiant actuel (absent des résultats chargés)",
+    "writeOnly": "Les valeurs sont chiffrées sur le serveur et ne peuvent pas être relues ici.",
+    "credential": {
+      "token": "Jeton d’application",
+      "user": "Clé utilisateur",
+      "device": "Appareil (facultatif)",
+      "url": "URL du webhook",
+      "bearerToken": "Jeton Bearer (facultatif)"
+    }
   }
 }

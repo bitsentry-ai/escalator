@@ -196,5 +196,46 @@
       "earlier": "Waktu lebih awal",
       "later": "Waktu lebih akhir"
     }
+  },
+  "settings": {
+    "contacts": "Kontak panggilan",
+    "contactsHelp": "Pilih cara setiap petugas menerima panggilan.",
+    "contact": "Kontak",
+    "channel": "Saluran",
+    "chooseCredential": "Pilih kredensial",
+    "chooseResponder": "Pilih petugas",
+    "createCredential": "Buat kredensial",
+    "credentialError": "Pembuatan belum terkonfirmasi. Periksa kredensial yang tersedia sebelum mencoba lagi.",
+    "credentialLabel": "Kredensial",
+    "credentialsUnavailable": "Kredensial belum tersedia untuk ruang kerja ini.",
+    "disabled": "Nonaktif",
+    "discard": "Buang perubahan",
+    "edit": "Edit",
+    "enabled": "Aktif",
+    "externalCredentials": "Kelola kredensial di pengaturan ruang kerja, lalu muat ulang kredensial yang tersedia.",
+    "loadError": "Pengaturan gagal dimuat. Muat ulang untuk mencoba lagi.",
+    "loading": "Memuat pengaturan…",
+    "moreContacts": "Muat kontak lainnya",
+    "moreCredentials": "Muat kredensial lainnya",
+    "moreResponders": "Muat petugas lainnya",
+    "name": "Nama",
+    "newContact": "Kontak baru",
+    "newCredential": "Kredensial baru",
+    "noContacts": "Belum ada kontak panggilan.",
+    "priority": "Prioritas (angka lebih kecil lebih dahulu)",
+    "refresh": "Muat ulang daftar",
+    "responder": "Petugas",
+    "save": "Simpan kontak",
+    "saveError": "Gagal menyimpan. Perubahan tetap tersimpan di formulir. Buang perubahan dan muat ulang untuk mendapatkan versi terbaru.",
+    "saving": "Menyimpan…",
+    "unlistedCredential": "Kredensial saat ini (belum ada dalam hasil yang dimuat)",
+    "writeOnly": "Nilai kredensial dienkripsi di server dan tidak dapat dibaca kembali di sini.",
+    "credential": {
+      "token": "Token aplikasi",
+      "user": "Kunci pengguna",
+      "device": "Perangkat (opsional)",
+      "url": "URL webhook",
+      "bearerToken": "Token Bearer (opsional)"
+    }
   }
 }

@@ -196,5 +196,46 @@
       "earlier": "Earlier instant",
       "later": "Later instant"
     }
+  },
+  "settings": {
+    "contacts": "Paging contacts",
+    "contactsHelp": "Choose how each responder receives pages.",
+    "contact": "Contact",
+    "channel": "Channel",
+    "chooseCredential": "Choose a credential",
+    "chooseResponder": "Choose a responder",
+    "createCredential": "Create credential",
+    "credentialError": "Could not confirm creation. Check the available credentials before retrying.",
+    "credentialLabel": "Credential",
+    "credentialsUnavailable": "Credentials are not available for this workspace yet.",
+    "disabled": "Disabled",
+    "discard": "Discard edits",
+    "edit": "Edit",
+    "enabled": "Enabled",
+    "externalCredentials": "Manage credentials in your workspace credential settings, then refresh the available credentials.",
+    "loadError": "Could not load settings. Refresh to try again.",
+    "loading": "Loading settings…",
+    "moreContacts": "Load more contacts",
+    "moreCredentials": "Load more credentials",
+    "moreResponders": "Load more responders",
+    "name": "Name",
+    "newContact": "New contact",
+    "newCredential": "New credential",
+    "noContacts": "No paging contacts yet.",
+    "priority": "Priority (lower first)",
+    "refresh": "Refresh lists",
+    "responder": "Responder",
+    "save": "Save contact",
+    "saveError": "Could not save. Your edits are retained. Discard them and refresh to load the latest version.",
+    "saving": "Saving…",
+    "unlistedCredential": "Current credential (not in loaded results)",
+    "writeOnly": "Credential values are encrypted on the server and cannot be read back here.",
+    "credential": {
+      "token": "Application token",
+      "user": "User key",
+      "device": "Device (optional)",
+      "url": "Webhook URL",
+      "bearerToken": "Bearer token (optional)"
+    }
   }
 }

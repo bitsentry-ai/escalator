@@ -15,3 +15,8 @@ export { IncidentsScreen } from "./incidents/IncidentsScreen.js";
 
 export type { OnCallClient } from "./oncall-client.js";
 export { OnCallScreen } from "./oncall/OnCallScreen.js";
+export { ContactsScreen } from "./settings/ContactsScreen.js";
+export type {
+  PagingSettingsClient,
+  ContactSettingsClient,
+} from "./settings-client.js";
