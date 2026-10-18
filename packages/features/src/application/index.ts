@@ -135,3 +135,6 @@ export * from "./retention/policy-transaction.js";
 export * from "./retention/source-plan.js";
 export * from "./retention/pruning.js";
 export * from "./retention/pruning-transaction.js";
+export * from "./retention/terminal-work.js";
+
+export * from "./retention/protection.js";

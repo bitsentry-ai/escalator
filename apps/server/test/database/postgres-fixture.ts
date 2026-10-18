@@ -32,7 +32,10 @@ const identifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
 export async function postgresFixture(
   migrations: readonly Migration[],
-  options: { replayAccountingDeletes?: boolean } = {},
+  options: {
+    replayAccountingDeletes?: boolean;
+    replayPruningDeletes?: boolean;
+  } = {},
 ) {
   if (!testDatabaseConfigured())
     throw new Error("No explicitly configured Escalator test database");
@@ -175,7 +178,7 @@ export async function postgresFixture(
         `GRANT SELECT,INSERT ON escalator_signal_tombstone TO ${identifier(current.role)}`,
       );
       // Only accounting fixtures exercise raw DELETE; ordinary producer fixtures retain INSERT-only receipts.
-      if (options.replayAccountingDeletes)
+      if (options.replayAccountingDeletes || options.replayPruningDeletes)
         for (const table of [
           "escalator_signal_event",
           "escalator_probe_result",
@@ -185,6 +188,11 @@ export async function postgresFixture(
             `GRANT DELETE ON ${identifier(table)} TO ${identifier(current.role)}`,
           );
     };
+    if (options.replayPruningDeletes)
+      for (const table of ["escalator_job", "escalator_detection_processed"])
+        await admin.query(
+          `GRANT DELETE ON ${identifier(table)} TO ${identifier(current.role)}`,
+        );
     await grantRecording(migrations);
     await grantAccounting(migrations);
     await app.query("SELECT id FROM escalator_workspace LIMIT 0");

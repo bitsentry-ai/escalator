@@ -17,7 +17,10 @@ import { openPageInTransaction } from "../paging/create-page.js";
 import { pagingWorkId } from "../paging/work-ids.js";
 import type { DetectionRepository, DetectionTransaction } from "./ports.js";
 import { recoveryDeadline, scheduleRecovery } from "./recovery.js";
-const payloadSchema = z.strictObject({ signalId: opaqueIdSchema });
+export const signalProcessingPayloadSchema = z.strictObject({
+  signalId: opaqueIdSchema,
+});
+const payloadSchema = signalProcessingPayloadSchema;
 const actor = { kind: "system", component: "detection" } as const;
 /** A newer active observation after this alert recovered is a relapse, even if it predates resolution. */
 const relapses = (alert: AlertState | undefined, signal: SignalEvent) =>
