@@ -19,6 +19,7 @@ export interface WorkFixture {
   store: DurableWorkStore;
   reopen(): DurableWorkStore;
   expire(lease: WorkLease): Promise<void>;
+  forceDue(lease: WorkLease): Promise<void>;
   dispose(): Promise<void>;
 }
 export function workConformance(
@@ -412,6 +413,75 @@ export function workConformance(
       await fixture.repository.transaction(scope, async (tx) => {
         assert.equal(await tx.work.lockClaim(second), undefined);
       });
+    },
+  );
+  scenario(
+    "normal job waits reschedule durably and reset consecutive failure attempts",
+    async (fixture, scope) => {
+      await fixture.repository.transaction(scope, (tx) =>
+        tx.work.enqueue("job", {
+          id: "receipt",
+          kind: "receipt.poll",
+          idempotencyKey: "receipt",
+          payload: {},
+          dueAt: tx.now,
+        }),
+      );
+      const next = () =>
+        fixture.store.claim({
+          workspaceId: scope,
+          queue: "job",
+          kinds: ["receipt.poll"],
+          token: randomUUID(),
+          leaseMs: 5000,
+        });
+      const first = (await next())!;
+      await fixture.expire(first);
+      const recovered = (await next())!;
+      assert.equal(recovered.attempt, 2);
+      assert.equal(
+        await fixture.store.settle(recovered, {
+          state: "wait",
+          delayMs: 60_000,
+        }),
+        true,
+      );
+      assert.equal(await next(), undefined);
+      assert.equal(
+        await fixture.store.settle(recovered, { state: "completed" }),
+        false,
+      );
+      await fixture.forceDue(recovered);
+      const resumed = (await next())!;
+      assert.equal(resumed.attempt, 1);
+      assert.notEqual(resumed.token, recovered.token);
+      assert.equal(
+        await fixture.store.settle(recovered, {
+          state: "wait",
+          delayMs: 60_000,
+        }),
+        false,
+      );
+      assert.equal(
+        await fixture.store.settle(resumed, { state: "wait", delayMs: 60_000 }),
+        true,
+      );
+      await fixture.repository.transaction(scope, (tx) =>
+        tx.work.cancel("job", [resumed.id]),
+      );
+      await fixture.forceDue(resumed);
+      assert.equal(await next(), undefined);
+    },
+  );
+  scenario(
+    "outbox sends cannot reset their failure budget through normal waits",
+    async (fixture, scope) => {
+      await enqueue(fixture, scope);
+      const lease = (await claim(fixture, scope))!;
+      await assert.rejects(
+        fixture.store.settle(lease, { state: "wait", delayMs: 5000 }),
+      );
+      assert.equal(await fixture.committed(lease), true);
     },
   );
 }

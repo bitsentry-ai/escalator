@@ -168,9 +168,13 @@ export function memorySettle(
     Date.parse(row.leaseExpiresAt!) <= now.getTime()
   )
     return false;
-  row.state = result.state === "retry" ? "pending" : result.state;
-  if (result.state === "retry")
+  row.state =
+    result.state === "retry" || result.state === "wait"
+      ? "pending"
+      : result.state;
+  if (result.state === "retry" || result.state === "wait")
     row.intent.dueAt = new Date(now.getTime() + result.delayMs).toISOString();
+  if (result.state === "wait") row.attempt = 0;
   row.outcome = result.outcome;
   delete row.token;
   delete row.leaseExpiresAt;

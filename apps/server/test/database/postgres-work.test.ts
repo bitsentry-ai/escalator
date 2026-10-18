@@ -46,6 +46,28 @@ workConformance(
           await client.query("ROLLBACK");
         }
       },
+      async forceDue(lease: WorkLease) {
+        const client = await fixture.app.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query(
+            "SELECT set_config('app.workspace_id', $1, true)",
+            [lease.workspaceId],
+          );
+          const relation =
+            lease.queue === "job" ? "escalator_job" : "escalator_outbox";
+          await client.query(
+            `UPDATE ${relation} SET due_at = clock_timestamp() - interval '1 second' WHERE workspace_id=$1 AND id=$2`,
+            [lease.workspaceId, lease.id],
+          );
+          await client.query("COMMIT");
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
+        } finally {
+          client.release();
+        }
+      },
       async expire(lease: WorkLease) {
         const client = await fixture.app.connect();
         try {

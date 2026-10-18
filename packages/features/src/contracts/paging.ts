@@ -119,6 +119,15 @@ export const deliveryAttemptSchema = z
       .regex(/^[A-Za-z0-9._:-]+$/)
       .nullable(),
     completedAfterAcknowledgement: z.boolean(),
+    retryable: z.boolean().default(false),
+    failureReason: z
+      .enum([
+        "invalid_configuration",
+        "secret_unavailable",
+        "provider_rejected",
+      ])
+      .nullable()
+      .default(null),
   })
   .refine(
     (value) =>
@@ -126,7 +135,9 @@ export const deliveryAttemptSchema = z
       (value.finishedAt === null ||
         Date.parse(value.finishedAt) >= Date.parse(value.startedAt)) &&
       (value.providerReceiptId === null || value.outcome === "accepted") &&
-      (!value.completedAfterAcknowledgement || value.finishedAt !== null),
+      (!value.completedAfterAcknowledgement || value.finishedAt !== null) &&
+      (!value.retryable || ["failed", "unknown"].includes(value.outcome)) &&
+      (value.failureReason === null || value.outcome === "failed"),
     "Invalid attempt result",
   );
 

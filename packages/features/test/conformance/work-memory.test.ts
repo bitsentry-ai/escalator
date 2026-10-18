@@ -13,6 +13,7 @@ workConformance("memory durable work", async () => {
     }),
     committed: (lease) => repository.committed(lease),
     expire: (lease) => repository.expireLease(lease),
+    forceDue: (lease) => repository.forceDue(lease),
     dispose: async () => {},
   };
 });

@@ -125,6 +125,18 @@ export class MemoryFoundationRepository
       ),
     );
   }
+  async forceDue(lease: WorkLease): Promise<void> {
+    await this.serialized(async () => {
+      const row = this.state.work.find(
+        (entry) =>
+          entry.workspaceId === lease.workspaceId &&
+          entry.queue === lease.queue &&
+          entry.intent.id === lease.id,
+      );
+      if (!row) throw new Error("Fixture work not found");
+      row.intent.dueAt = new Date(this.clock.now().getTime() - 1).toISOString();
+    });
+  }
   async expireLease(lease: WorkLease): Promise<void> {
     await this.serialized(async () => {
       const row = this.state.work.find(

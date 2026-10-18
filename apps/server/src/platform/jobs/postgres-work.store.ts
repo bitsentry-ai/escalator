@@ -98,8 +98,14 @@ export class PostgresWorkStore implements DurableWorkStore {
         `SELECT id FROM ${relation} WHERE workspace_id = $1 AND id = $2 FOR UPDATE`,
         [lease.workspaceId, lease.id],
       );
-      const state = result.state === "retry" ? "pending" : result.state;
-      const delay = result.state === "retry" ? result.delayMs : null;
+      const state =
+        result.state === "retry" || result.state === "wait"
+          ? "pending"
+          : result.state;
+      const delay =
+        result.state === "retry" || result.state === "wait"
+          ? result.delayMs
+          : null;
       const parameters: unknown[] = [
         lease.workspaceId,
         lease.id,
@@ -115,12 +121,14 @@ export class PostgresWorkStore implements DurableWorkStore {
         );
         outcome = ", outcome = $6, provider_receipt = $7";
       }
+      const resetAttempts =
+        result.state === "wait" ? ", attempt_count = 0" : "";
       const updated = await client.query(
         `UPDATE ${relation} SET
         state = $4, lease_token = NULL, lease_expires_at = NULL,
         due_at = CASE WHEN $5::integer IS NULL THEN due_at ELSE clock_timestamp() + ($5::integer * interval '1 millisecond') END,
         updated_at = clock_timestamp(),
-        completed_at = CASE WHEN $4 = 'pending' THEN NULL ELSE clock_timestamp() END ${outcome}
+        completed_at = CASE WHEN $4 = 'pending' THEN NULL ELSE clock_timestamp() END ${outcome}${resetAttempts}
         WHERE workspace_id = $1 AND id = $2 AND state = 'running'
           AND lease_token = $3 AND lease_expires_at > clock_timestamp()`,
         parameters,

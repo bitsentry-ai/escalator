@@ -27,6 +27,22 @@ export async function cancelDeliveryWork(
     ),
   );
   for (const delivery of deliveries) {
+    // Every accepted attempt has its own receipt, including a late response
+    // from an attempt recovery had already marked unknown.
+    let after: string | undefined;
+    do {
+      const batch = await tx.attempts.forDelivery(delivery.id, {
+        limit: 100,
+        after,
+      });
+      await tx.work.cancel(
+        "job",
+        batch.items.map((attempt) =>
+          pagingWorkId(tx.workspaceId, "receipt", delivery.id, attempt.id),
+        ),
+      );
+      after = batch.next ?? undefined;
+    } while (after);
     if (delivery.channel !== "pushover") continue;
     const id = pagingWorkId(tx.workspaceId, "cancel", delivery.id);
     await tx.work.enqueue("job", {

@@ -11,7 +11,7 @@ export class WorkPoller {
   private stopping: Promise<void> | undefined;
   constructor(
     private readonly runOne: () => Promise<
-      "idle" | "completed" | "retry" | "failed" | "stale"
+      "idle" | "completed" | "retry" | "wait" | "failed" | "stale"
     >,
     private readonly options: PollerOptions,
   ) {

@@ -39,6 +39,10 @@ const fenceSchema = z.object({
   token: opaqueIdSchema,
 });
 const resultSchema = z.discriminatedUnion("state", [
+  z.strictObject({
+    state: z.literal("wait"),
+    delayMs: z.number().int().min(1).max(3_600_000),
+  }),
   z
     .object({
       state: z.literal("completed"),
@@ -82,6 +86,8 @@ export function validateWorkClaim(
 export function validateWorkResult(lease: WorkLease, result: WorkResult): void {
   fenceSchema.parse(lease);
   resultSchema.parse(result);
+  if (result.state === "wait" && lease.queue !== "job")
+    throw new Error("Normal waits are job-only");
   if (lease.queue === "outbox" && result.outcome === undefined)
     throw new Error("Outbox settlement requires an explicit outcome");
 }

@@ -35,6 +35,8 @@ export interface WorkLease {
   leaseExpiresAt: string;
 }
 export type WorkResult =
+  /** A successful pending poll, not a failed attempt. Job-only; requires an absolute handler deadline. */
+  | { state: "wait"; delayMs: number; outcome?: never }
   | {
       state: "completed";
       outcome?: "accepted" | "rejected" | "unknown";

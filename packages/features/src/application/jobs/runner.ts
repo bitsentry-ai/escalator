@@ -6,10 +6,11 @@ import type {
   WorkResult,
 } from "./ports.js";
 
+export type WorkHandlerResult = WorkResult | { state: "stale" };
 export type WorkHandler = (
   lease: WorkLease,
   signal: AbortSignal,
-) => Promise<Extract<WorkResult, { state: "completed" }>>;
+) => Promise<WorkHandlerResult>;
 export interface RunnerOptions {
   leaseMs: number;
   timeoutMs: number;
@@ -62,7 +63,7 @@ export class DurableWorkRunner {
   async runOne(
     workspaceId: WorkspaceId,
     queue: WorkQueue,
-  ): Promise<"idle" | "completed" | "retry" | "failed" | "stale"> {
+  ): Promise<"idle" | "completed" | "retry" | "wait" | "failed" | "stale"> {
     const handlers = this.handlers[queue];
     if (!handlers.size) return "idle";
     const lease = await this.store.claim({
@@ -86,7 +87,7 @@ export class DurableWorkRunner {
     if (!handler) throw new Error("Claim returned an unregistered work kind");
     const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let result: WorkResult;
+    let result: WorkHandlerResult;
     try {
       const deadline = new Promise<never>((_resolve, reject) => {
         timer = setTimeout(() => {
@@ -108,8 +109,15 @@ export class DurableWorkRunner {
     } finally {
       clearTimeout(timer);
     }
+    if (result.state === "stale") return "stale";
+    if (result.state === "retry" && lease.attempt >= this.options.maxAttempts)
+      result = { state: "failed", outcome: result.outcome };
     // The side effect may have happened; never let a missing outcome force redelivery.
-    if (queue === "outbox" && result.outcome === undefined)
+    if (
+      queue === "outbox" &&
+      result.state !== "wait" &&
+      result.outcome === undefined
+    )
       result = { ...result, outcome: "unknown" };
     return (await this.store.settle(lease, result)) ? result.state : "stale";
   }

@@ -141,6 +141,54 @@ test("repeated process crashes exhaust the attempt budget before further I/O", a
   assert.deepEqual(f.calls[1][2], { state: "failed", outcome: "unknown" });
 });
 
+test("duplicate handler can decline settlement without revoking the active send", async () => {
+  const f = fixture(async () => ({ state: "stale" }));
+  assert.equal(await f.runner.runOne("org_fixture", "outbox"), "stale");
+  assert.equal(f.calls.filter(([name]) => name === "settle").length, 0);
+});
+test("an explicit retry preserves its deadline and provider outcome", async () => {
+  const f = fixture(async () => ({
+    state: "retry",
+    delayMs: 5000,
+    outcome: "rejected",
+  }));
+  assert.equal(await f.runner.runOne("org_fixture", "outbox"), "retry");
+  assert.deepEqual(f.calls[1][2], {
+    state: "retry",
+    delayMs: 5000,
+    outcome: "rejected",
+  });
+});
+test("an explicit retry cannot exceed the runner attempt budget", async () => {
+  const f = fixture(
+    async () => ({ state: "retry", delayMs: 5000, outcome: "rejected" }),
+    {},
+    { ...lease, attempt: 3 },
+  );
+  assert.equal(await f.runner.runOne("org_fixture", "outbox"), "failed");
+  assert.deepEqual(f.calls[1][2], { state: "failed", outcome: "rejected" });
+});
+
+test("normal pending poll waits do not consume the failure budget", async () => {
+  const calls = [];
+  const runner = new DurableWorkRunner(
+    {
+      claim: async () => ({ ...lease, queue: "job", kind: "poll", attempt: 3 }),
+      settle: async (_lease, result) => {
+        calls.push(result);
+        return true;
+      },
+    },
+    {
+      job: new Map([["poll", async () => ({ state: "wait", delayMs: 5000 })]]),
+      outbox: new Map(),
+    },
+    options,
+  );
+  assert.equal(await runner.runOne("org_fixture", "job"), "wait");
+  assert.deepEqual(calls, [{ state: "wait", delayMs: 5000 }]);
+});
+
 test("an outbox result without an outcome settles as unknown instead of redelivering the side effect", async () => {
   const f = fixture(async () => ({ state: "completed" }));
   f.store.settle = async (claimed, result) => {
