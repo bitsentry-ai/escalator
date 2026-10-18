@@ -12,7 +12,9 @@ import type {
   WorkLease,
   WorkIntent,
 } from "@bitsentry-escalator/features/application";
+import { DurableWorkRunner } from "@bitsentry-escalator/features/application";
 export interface WorkFixture {
+  committed(lease: WorkLease): Promise<boolean>;
   repository: FoundationRepository;
   store: DurableWorkStore;
   reopen(): DurableWorkStore;
@@ -77,6 +79,40 @@ export function workConformance(
         dueAt: tx.now,
       }),
     );
+  scenario(
+    "claim is visible outside its transaction before handler I/O",
+    async (fixture, scope) => {
+      await enqueue(fixture, scope);
+      const runner = new DurableWorkRunner(
+        fixture.store,
+        {
+          job: new Map(),
+          outbox: new Map([
+            [
+              "send",
+              async (lease) => {
+                assert.equal(await fixture.committed(lease), true);
+                return {
+                  state: "completed" as const,
+                  outcome: "accepted" as const,
+                };
+              },
+            ],
+          ]),
+        },
+        {
+          leaseMs: 20_000,
+          timeoutMs: 10_000,
+          maxAttempts: 3,
+          retryBaseMs: 1000,
+          retryMaxMs: 60_000,
+          token: randomUUID,
+          random: () => 0.5,
+        },
+      );
+      assert.equal(await runner.runOne(scope, "outbox"), "completed");
+    },
+  );
   scenario(
     "failed surrounding transaction rolls back durable intent",
     async (fixture, scope) => {

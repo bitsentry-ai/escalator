@@ -11,6 +11,7 @@ workConformance("memory durable work", async () => {
       claim: (input) => repository.claim(input),
       settle: (lease, result) => repository.settle(lease, result),
     }),
+    committed: (lease) => repository.committed(lease),
     expire: (lease) => repository.expireLease(lease),
     dispose: async () => {},
   };

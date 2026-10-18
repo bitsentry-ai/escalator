@@ -111,6 +111,18 @@ export class MemoryFoundationRepository
       return accepted;
     });
   }
+  async committed(lease: WorkLease): Promise<boolean> {
+    return this.serialized(async () =>
+      this.state.work.some(
+        (row) =>
+          row.workspaceId === lease.workspaceId &&
+          row.queue === lease.queue &&
+          row.intent.id === lease.id &&
+          row.token === lease.token &&
+          row.state === "running",
+      ),
+    );
+  }
   async expireLease(lease: WorkLease): Promise<void> {
     await this.serialized(async () => {
       const row = this.state.work.find(

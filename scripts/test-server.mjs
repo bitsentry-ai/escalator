@@ -29,6 +29,10 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/work": path.resolve(
+      server,
+      "../../packages/features/test/conformance/work.ts",
+    ),
     // Reuse test fixtures only. Production hosts still import compiled exports.
     "@escalator-test/foundation": path.resolve(
       server,

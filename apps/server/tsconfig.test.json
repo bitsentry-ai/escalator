@@ -6,6 +6,9 @@
     "paths": {
       "@escalator-test/foundation": [
         "../../packages/features/test/conformance/foundation.ts"
+      ],
+      "@escalator-test/work": [
+        "../../packages/features/test/conformance/work.ts"
       ]
     }
   },
