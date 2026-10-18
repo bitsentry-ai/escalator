@@ -1,0 +1,44 @@
+import { raw, type RequestHandler } from "express";
+import { SIGNAL_INGRESS_MAX_BYTES } from "@bitsentry-escalator/features/contracts";
+/** Install before any broad JSON parser. Raw bytes are bounded before parsing. */
+export function signalBodyParser(): RequestHandler {
+  const read = raw({
+    limit: SIGNAL_INGRESS_MAX_BYTES,
+    inflate: false,
+    type: () => true,
+  });
+  return (req, res, next) => {
+    if (req.method !== "POST") return next();
+    // Slow or unfinished bodies must not retain a connection indefinitely.
+    const timer = setTimeout(() => req.destroy(), 10_000);
+    timer.unref();
+    const clear = () => {
+      clearTimeout(timer);
+      req.off("close", clear);
+      res.off("close", clear);
+    };
+    req.once("close", clear);
+    res.once("close", clear);
+    read(req, res, (error) => {
+      clear();
+      if (error) {
+        if (res.headersSent || req.aborted) return;
+        const status = (error as { status?: number }).status;
+        const code =
+          status === 413
+            ? "body_too_large"
+            : status === 415
+              ? "unsupported_content_type"
+              : "invalid_input";
+        res.setHeader("Cache-Control", "no-store");
+        res
+          .status(status === 413 || status === 415 ? status : 400)
+          .json({ error: code });
+        return;
+      }
+      // No framed body is still bounded input; let JSON validation reject it.
+      if (req.body === undefined) req.body = Buffer.alloc(0);
+      next();
+    });
+  };
+}

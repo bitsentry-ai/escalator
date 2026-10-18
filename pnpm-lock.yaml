@@ -47,6 +47,9 @@ importers:
       argon2:
         specifier: 0.45.1
         version: 0.45.1
+      express:
+        specifier: 5.2.1
+        version: 5.2.1
       express-session:
         specifier: 1.19.0
         version: 1.19.0

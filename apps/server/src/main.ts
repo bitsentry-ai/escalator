@@ -1,3 +1,4 @@
+import { signalBodyParser } from "./platform/http/ingest/body-parser.js";
 import { PostgresSecretWriter } from "./platform/secrets/postgres-secret.writer.js";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
@@ -18,6 +19,7 @@ import {
   ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
+  SignalManagement,
 } from "@bitsentry-escalator/features/application";
 /** Construction only: importing this module never starts a listener. */
 export async function createApp() {
@@ -38,6 +40,8 @@ export async function createApp() {
     const db = app.get(StandaloneDatabase);
     const auth = app.get(LocalAuthService);
     const services = app.get(ServiceUseCases);
+    const signals = app.get(SignalManagement);
+    app.use("/v1/ingest", signalBodyParser());
     const incidents = app.get(IncidentUseCases);
     const configuration = app.get(ConfigurationUseCases);
     const keys = app.get(SecretKeyRing);
@@ -67,6 +71,7 @@ export async function createApp() {
           res,
           auth,
           services,
+          signals,
           incidents,
           configuration,
           secretWriter,

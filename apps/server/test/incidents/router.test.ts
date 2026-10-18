@@ -1,3 +1,4 @@
+import type { SignalManagement } from "@bitsentry-escalator/features/application";
 import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -38,6 +39,7 @@ test("standalone incident routes require current identity, reject injected scope
     res: {} as Response,
     services: {} as ServiceUseCases,
     incidents,
+    signals: {} as SignalManagement,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     workspaceId: workspaceIdSchema.parse("local"),
