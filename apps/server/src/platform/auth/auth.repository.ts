@@ -81,7 +81,7 @@ export class PostgresAuthRepository {
     private readonly pool: Pool,
     readonly workspaceId: WorkspaceId,
   ) {}
-  private async transaction<T>(
+  protected async transaction<T>(
     work: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
     const client = await this.pool.connect();
@@ -102,7 +102,7 @@ export class PostgresAuthRepository {
       client.release();
     }
   }
-  private async audit(
+  protected async audit(
     client: PoolClient,
     action: string,
     subjectId: string,

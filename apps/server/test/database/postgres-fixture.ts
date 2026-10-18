@@ -95,7 +95,6 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       "escalator_workspace",
       "escalator_service",
       "escalator_environment",
-      "escalator_responder",
       "escalator_audit",
     ]) {
       await admin.query(
@@ -103,6 +102,7 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       );
     }
     for (const table of [
+      "escalator_responder",
       "escalator_job",
       "escalator_outbox",
       "escalator_secret",
