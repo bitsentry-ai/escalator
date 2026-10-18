@@ -63,6 +63,7 @@ test("health reads use one scoped read-only snapshot with bounded SQL", async ()
   assert.equal((query.sql.match(/workspace_id=\$1/g) ?? []).length, 3);
   assert.match(query.sql, /FROM escalator_workspace WHERE id=\$1/);
   assert.match(query.sql, /state IN \('pending','running'\)/);
+  assert.match(query.sql, /kind<>'investigation\.run'\) AS oldest_job/);
   assert.equal(f.queries.at(-1)?.sql, "COMMIT");
   assert.deepEqual(f.released, [undefined]);
 });

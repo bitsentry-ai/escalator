@@ -77,6 +77,19 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
 
   /** Join an already scoped paging transaction; this method never commits it. */
   writer(db: PoolClient, workspaceId: WorkspaceId): InvestigationIntentWriter {
+    return PostgresInvestigationRepository.createWriter(
+      db,
+      workspaceId,
+      (connection, scope, id) =>
+        this.policy.configuration(connection, scope, id),
+    );
+  }
+  /** Factory for an existing paging connection; requires no runner pool or runtime authority. */
+  static createWriter(
+    db: PoolClient,
+    workspaceId: WorkspaceId,
+    configuration: InvestigationDatabasePolicy["configuration"],
+  ): InvestigationIntentWriter {
     return {
       enqueue: async (input) => {
         const intent = investigationIntentSchema.parse(input);
@@ -96,7 +109,7 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
         }
         const captured = captureInvestigation(
           intent,
-          await this.policy.configuration(db, intent.scope, intent.profileId),
+          await configuration(db, intent.scope, intent.profileId),
         );
         const inserted = await db.query(
           `INSERT INTO escalator_job(workspace_id,id,kind,idempotency_key,payload,due_at) VALUES($1,$2,'investigation.run',$3,$4::jsonb,clock_timestamp()) ON CONFLICT(workspace_id,kind,idempotency_key) DO NOTHING RETURNING id`,

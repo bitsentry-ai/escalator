@@ -98,6 +98,7 @@ export async function openPageInTransaction(
   });
   await tx.incidents.insert(incident);
   await tx.pages.insert(page);
+  await tx.investigations?.enqueueForPage(page.id);
   for (const step of escalationSteps(page.policy, page.createdAt)) {
     const id = pagingWorkId(scope, "step", page.id, step.id);
     await tx.work.enqueue("job", {

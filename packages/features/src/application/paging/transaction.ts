@@ -143,8 +143,28 @@ export function pagingTransaction(
         throw new PersistenceError("scope_violation");
     },
   );
+  const enqueueInvestigation = store.enqueueInvestigation?.bind(store);
   return {
     ...base,
+    ...(enqueueInvestigation
+      ? {
+          investigations: {
+            enqueueForPage: (pageId: string) =>
+              guard.operation(async () => {
+                opaqueIdSchema.parse(pageId);
+                const page = requireValue(
+                  await store.get("pages", pageId, true),
+                );
+                const incident = requireValue(
+                  await incidents.get(page.incidentId),
+                );
+                if (page.state !== "open" || incident.resolvedAt !== null)
+                  throw new Error("Open page required for investigation");
+                await enqueueInvestigation(incident);
+              }),
+          },
+        }
+      : {}),
     incidents: {
       ...incidents,
       resolve: (id, pageId) =>

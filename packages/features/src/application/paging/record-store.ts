@@ -19,6 +19,9 @@ export interface PagingRecordMap {
 }
 export type PagingRecordKind = keyof PagingRecordMap;
 export interface PagingRecordStore {
+  /** Optional until this host installs the investigation adapter. Same physical transaction. */
+  enqueueInvestigation?(incident: OperationalIncident): Promise<void>;
+
   get<K extends PagingRecordKind>(
     kind: K,
     id: string,

@@ -15,6 +15,9 @@ import type {
 } from "../ports/persistence.js";
 
 export interface PagingTransaction extends FoundationTransaction {
+  /** Host joins first-page investigation intent writes to this transaction; no network I/O. */
+  investigations?: { enqueueForPage(pageId: string): Promise<void> };
+
   incidents: EntityRepository<OperationalIncident> & {
     /** Requires the locked owning page to be resolved; first timestamp is immutable. */
     resolve(id: string, pageId: string): Promise<OperationalIncident>;

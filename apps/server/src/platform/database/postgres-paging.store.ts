@@ -1,3 +1,4 @@
+import { enqueueFirstPageInvestigation } from "./postgres-first-page-investigation.js";
 import type { PoolClient } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -72,6 +73,8 @@ export function postgresPagingStore(
     }) as PagingRecordMap[K];
   }
   return {
+    enqueueInvestigation: (incident) =>
+      enqueueFirstPageInvestigation(connection, scope, incident),
     async get(kind, id, lock = false) {
       const result = await connection.query<{ data: unknown }>(
         `SELECT data FROM ${tables[kind].table} WHERE workspace_id=$1 AND id=$2${lock ? " FOR UPDATE" : ""}`,

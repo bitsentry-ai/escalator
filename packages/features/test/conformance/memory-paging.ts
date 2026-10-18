@@ -1,3 +1,5 @@
+import type { OperationalIncident } from "../../src/contracts/index.js";
+import type { FoundationTransaction } from "../../src/application/ports/persistence.js";
 import type { Clock, WorkspaceId } from "../../src/contracts/index.js";
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import type {
@@ -46,7 +48,13 @@ function naturalKey(kind: PagingRecordKind, value: Stored): string {
 /** Serialized transactional storage; the same application invariants serve all adapters. */
 export class MemoryPagingRepository implements PagingRepository {
   readonly foundation: MemoryFoundationRepository;
-  constructor(private readonly clock: Clock) {
+  constructor(
+    private readonly clock: Clock,
+    private readonly investigation?: (
+      incident: OperationalIncident,
+      tx: FoundationTransaction,
+    ) => Promise<void>,
+  ) {
     this.foundation = new MemoryFoundationRepository(clock);
   }
   transaction<T>(
@@ -81,6 +89,12 @@ export class MemoryPagingRepository implements PagingRepository {
           ) as PagingRecordMap[K][];
         const now = () => this.clock.now().getTime();
         const store: PagingRecordStore = {
+          ...(this.investigation
+            ? {
+                enqueueInvestigation: (incident: OperationalIncident) =>
+                  this.investigation!(incident, base),
+              }
+            : {}),
           async get(kind, id) {
             return structuredClone(rows(kind).find((row) => row.id === id));
           },

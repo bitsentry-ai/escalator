@@ -29,4 +29,4 @@ No disposable PostgreSQL test database was available during implementation. The 
 
 The shared memory suite defines the same persistence contract. Unit tests separately exercise transaction cleanup and noncooperative/late connection deadlines without starting a server or database.
 
-This part does not activate the runner, connect first-page enqueueing, add human report APIs/UI, or implement the Dashboard database adapter. Those remain subsequent T5.5–T5.7 integration work. Dashboard persistence will use `organizationId` and the existing broker stack; it does not share this installation's database or credentials.
+Standalone first-page enqueueing is described in `first-page-investigation.md`. Runner activation and human report APIs/UI remain T5.5–T5.7 integration work. Dashboard persistence uses `organizationId` and targets the existing broker stack; it does not share this installation's database or credentials.

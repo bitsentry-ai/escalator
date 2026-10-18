@@ -42,7 +42,9 @@ function acquire(
     );
   });
 }
-/** Read-only, scoped, short-lived snapshot; the pool belongs to the host. */
+/** Read-only, scoped, short-lived snapshot; the pool belongs to the host.
+ * Investigation jobs have their own bounded deadlines and may be unclaimed while no runner is enabled.
+ */
 export class PostgresHealthReader implements OperationalHealthReader {
   private acquiring = false;
   constructor(private readonly pool: Pool) {}
@@ -96,7 +98,7 @@ export class PostgresHealthReader implements OperationalHealthReader {
         SELECT transaction_timestamp() AS database_now,
           (SELECT min(due_at) FROM escalator_job WHERE workspace_id=$1
             AND state IN ('pending','running') AND due_at<=transaction_timestamp()
-            AND left(kind, length($2))<>$2) AS oldest_job,
+            AND left(kind, length($2))<>$2 AND kind<>'investigation.run') AS oldest_job,
           (SELECT min(due_at) FROM escalator_outbox WHERE workspace_id=$1
             AND state IN ('pending','running') AND due_at<=transaction_timestamp()) AS oldest_outbox,
           (SELECT min(due_at) FROM escalator_job WHERE workspace_id=$1
