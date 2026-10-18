@@ -70,6 +70,29 @@ for (const queue of ["job", "outbox"] as const) {
           "active",
           Buffer.from("active-value"),
         );
+        const authentication = await writer.create(
+          actor,
+          "totp-fixture",
+          Buffer.from("authentication-fixture"),
+        );
+        const connection = await fixture.app.connect();
+        try {
+          await connection.query("BEGIN");
+          await connection.query(
+            "SELECT set_config('app.workspace_id', $1, true)",
+            [workspaceId],
+          );
+          await connection.query(
+            "UPDATE escalator_secret SET purpose='authentication' WHERE workspace_id=$1 AND id=$2",
+            [workspaceId, authentication.id],
+          );
+          await connection.query("COMMIT");
+        } catch (error) {
+          await connection.query("ROLLBACK");
+          throw error;
+        } finally {
+          connection.release();
+        }
         await assert.rejects(
           writer.create(
             { ...actor, role: "viewer" },
@@ -84,7 +107,7 @@ for (const queue of ["job", "outbox"] as const) {
             kind: "send",
             idempotencyKey: "send",
             dueAt: tx.now,
-            payload: { secretIds: [secret.id, active.id] },
+            payload: { secretIds: [secret.id, active.id, authentication.id] },
           }),
         );
         const work = new PostgresWorkStore(fixture.app);
@@ -111,6 +134,13 @@ for (const queue of ["job", "outbox"] as const) {
             Buffer.from(bytes).toString(),
           ),
           "private-fixture",
+        );
+        await assert.rejects(
+          store.withSecret(
+            { ...request, secretId: authentication.id },
+            async () => true,
+          ),
+          { code: "secret_unavailable" },
         );
         const persisted = await reader.load(request);
         assert.ok(persisted);
@@ -141,7 +171,7 @@ for (const queue of ["job", "outbox"] as const) {
           fixture.app,
           rotating,
         ).rotateBatch(new SecretRotationOperator(workspaceId), undefined);
-        assert.equal(result.rotated, 2);
+        assert.equal(result.rotated, 3);
         assert.equal(result.remaining, 0);
         const newOnly = new EncryptedSecretStore(
           SecretKeyRing.parse({
@@ -164,12 +194,12 @@ for (const queue of ["job", "outbox"] as const) {
         assert.equal(
           audit.items.filter((event) => event.action === "secret.created")
             .length,
-          2,
+          3,
         );
         assert.equal(
           audit.items.filter((event) => event.action === "secret.rotated")
             .length,
-          2,
+          3,
         );
         assert.equal(
           audit.items.filter((event) => event.action === "secret.disabled")

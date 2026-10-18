@@ -41,7 +41,7 @@ export class PostgresSecretReader implements EncryptedSecretReader {
         w.state, w.lease_token, w.lease_expires_at, clock_timestamp() AS database_now,
         w.payload->'secretIds' AS approved_secret_ids
         FROM escalator_secret AS s JOIN ${relation} AS w ON w.workspace_id=s.workspace_id AND w.id=$2
-        WHERE s.workspace_id=$1 AND s.id=$3`,
+        WHERE s.workspace_id=$1 AND s.id=$3 AND s.purpose='provider'`,
         [request.workspaceId, request.workId, request.secretId],
       );
       await client.query("COMMIT");

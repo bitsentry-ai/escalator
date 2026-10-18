@@ -30,11 +30,35 @@ replay. All of these dependencies remain inside the standalone workspace.
 
 ## Delivery status
 
-This part installs dependencies and verifies their CommonJS interfaces. It does
-not activate login, sessions or TOTP routes. Following parts supply scoped
-persistence, one-use bootstrap and invitations, session revocation, CSRF checks,
-rate limiting, TOTP/recovery-code handling, and the standalone screens.
+Dependency support and persistence foundations are implemented. Public login,
+session and TOTP routes are not active yet. Following parts add flow orchestration,
+CSRF checks, middleware registration, TOTP/recovery handling and standalone screens.
 Encrypted TOTP material must participate in the existing key-rotation procedure.
 PostgreSQL conformance will remain explicitly not runtime-verified until a
 separate disposable test database is provided; tests never use the application's
 connection string as a fallback.
+
+## Persistence foundation
+
+The standalone migration adds scoped accounts, one-use registration/recovery
+credentials, recovery-code hashes, sessions and rate buckets. Registration
+consumes a token and creates its account, responder and audit entry in one
+transaction. Invitation roles come from the stored token; caller-supplied scope
+or privilege fields are rejected. Login names are normalized ASCII identifiers.
+Password hashing runs outside persistence transactions and has a bounded number
+of concurrent operations.
+
+Session IDs are hashed at rest. PostgreSQL caps their lifetime at eight hours;
+revocation leaves a tombstone so an in-flight save cannot recreate that ID.
+Expiration and tombstone cleanup will be included in the operational retention
+work. The encrypted-secret schema separates `authentication` and `provider`
+purposes. Provider redemption explicitly accepts only `provider` secrets, while
+key rotation covers both purposes.
+
+This foundation is not yet registered as active authentication middleware or
+public login routes. The subsequent flow and shell parts perform that wiring.
+Run `pnpm --filter @bitsentry-escalator/server test` from this workspace for
+library/validation tests and opt-in PostgreSQL scenarios. Database scenarios
+require both dedicated test variables described in the README; without them,
+the runner explicitly skips database cases. PostgreSQL migration, concurrent
+registration, rate limiting and session persistence remain not runtime-verified.

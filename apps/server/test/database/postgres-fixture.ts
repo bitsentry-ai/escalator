@@ -106,6 +106,11 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       "escalator_job",
       "escalator_outbox",
       "escalator_secret",
+      "escalator_account",
+      "escalator_auth_token",
+      "escalator_recovery_code",
+      "escalator_session",
+      "escalator_auth_rate",
     ]) {
       await admin.query(
         `GRANT SELECT, INSERT, UPDATE ON ${identifier(table)} TO ${identifier(current.role)}`,
