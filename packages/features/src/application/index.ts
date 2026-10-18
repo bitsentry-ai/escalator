@@ -132,3 +132,6 @@ export * from "./retention/prune.js";
 export * from "./retention/reader.js";
 export * from "./retention/policy-management.js";
 export * from "./retention/policy-transaction.js";
+export * from "./retention/source-plan.js";
+export * from "./retention/pruning.js";
+export * from "./retention/pruning-transaction.js";
