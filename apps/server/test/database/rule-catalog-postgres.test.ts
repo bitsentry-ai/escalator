@@ -1,3 +1,5 @@
+import { PostgresRuleReplayRepository } from "../../src/platform/database/rule-replay.repository.js";
+import { PostgresRuleResultsRepository } from "../../src/platform/database/rule-results.repository.js";
 import { PostgresRuleCatalogReadRepository } from "../../src/platform/database/rule-catalog-read.repository.js";
 import { randomUUID } from "node:crypto";
 import { serviceEnvironmentSchema } from "@bitsentry-escalator/features/contracts";
@@ -24,6 +26,15 @@ ruleCatalogConformance(
     };
     return {
       repository: new PostgresRuleCatalogRepository(database.app),
+      capture: new PostgresRuleReplayRepository(database.app),
+      results: new PostgresRuleResultsRepository(database.app),
+      failReplay: (scope: WorkspaceId, id: string) =>
+        database.repository.withConnection(scope, async (_base, db) => {
+          await db.query(
+            "UPDATE escalator_job SET state='failed' WHERE workspace_id=$1 AND id=$2",
+            [scope, id],
+          );
+        }),
       reader: new PostgresRuleCatalogReadRepository(database.app),
       policyFacts: (scope: WorkspaceId) =>
         database.repository.withConnection(scope, async (_base, db) => {

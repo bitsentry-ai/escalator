@@ -13,6 +13,11 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import {
   RuleDrafts,
+  CaptureRuleReplay,
+  RuleResultsQueries,
+  ruleReplayJobId,
+  type RuleReplayCaptureRepository,
+  type RuleResultsRepository,
   RuleCatalogQueries,
   importRule,
   type RuleCatalogReadRepository,
@@ -23,6 +28,9 @@ import {
 } from "@bitsentry-escalator/features/application";
 export interface RuleCatalogFixture {
   repository: RuleCatalogRepository;
+  capture: RuleReplayCaptureRepository;
+  results: RuleResultsRepository;
+  failReplay(scope: WorkspaceId, id: string): Promise<void>;
   reader: RuleCatalogReadRepository;
   policyFacts(scope: WorkspaceId): Promise<number>;
   foundation: FoundationRepository;
@@ -156,6 +164,63 @@ export function ruleCatalogConformance(
       }
     });
   }
+  scenario(
+    "result reads reveal failed work without rewriting queued replay state",
+    async (f, s) => {
+      const queries = new RuleResultsQueries(f.results),
+        capture = new CaptureRuleReplay(f.capture, randomUUID);
+      const now = await f.foundation.transaction(
+        s.actor.workspaceId,
+        async (tx) => Date.parse(tx.now),
+      );
+      const end = Math.floor(now / 60000) * 60000 - 60000;
+      const run = await capture.create(
+        s.actor,
+        { id: s.entry.id, revision: 1, definition: s.definition },
+        {
+          firstDecisionAt: new Date(end - 600000).toISOString(),
+          lastDecisionAt: new Date(end).toISOString(),
+        },
+      );
+      const before = await f.policyFacts(s.actor.workspaceId);
+      const initial = await queries.replay(s.actor, { id: run.id });
+      assert.equal(initial?.state, "queued");
+      assert.equal(initial?.proposalSource, true);
+      assert.equal(
+        (
+          await queries.replays(s.actor, {
+            serviceId: s.definition.serviceId,
+            environmentId: s.definition.environmentId,
+          })
+        ).items[0].id,
+        run.id,
+      );
+      assert.deepEqual(
+        (
+          await queries.proposals(s.actor, {
+            serviceId: s.definition.serviceId,
+            environmentId: s.definition.environmentId,
+          })
+        ).items,
+        [],
+      );
+      await f.failReplay(
+        s.actor.workspaceId,
+        ruleReplayJobId(s.actor.workspaceId, run.id, 0),
+      );
+      assert.equal(
+        (await queries.replay(s.actor, { id: run.id }))?.state,
+        "failed",
+      );
+      assert.equal(
+        await f.results.transaction(workspaceIdSchema.parse("other"), (tx) =>
+          tx.ruleResults.replay(run.id),
+        ),
+        undefined,
+      );
+      assert.equal(await f.policyFacts(s.actor.workspaceId), before);
+    },
+  );
   scenario(
     "catalog reads preserve policy history and immutable version scope",
     async (f, s) => {

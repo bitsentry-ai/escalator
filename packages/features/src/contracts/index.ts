@@ -119,3 +119,5 @@ export * from "./rule-catalog.js";
 
 export * from "./portable-rule.js";
 export * from "./rule-catalog-query.js";
+
+export * from "./rule-results.js";

@@ -279,3 +279,7 @@ export * from "./rules/catalog-provenance.js";
 export * from "./rules/export.js";
 export * from "./rules/catalog-read-ports.js";
 export * from "./rules/catalog-queries.js";
+
+export * from "./rules/results-ports.js";
+export * from "./rules/results-queries.js";
+export * from "./rules/results-projection.js";
