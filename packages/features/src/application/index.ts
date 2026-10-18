@@ -121,3 +121,5 @@ export * from "./health/watchdog.js";
 export * from "./health/watchdog-coordinator.js";
 
 export * from "./health/watchdog-handlers.js";
+export * from "./health/deployment.js";
+export * from "./health/http.js";

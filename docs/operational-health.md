@@ -1,6 +1,6 @@
 # Operational health and external watchdog contract
 
-The shared package defines health evaluation, scheduler progress and durable watchdog attempts. Database readers, authenticated host routes and lifecycle registration follow in the host integration part; these exports alone do not activate endpoints.
+Both hosts register the shared health evaluator against their scoped database reader and actual scheduler. Authenticated readiness and optional outbound watchdog delivery are configured through trusted deployment settings; see [operational-health-setup.md](operational-health-setup.md).
 
 Readiness requires a fresh, scoped database snapshot and completed claim/settlement operations in every registered scheduler lane. A timer tick, an empty handler group, an unstarted scheduler or a stopped scheduler is not evidence of progress. An idle claim is useful evidence only alongside the database snapshot showing no overdue work. Provider acceptance and mailbox delivery remain separate states in incident delivery history; readiness does not assert either.
 
@@ -20,4 +20,4 @@ A new interval seeds a new intent even if a preceding attempt exhausted retries.
 
 ## Verification scope
 
-Unit scenarios cover queue-age boundaries, stopped/stalled schedulers, timer-only false positives, database timeouts, stranded-query backpressure, scoped intent deduplication, rolling configuration isolation, readiness degradation during secret access, expired claims and post-send uncertainty. The tests use in-memory repositories and transports. PostgreSQL behavior, real watchdog delivery and host endpoint operation still require the later host adapters and an authorized runtime environment.
+Unit scenarios cover queue-age boundaries, stopped/stalled schedulers, timer-only false positives, database timeouts, stranded-query backpressure, scoped intent deduplication, rolling configuration isolation, readiness degradation during secret access, expired claims and post-send uncertainty. The tests use in-memory repositories and transports. PostgreSQL behavior, real watchdog delivery and host endpoint operation still require an authorized runtime environment.

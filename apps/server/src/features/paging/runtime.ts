@@ -5,6 +5,9 @@ import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
   ProbeDeployment,
+  HealthDeployment,
+  WatchdogJobs,
+  withWatchdogHandlers,
   MetricDeployment,
   PrometheusMetricsReader,
   withMetricHandlers,
@@ -36,45 +39,60 @@ export function standalonePagingRuntime(
   onError: (queue: WorkQueue) => void,
   deployment = new ProbeDeployment(),
   metrics = new MetricDeployment(),
+  health = new HealthDeployment(),
 ) {
   const repository = new PostgresDetectionRepository(pool);
   const secrets = new EncryptedSecretStore(
     keys,
     new PostgresSecretReader(pool),
   );
-  const channels = createPagingChannels(
-    secrets,
-    new PublicHttpsChannelTransport(),
-  );
-  return {
-    repository,
-    runtime: new PostgresJobsRuntime(
-      pool,
-      scope,
-      withMetricHandlers(
-        withHeartbeatHandlers(
-          withProbeHandlers(
-            createMonitoringHandlers(repository, channels, publicUrl),
-            new PostgresProbeRepository(pool),
-            new HttpProbeRunner(
-              new PolicyHttpProbeTransport(deployment.policy),
-              secrets,
-            ),
-          ),
-          new PostgresHeartbeatRepository(pool),
-        ),
-        new PostgresMetricsRepository(pool),
-        new PrometheusMetricsReader(
-          new PolicyHttpProbeTransport(metrics.policy),
+  const http = new PublicHttpsChannelTransport();
+  const channels = createPagingChannels(secrets, http);
+  const handlers = withMetricHandlers(
+    withHeartbeatHandlers(
+      withProbeHandlers(
+        createMonitoringHandlers(repository, channels, publicUrl),
+        new PostgresProbeRepository(pool),
+        new HttpProbeRunner(
+          new PolicyHttpProbeTransport(deployment.policy),
           secrets,
         ),
       ),
-      onError,
-      [...monitoringJobLanes, probeJobLane, heartbeatJobLane, metricJobLane],
-      {
-        "probe.execute": deployment.limits.concurrency,
-        "metrics.poll": metrics.limits.concurrency,
-      },
+      new PostgresHeartbeatRepository(pool),
     ),
-  };
+    new PostgresMetricsRepository(pool),
+    new PrometheusMetricsReader(
+      new PolicyHttpProbeTransport(metrics.policy),
+      secrets,
+    ),
+  );
+  const watchdog = health.watchdog
+    ? new WatchdogJobs(
+        repository,
+        scope,
+        health.watchdog,
+        { check: () => runtime.health.check() },
+        secrets,
+        http,
+      )
+    : undefined;
+  const runtime: PostgresJobsRuntime = new PostgresJobsRuntime(
+    pool,
+    scope,
+    watchdog ? withWatchdogHandlers(handlers, watchdog) : handlers,
+    onError,
+    [
+      ...monitoringJobLanes,
+      probeJobLane,
+      heartbeatJobLane,
+      metricJobLane,
+      ...(watchdog ? [watchdog.lane] : []),
+    ],
+    {
+      "probe.execute": deployment.limits.concurrency,
+      "metrics.poll": metrics.limits.concurrency,
+    },
+    health,
+  );
+  return { repository, runtime };
 }

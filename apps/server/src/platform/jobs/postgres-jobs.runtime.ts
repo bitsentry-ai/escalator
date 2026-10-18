@@ -4,15 +4,23 @@ import type { OnApplicationBootstrap, OnModuleDestroy } from "@nestjs/common";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
   DurableWorkScheduler,
+  HealthDeployment,
+  OperationalHealthCheck,
+  WatchdogCoordinator,
+  watchdogJobKind,
   type WorkHandlers,
   type WorkQueue,
 } from "@bitsentry-escalator/features/application";
 import { PostgresWorkStore } from "./postgres-work.store.js";
+import { PostgresHealthReader } from "../health/postgres-health.reader.js";
+import { PostgresFoundationRepository } from "../database/foundation.repository.js";
 /** Constructed by the host with its trusted local workspace and owned pool. */
 export class PostgresJobsRuntime
   implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly scheduler: DurableWorkScheduler;
+  readonly health: OperationalHealthCheck;
+  private readonly watchdog?: WatchdogCoordinator;
   constructor(
     pool: Pool,
     workspaceId: WorkspaceId,
@@ -20,7 +28,13 @@ export class PostgresJobsRuntime
     onError: (queue: WorkQueue) => void,
     jobLanes?: readonly (readonly string[])[],
     jobConcurrency?: Readonly<Record<string, number>>,
+    health = new HealthDeployment(),
   ) {
+    if (
+      health.watchdog &&
+      !handlers.job.has(watchdogJobKind(workspaceId, health.watchdog))
+    )
+      throw new Error("Watchdog configuration requires its durable handler");
     this.scheduler = new DurableWorkScheduler(
       new PostgresWorkStore(pool),
       workspaceId,
@@ -36,11 +50,25 @@ export class PostgresJobsRuntime
       },
       { intervalMs: 5000, batchSize: 10, onError, jobLanes, jobConcurrency },
     );
+    this.health = new OperationalHealthCheck(
+      new PostgresHealthReader(pool),
+      workspaceId,
+      () => this.scheduler.progress(),
+      health.policy,
+    );
+    if (health.watchdog)
+      this.watchdog = new WatchdogCoordinator(
+        new PostgresFoundationRepository(pool),
+        workspaceId,
+        health.watchdog,
+        () => onError("job"),
+      );
   }
   onApplicationBootstrap(): void {
     this.scheduler.start();
+    this.watchdog?.start();
   }
   async onModuleDestroy(): Promise<void> {
-    await this.scheduler.stop();
+    await Promise.all([this.scheduler.stop(), this.watchdog?.stop()]);
   }
 }

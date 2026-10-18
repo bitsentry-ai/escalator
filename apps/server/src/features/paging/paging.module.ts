@@ -1,3 +1,8 @@
+import {
+  HealthDeployment,
+  OperationalHealthHttp,
+} from "@bitsentry-escalator/features/application";
+import { OperationalHealthController } from "../../platform/health/health.controller.js";
 import { MetricsModule } from "../metrics/metrics.module.js";
 import { MetricDeployment } from "@bitsentry-escalator/features/application";
 import { ProbesModule } from "../probes/probes.module.js";
@@ -25,9 +30,30 @@ import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.j
 import { standalonePagingRuntime } from "./runtime.js";
 @Module({
   imports: [DatabaseModule, SecretKeysModule, ProbesModule, MetricsModule],
-  controllers: [EscalatorAcknowledgementController],
+  controllers: [
+    EscalatorAcknowledgementController,
+    OperationalHealthController,
+  ],
   exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
+    {
+      provide: HealthDeployment,
+      useFactory: () => HealthDeployment.fromJSON(process.env.ESCALATOR_HEALTH),
+    },
+    {
+      provide: OperationalHealthHttp,
+      inject: [StandaloneDatabase, PostgresJobsRuntime, HealthDeployment],
+      useFactory: (
+        db: StandaloneDatabase,
+        runtime: PostgresJobsRuntime,
+        deployment: HealthDeployment,
+      ) =>
+        new OperationalHealthHttp((scope) =>
+          scope === db.workspaceId
+            ? { deployment, health: runtime.health }
+            : undefined,
+        ),
+    },
     {
       provide: ConfigurationUseCases,
       inject: [StandaloneDatabase],
@@ -62,12 +88,14 @@ import { standalonePagingRuntime } from "./runtime.js";
         SecretKeyRing,
         ProbeDeployment,
         MetricDeployment,
+        HealthDeployment,
       ],
       useFactory: (
         db: StandaloneDatabase,
         keys: SecretKeyRing,
         deployment: ProbeDeployment,
         metrics: MetricDeployment,
+        health: HealthDeployment,
       ) => {
         const logger = new Logger("EscalatorPaging");
         return standalonePagingRuntime(
@@ -78,6 +106,7 @@ import { standalonePagingRuntime } from "./runtime.js";
           (queue) => logger.error(`Paging poll failed: ${queue}`),
           deployment,
           metrics,
+          health,
         ).runtime;
       },
     },

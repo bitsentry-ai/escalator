@@ -16,4 +16,4 @@ Dashboard: configure `ESCALATOR_DASHBOARD_TEST_MIGRATION_DATABASE_URL` and `ESCA
 
 The identical five-case suite verifies scope isolation, missing workspaces, overdue readiness, running-work age, future/terminal exclusion and watchdog recovery. These cases are delivered but not runtime-verified in this environment because no disposable database is configured. Unit cases cover adapter cancellation, redaction and transaction cleanup without starting infrastructure.
 
-These readers alone do not activate host routes. Authenticated readiness, lifecycle wiring and outbound watchdog registration follow in the next stack part. Live endpoint and external heartbeat checks require the later operator procedure.
+Both hosts register these readers with authenticated readiness and the actual scheduler lifecycle. See [operational-health-setup.md](operational-health-setup.md) for configuration and the remaining live endpoint and heartbeat verification procedure.
