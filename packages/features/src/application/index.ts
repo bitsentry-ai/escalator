@@ -213,3 +213,6 @@ export * from "./rules/label-ports.js";
 export * from "./rules/label-transaction.js";
 
 export { IncidentLabelManagement } from "./rules/label-management.js";
+
+export * from "./rules/history-window.js";
+export * from "./rules/history-reader.js";

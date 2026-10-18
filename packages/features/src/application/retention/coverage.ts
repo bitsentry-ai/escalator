@@ -33,20 +33,32 @@ export function periodicCoverage(
  */
 export function selectPeriodicCoverage(
   raw: PeriodicCoverageInput,
+  options: { endInclusive?: boolean } = {},
 ): PeriodicCoverageSelection {
-  return computePeriodicCoverage(raw, true);
+  return computePeriodicCoverage(raw, true, options.endInclusive ?? false);
 }
 function computePeriodicCoverage(
   raw: PeriodicCoverageInput,
   collect: boolean,
+  endInclusive = false,
 ): PeriodicCoverageSelection {
   const selected: PeriodicCoverageSelection["samples"] = [];
   const input = periodicCoverageInputSchema.parse(raw);
-  const start = Date.parse(input.startAt),
-    end = Date.parse(input.endAt);
+  const rawStart = Date.parse(input.startAt),
+    rawEnd = Date.parse(input.endAt);
   const visible = Date.parse(input.visibleAt);
-  if (end <= start || end - start > 366 * 86400000 || end > visible)
+  if (
+    rawEnd <= rawStart ||
+    rawEnd - rawStart > 366 * 86400000 ||
+    rawEnd > visible
+  )
     throw new RangeError("Invalid coverage window");
+  // Coverage arithmetic uses milliseconds. Only iteration boundaries change
+  // for (start,end]; the availability cutoff and all evidence stay untouched.
+  // Callers requesting this mode must supply configuration segments through
+  // the inclusive endpoint. Returned gaps use the equivalent half-open range.
+  const start = rawStart + (endInclusive ? 1 : 0),
+    end = rawEnd + (endInclusive ? 1 : 0);
   const gaps: CoverageGap[] = [];
   const gap = (from: number, to: number, reason: CoverageReason) => {
     if (to <= from) return;
