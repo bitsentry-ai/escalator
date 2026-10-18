@@ -191,67 +191,42 @@ test("watchdog configuration requires a registered handler and fits the existing
     destinations,
     limits: { maxActive: 100, maxConfigured: 500, concurrency: 32 },
   });
-  const metrics = new MetricDeployment({
-    destinations,
-    // Twelve reserved lanes include timeout, watch, cadence and rule evaluation and replay workers; 32 + 20 + 12 = 64.
-    limits: { maxActive: 100, maxConfigured: 500, concurrency: 20 },
-  });
-  assert.throws(
-    () =>
-      standalonePagingRuntime(
-        pool,
-        scope,
-        keys,
-        "https://example.test",
-        () => {},
-        retentionFixture(),
-        probes,
-        new MetricDeployment({
-          destinations,
-          limits: { maxActive: 100, maxConfigured: 500, concurrency: 21 },
-        }),
-      ),
-    /scheduler limit/,
-  );
-  const baseline = standalonePagingRuntime(
-    pool,
-    scope,
-    keys,
-    "https://example.test",
-    () => {},
-    retentionFixture(),
-    probes,
-    metrics,
-  );
-  await baseline.runtime.onModuleDestroy();
-  const withWatchdog = standalonePagingRuntime(
-    pool,
-    scope,
-    keys,
-    "https://example.test",
-    () => {},
-    retentionFixture(),
-    probes,
-    new MetricDeployment({
-      destinations,
-      limits: { maxActive: 100, maxConfigured: 500, concurrency: 19 },
-    }),
-    health,
-  );
+  const runtime = (metricConcurrency: number, watchdog?: HealthDeployment) =>
+    standalonePagingRuntime(
+      pool,
+      scope,
+      keys,
+      "https://example.test",
+      () => {},
+      retentionFixture(),
+      probes,
+      new MetricDeployment({
+        destinations,
+        limits: {
+          maxActive: 100,
+          maxConfigured: 500,
+          concurrency: metricConcurrency,
+        },
+      }),
+      watchdog,
+    );
+  // Derive the largest metric concurrency that fits beside 32 probe workers and
+  // every reserved lane, so adding a lane changes the limit rather than the test.
+  const fits = (concurrency: number, watchdog?: HealthDeployment) => {
+    try {
+      return runtime(concurrency, watchdog);
+    } catch (error) {
+      assert.match(String(error), /scheduler limit/);
+      return undefined;
+    }
+  };
+  let limit = 32;
+  let largest = fits(limit);
+  while (!largest && --limit > 0) largest = fits(limit);
+  assert.ok(largest && limit > 1, "probe workers leave no metric workers");
+  await largest.runtime.onModuleDestroy();
+  assert.throws(() => runtime(limit + 1), /scheduler limit/);
+  const withWatchdog = runtime(limit - 1, health);
   await withWatchdog.runtime.onModuleDestroy();
-  assert.throws(
-    () =>
-      standalonePagingRuntime(
-        pool,
-        scope,
-        keys,
-        "https://example.test",
-        () => {},
-        retentionFixture(),
-        probes,
-        metrics,
-        health,
-      ),
-    /scheduler limit/,
-  );
+  assert.throws(() => runtime(limit, health), /scheduler limit/);
 });

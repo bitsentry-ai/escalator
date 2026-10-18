@@ -1,3 +1,9 @@
+import { postgresRuleBacktestStore } from "./postgres-rule-backtest.store.js";
+import {
+  withRuleBacktests,
+  type RuleBacktestRepository,
+  type RuleBacktestTransaction,
+} from "@bitsentry-escalator/features/application";
 import { postgresRuleReplayCaptureStore } from "./postgres-rule-replay-capture.store.js";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
@@ -12,12 +18,17 @@ import { PostgresFoundationRepository } from "./foundation.repository.js";
 import { postgresRuleReplayStore } from "./postgres-rule-replay.store.js";
 import { withBoundedRulePool } from "./bounded-rule-pool.js";
 export class PostgresRuleReplayRepository
-  implements RuleReplayRepository, RuleReplayCaptureRepository
+  implements
+    RuleReplayRepository,
+    RuleReplayCaptureRepository,
+    RuleBacktestRepository
 {
   constructor(private readonly pool: Pool) {}
   transaction<T>(
     scope: WorkspaceId,
-    work: (tx: RuleReplayCaptureTransaction) => Promise<T>,
+    work: (
+      tx: RuleReplayCaptureTransaction & RuleBacktestTransaction,
+    ) => Promise<T>,
   ): Promise<T> {
     return withBoundedRulePool(this.pool, (bounded) =>
       new PostgresFoundationRepository(bounded).withConnection(
@@ -26,9 +37,13 @@ export class PostgresRuleReplayRepository
           await db.query("SET LOCAL statement_timeout = '5s'");
           await db.query("SET LOCAL lock_timeout = '1s'");
           return work(
-            withRuleReplayCapture(
-              withRuleReplay(base, postgresRuleReplayStore(db, scope), guard),
-              postgresRuleReplayCaptureStore(db, scope),
+            withRuleBacktests(
+              withRuleReplayCapture(
+                withRuleReplay(base, postgresRuleReplayStore(db, scope), guard),
+                postgresRuleReplayCaptureStore(db, scope),
+                guard,
+              ),
+              postgresRuleBacktestStore(db, scope),
               guard,
             ),
           );

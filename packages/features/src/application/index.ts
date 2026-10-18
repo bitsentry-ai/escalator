@@ -232,3 +232,8 @@ export * from "./rules/replay-storage-codec.js";
 
 export * from "./rules/replay-capture.js";
 export * from "./rules/replay-capture-transaction.js";
+
+export * from "./rules/backtest-ports.js";
+export * from "./rules/backtest-job.js";
+export * from "./rules/backtest-storage.js";
+export * from "./rules/backtest-transaction.js";

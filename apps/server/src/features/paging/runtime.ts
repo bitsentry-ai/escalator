@@ -5,6 +5,8 @@ import {
   withRuleEvaluationHandlers,
   ruleEvaluationLane,
   ruleReplayLane,
+  ruleBacktestLane,
+  withRuleBacktestHandlers,
   withRuleReplayHandlers,
 } from "@bitsentry-escalator/features/application";
 import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
@@ -124,6 +126,10 @@ export function standalonePagingRuntime(
     ruleHandlers,
     new PostgresRuleReplayRepository(pool),
   );
+  const reportHandlers = withRuleBacktestHandlers(
+    replayHandlers,
+    new PostgresRuleReplayRepository(pool),
+  );
   const watchdog = health.watchdog
     ? new WatchdogJobs(
         repository,
@@ -137,7 +143,7 @@ export function standalonePagingRuntime(
   const runtime: PostgresJobsRuntime = new PostgresJobsRuntime(
     pool,
     scope,
-    watchdog ? withWatchdogHandlers(replayHandlers, watchdog) : replayHandlers,
+    watchdog ? withWatchdogHandlers(reportHandlers, watchdog) : reportHandlers,
     onError,
     [
       ...monitoringJobLanes,
@@ -150,6 +156,7 @@ export function standalonePagingRuntime(
       retentionJobLane,
       ruleEvaluationLane,
       ruleReplayLane,
+      ruleBacktestLane,
       ...(watchdog ? [watchdog.lane] : []),
     ],
     {
@@ -157,6 +164,7 @@ export function standalonePagingRuntime(
       "metrics.poll": metrics.limits.concurrency,
       "rules.evaluate": 1,
       "rules.replay": 1,
+      "rules.backtest": 1,
     },
     health,
     new RetentionCoordinator(

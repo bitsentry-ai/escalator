@@ -22,7 +22,43 @@ export function encodeRuleReplayData(
         ? ruleReplayRunSchema.parse(raw)
         : ruleReplayChunkSchema.parse(raw);
   if (row.workspaceId !== scope) throw new PersistenceError("scope_violation");
-  const encoded = JSON.stringify(row, (key, value: unknown) =>
+  // Scope is validated before compacting. Repeating UUID selectors per sample
+  // needlessly consumes the 30-day snapshot budget; decode supports old rows too.
+  const compact = (sample: object) =>
+    Object.fromEntries(
+      Object.entries(sample).filter(
+        ([key]) =>
+          ![
+            "workspaceId",
+            "serviceId",
+            "environmentId",
+            "kind",
+            "streamId",
+          ].includes(key),
+      ),
+    );
+  const compacted =
+    "snapshot" in row
+      ? {
+          ...row,
+          snapshot: {
+            ...row.snapshot,
+            samples: row.snapshot.samples.map(compact),
+            retained: row.snapshot.retained
+              ? {
+                  ...row.snapshot.retained,
+                  history: {
+                    ...row.snapshot.retained.history,
+                    receipts: row.snapshot.retained.history.receipts.map(
+                      (r) => ({ ...r, sample: compact(r.sample) }),
+                    ),
+                  },
+                }
+              : undefined,
+          },
+        }
+      : row;
+  const encoded = JSON.stringify(compacted, (key, value: unknown) =>
     key === "workspaceId" ? undefined : value,
   );
   const limit =
@@ -39,6 +75,13 @@ export function decodeRuleReplaySnapshot(
 ): StoredRuleReplaySnapshot {
   const row = raw as StoredRuleReplaySnapshot,
     snapshot = row.snapshot;
+  const definition = snapshot.version.definition;
+  const sampleScope = {
+    serviceId: definition.serviceId,
+    environmentId: definition.environmentId,
+    kind: definition.selector.kind,
+    streamId: definition.selector.streamId,
+  };
   const retained = snapshot.retained
     ? {
         ...snapshot.retained,
@@ -47,7 +90,7 @@ export function decodeRuleReplaySnapshot(
           workspaceId: scope,
           receipts: snapshot.retained.history.receipts.map((r) => ({
             ...r,
-            sample: { ...r.sample, workspaceId: scope },
+            sample: { ...sampleScope, ...r.sample, workspaceId: scope },
           })),
         },
         policyFacts: snapshot.retained.policyFacts.map((f) => ({
@@ -61,12 +104,13 @@ export function decodeRuleReplaySnapshot(
     workspaceId: scope,
     snapshot: {
       ...snapshot,
-      retained,
+      ...(retained ? { retained } : {}),
       version: {
         ...snapshot.version,
         definition: { ...snapshot.version.definition, workspaceId: scope },
       },
       samples: snapshot.samples.map((sample) => ({
+        ...sampleScope,
         ...sample,
         workspaceId: scope,
       })),

@@ -1,3 +1,5 @@
+import { backtestAvailability } from "./backtest-availability.js";
+import { ruleBacktestReportSchema } from "../../contracts/rule-backtest.js";
 import { z } from "zod";
 import {
   incidentLabelSchema,
@@ -194,7 +196,8 @@ export function summarizeRuleBacktest(
   const center = (p + z2 / (2 * (n || 1))) / denom,
     margin =
       (z95 * Math.sqrt((p * (1 - p) + z2 / (4 * (n || 1))) / (n || 1))) / denom;
-  return {
+  return ruleBacktestReportSchema.parse({
+    availability: backtestAvailability(decisions),
     version: 1,
     evaluatorVersion: 1,
     matchingPolicy: "unique-overlap-v1",
@@ -237,5 +240,5 @@ export function summarizeRuleBacktest(
         : null,
     },
     labelCoverage: episodes.length ? n / episodes.length : null,
-  };
+  });
 }

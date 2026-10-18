@@ -102,3 +102,5 @@ export * from "./rule-policy.js";
 
 export * from "./replay-run.js";
 export * from "./rule-backtest.js";
+
+export * from "./backtest-record.js";

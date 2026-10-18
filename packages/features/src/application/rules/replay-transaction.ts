@@ -1,3 +1,5 @@
+import { ruleBacktestJobSchema } from "../../contracts/backtest-record.js";
+import { ruleBacktestJobId } from "./backtest-job.js";
 import { opaqueIdSchema } from "../../contracts/identity.js";
 import {
   ruleReplayRunSchema,
@@ -31,6 +33,19 @@ export function withRuleReplay<T extends FoundationTransaction>(
       ...base.work,
       enqueue: (queue, intent) =>
         guard.operation(() => {
+          if (queue === "job" && intent.kind === "rules.backtest") {
+            const { runId } = ruleBacktestJobSchema.parse(intent.payload);
+            const row = locked.get(runId),
+              id = ruleBacktestJobId(base.workspaceId, runId);
+            if (
+              !row ||
+              row.status !== "completed" ||
+              intent.id !== id ||
+              intent.idempotencyKey !== id
+            )
+              throw new Error("Report requires a locked completed replay");
+            return base.work.enqueue(queue, intent);
+          }
           if (queue !== "job" || intent.kind !== "rules.replay")
             throw new Error("Replay can enqueue only replay jobs");
           return base.work.enqueue(queue, intent);

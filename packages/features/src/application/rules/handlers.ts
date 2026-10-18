@@ -1,3 +1,5 @@
+import type { RuleBacktestRepository } from "./backtest-ports.js";
+import { RuleBacktestExecution } from "./backtest-job.js";
 import type { RuleReplayRepository } from "./replay-ports.js";
 import { RuleReplayExecution } from "./replay-job.js";
 import type { WorkHandlers } from "../jobs/scheduler.js";
@@ -33,6 +35,23 @@ export function withRuleReplayHandlers(
     job: new Map<string, WorkHandler>([
       ...handlers.job,
       ["rules.replay", (lease) => runner.process(lease)],
+    ]),
+    outbox: handlers.outbox,
+  };
+}
+
+export const ruleBacktestLane = ["rules.backtest"] as const;
+export function withRuleBacktestHandlers(
+  handlers: WorkHandlers,
+  repository: RuleBacktestRepository,
+): WorkHandlers {
+  if (handlers.job.has("rules.backtest"))
+    throw new Error("Backtest handler already registered");
+  const runner = new RuleBacktestExecution(repository);
+  return {
+    job: new Map<string, WorkHandler>([
+      ...handlers.job,
+      ["rules.backtest", (lease) => runner.process(lease)],
     ]),
     outbox: handlers.outbox,
   };

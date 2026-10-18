@@ -20,7 +20,7 @@ export function postgresRuleReplayCaptureStore(
         [scope],
       );
       const result = await db.query<{ count: number }>(
-        `SELECT count(*)::integer AS count FROM (SELECT DISTINCT payload->>'runId' FROM escalator_job WHERE workspace_id=$1 AND kind='rules.replay' AND state IN ('pending','running') LIMIT 3) active`,
+        `SELECT count(*)::integer AS count FROM (SELECT DISTINCT payload->>'runId' FROM escalator_job WHERE workspace_id=$1 AND kind IN ('rules.replay','rules.backtest') AND state IN ('pending','running') LIMIT 3) active`,
         [scope],
       );
       if (!result.rows[0] || result.rows[0].count >= 3)

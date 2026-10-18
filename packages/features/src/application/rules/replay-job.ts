@@ -1,3 +1,4 @@
+import { ruleBacktestJobId } from "./backtest-job.js";
 import {
   ruleReplayRunSchema,
   ruleReplayJobSchema,
@@ -122,7 +123,7 @@ export class RuleReplayExecution {
       if (!(await tx.replay.save(next, row.revision)))
         throw new Error("Replay revision conflict");
       if (next.status !== "completed") await enqueueRuleReplay(tx, next);
-      else
+      else {
         await tx.audit.append({
           id: pagingWorkId(tx.workspaceId, "rule-replay-completed", row.id),
           workspaceId: tx.workspaceId,
@@ -137,6 +138,16 @@ export class RuleReplayExecution {
             evaluatorVersion: 1,
           },
         });
+        const reportId = ruleBacktestJobId(tx.workspaceId, row.id);
+        await tx.work.enqueue("job", {
+          id: reportId,
+          kind: "rules.backtest",
+          idempotencyKey: reportId,
+          dueAt: next.updatedAt,
+          priority: -100,
+          payload: { runId: row.id },
+        });
+      }
       if (
         compareUtcTimestamps(
           await tx.replay.currentTime(),
