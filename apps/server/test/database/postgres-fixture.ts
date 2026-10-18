@@ -35,6 +35,7 @@ export async function postgresFixture(
   options: {
     replayAccountingDeletes?: boolean;
     coverageMutationPrivileges?: boolean;
+    baselineMutationPrivileges?: boolean;
     replayPruningDeletes?: boolean;
   } = {},
 ) {
@@ -174,6 +175,17 @@ export async function postgresFixture(
       }
     };
     await grantCoverage(migrations);
+    const grantBaselines = async (list: readonly Migration[]) => {
+      if (!list.some((item) => item.name === "0018_deployment_baselines.sql"))
+        return;
+      await admin.query(
+        `GRANT SELECT,INSERT${options.baselineMutationPrivileges ? ",UPDATE,DELETE" : ""} ON escalator_deployment_baseline TO ${identifier(current.role)}`,
+      );
+      await admin.query(
+        `GRANT SELECT,INSERT,DELETE${options.baselineMutationPrivileges ? ",UPDATE" : ""} ON escalator_deployment_pin TO ${identifier(current.role)}`,
+      );
+    };
+    await grantBaselines(migrations);
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
@@ -231,6 +243,7 @@ export async function postgresFixture(
       async upgrade(next: readonly Migration[]) {
         await migrate(admin, next);
         await grantCoverage(next);
+        await grantBaselines(next);
         await grantRecording(next);
         await grantAccounting(next);
         await grantMaintenance(next);

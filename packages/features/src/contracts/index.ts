@@ -69,3 +69,5 @@ export * from "./deploy-management.js";
 export * from "./deploy-preflight.js";
 
 export * from "./deploy-watch.js";
+
+export * from "./deploy-baseline.js";

@@ -60,7 +60,8 @@ const candidatesSql = `WITH signals AS MATERIALIZED (${stream("signal")}),
  WHEN 'signal' THEN EXISTS(SELECT 1 FROM escalator_detection_alert a WHERE a.workspace_id=$1 AND a.last_signal_id=c.id)
  WHEN 'probe' THEN EXISTS(SELECT 1 FROM escalator_probe_state s WHERE s.workspace_id=$1 AND s.probe_id=c.owner_id AND s.last_result_id=c.id)
   OR EXISTS(SELECT 1 FROM escalator_probe_schedule s WHERE s.workspace_id=$1 AND s.probe_id=c.owner_id AND s.job_id=c.id)
- ELSE EXISTS(SELECT 1 FROM escalator_metric_schedule s WHERE s.workspace_id=$1 AND s.monitor_id=c.owner_id AND (s.last_observation_id=c.id OR s.job_id=c.id)) END AS referenced,
+ ELSE EXISTS(SELECT 1 FROM escalator_metric_schedule s WHERE s.workspace_id=$1 AND s.monitor_id=c.owner_id AND (s.last_observation_id=c.id OR s.job_id=c.id)) END OR EXISTS(SELECT 1 FROM escalator_deployment_pin pin WHERE pin.workspace_id=$1 AND pin.source_id=$2
+  AND pin.starts_at<=c.observed_at AND pin.ends_at>c.observed_at AND pin.expires_at>statement_timestamp()) AS referenced,
  (c.kind<>'signal' OR EXISTS(SELECT 1 FROM escalator_detection_processed p WHERE p.workspace_id=$1 AND p.source_id=$2 AND p.id=c.id)) AS processed
  FROM candidates c ORDER BY c.observed_at,c.kind COLLATE "C",c.id COLLATE "C"`;
 export function postgresReplayPruneStore(
@@ -87,6 +88,14 @@ export function postgresReplayPruneStore(
     async snapshot(
       after: ReplayPruneCursor | null,
     ): Promise<ReplayPruneSnapshot> {
+      // Source is already locked. Bounded expiry cleanup precedes work/accounting locks.
+      await query(
+        `DELETE FROM escalator_deployment_pin WHERE workspace_id=$1 AND source_id=$2
+        AND (deployment_id,purpose) IN (SELECT deployment_id,purpose FROM escalator_deployment_pin
+          WHERE workspace_id=$1 AND source_id=$2 AND expires_at<=clock_timestamp()
+          ORDER BY expires_at,deployment_id COLLATE "C",purpose LIMIT 100)`,
+        [scope, sourceId],
+      );
       const [config] = await query<{
         probeId: string | null;
         metricData: Record<string, unknown> | null;

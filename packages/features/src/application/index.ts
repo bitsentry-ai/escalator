@@ -166,3 +166,6 @@ export * from "./deploy/preflight.js";
 export * from "./deploy/stuck.js";
 
 export * from "./deploy/watch.js";
+
+export * from "./deploy/baseline.js";
+export * from "./deploy/baseline-reader.js";

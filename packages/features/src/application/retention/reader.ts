@@ -23,6 +23,45 @@ export interface ReplayCoverageRepository {
     query: ReplayCoverageQuery,
   ): Promise<ReplayCoverageSnapshot>;
 }
+export function replayCoverageSegments(
+  configurations: ReplayCoverageSnapshot["configurations"],
+  query: Pick<ReplayCoverageQuery, "startAt" | "endAt">,
+): PeriodicCoverageInput["segments"] {
+  const segments: PeriodicCoverageInput["segments"] = [];
+  let priorVersion = 0,
+    priorEffective = -Infinity,
+    knownSeen = false,
+    historyCoherent = true;
+  for (let i = 0; i < configurations.length; i++) {
+    const config = configurations[i]!;
+    if (config.version <= priorVersion)
+      throw new RangeError("Unordered configuration revisions");
+    priorVersion = config.version;
+    if (config.effectiveAt === null) {
+      // Legacy metric revisions before migration have no original availability.
+      if (knownSeen) historyCoherent = false;
+      continue;
+    }
+    const effective = Date.parse(config.effectiveAt);
+    if (effective < priorEffective) historyCoherent = false;
+    priorEffective = effective;
+    knownSeen = true;
+    const next = configurations[i + 1]?.effectiveAt ?? query.endAt;
+    const from = Math.max(Date.parse(query.startAt), effective);
+    const to = Math.min(Date.parse(query.endAt), Date.parse(next));
+    if (to <= from) continue;
+    segments.push({
+      startAt: new Date(from).toISOString(),
+      endAt: new Date(to).toISOString(),
+      version: config.version,
+      recordedAt: config.recordedAt,
+      enabled: config.enabled,
+      anchorAt: config.anchorAt,
+      stepSeconds: config.stepSeconds,
+    });
+  }
+  return historyCoherent ? segments : [];
+}
 export class ReplayCoverageReader {
   constructor(private readonly repository: ReplayCoverageRepository) {}
   async read(
@@ -65,39 +104,7 @@ export class ReplayCoverageReader {
           })),
         }),
       };
-    const segments: PeriodicCoverageInput["segments"] = [];
-    let priorVersion = 0,
-      priorEffective = -Infinity,
-      knownSeen = false,
-      historyCoherent = true;
-    for (let i = 0; i < data.configurations.length; i++) {
-      const config = data.configurations[i]!;
-      if (config.version <= priorVersion)
-        throw new RangeError("Unordered configuration revisions");
-      priorVersion = config.version;
-      if (config.effectiveAt === null) {
-        // Legacy metric revisions before migration have no original availability.
-        if (knownSeen) historyCoherent = false;
-        continue;
-      }
-      const effective = Date.parse(config.effectiveAt);
-      if (effective < priorEffective) historyCoherent = false;
-      priorEffective = effective;
-      knownSeen = true;
-      const next = data.configurations[i + 1]?.effectiveAt ?? query.endAt;
-      const from = Math.max(Date.parse(query.startAt), effective);
-      const to = Math.min(Date.parse(query.endAt), Date.parse(next));
-      if (to <= from) continue;
-      segments.push({
-        startAt: new Date(from).toISOString(),
-        endAt: new Date(to).toISOString(),
-        version: config.version,
-        recordedAt: config.recordedAt,
-        enabled: config.enabled,
-        anchorAt: config.anchorAt,
-        stepSeconds: config.stepSeconds,
-      });
-    }
+    const segments = replayCoverageSegments(data.configurations, query);
     let unassignedReceipts = 0;
     const samples: PeriodicCoverageInput["samples"] = [];
     const configurations = new Map(
@@ -138,7 +145,7 @@ export class ReplayCoverageReader {
       unassignedReceipts,
       report: periodicCoverage({
         ...common,
-        segments: historyCoherent ? segments : [],
+        segments,
         samples,
       }),
     };
