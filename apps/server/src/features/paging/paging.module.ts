@@ -1,3 +1,4 @@
+import { StandaloneRetentionResources } from "../retention/resources.js";
 import {
   HealthDeployment,
   OperationalHealthHttp,
@@ -36,6 +37,17 @@ import { standalonePagingRuntime } from "./runtime.js";
   ],
   exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
+    {
+      provide: StandaloneRetentionResources,
+      useFactory: () =>
+        new StandaloneRetentionResources(
+          process.env.ESCALATOR_DATABASE_URL ?? "",
+          () =>
+            new Logger("EscalatorRetention").error(
+              "Maintenance database unavailable",
+            ),
+        ),
+    },
     {
       provide: HealthDeployment,
       useFactory: () => HealthDeployment.fromJSON(process.env.ESCALATOR_HEALTH),
@@ -86,6 +98,7 @@ import { standalonePagingRuntime } from "./runtime.js";
       inject: [
         StandaloneDatabase,
         SecretKeyRing,
+        StandaloneRetentionResources,
         ProbeDeployment,
         MetricDeployment,
         HealthDeployment,
@@ -93,6 +106,7 @@ import { standalonePagingRuntime } from "./runtime.js";
       useFactory: (
         db: StandaloneDatabase,
         keys: SecretKeyRing,
+        retention: StandaloneRetentionResources,
         deployment: ProbeDeployment,
         metrics: MetricDeployment,
         health: HealthDeployment,
@@ -104,6 +118,7 @@ import { standalonePagingRuntime } from "./runtime.js";
           keys,
           process.env.ESCALATOR_PUBLIC_URL ?? "",
           (queue) => logger.error(`Paging poll failed: ${queue}`),
+          retention,
           deployment,
           metrics,
           health,

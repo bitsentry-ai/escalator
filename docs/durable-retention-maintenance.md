@@ -139,3 +139,13 @@ a schedule's active reference.
 Run the shared and both-host commands above. Database cases and physical query-plan
 and contention measurements remain **not runtime-verified** until an authorized
 disposable PostgreSQL environment is available. These changes do not start a timer.
+
+## Host activation and capacity
+
+Both hosts register `retention.sweep` in its own single-worker lane. An in-process admission gate permits one maintenance operation at a time, shared across Dashboard organizations. Busy attempts wait five seconds without consuming their failure budget. The gate remains held until the underlying operation settles, including after a runner deadline; it never queues callers behind a busy database connection.
+
+A process-level coordinator visits one trusted workspace every five seconds to initialize or repair its durable schedule. It advances past busy or failing workspaces. Dashboard traversal is limited to the rollout allowlist and stays inactive until the secret broker binding is integrated. Saturation can delay traversal; this is not a hard startup deadline. The normal hourly sweep and bounded batch cursor remain authoritative across restarts.
+
+Maintenance has a separate pool capped at one connection per process, independent of the paging/API pool. Short claims and settlement still use the normal pool. A Dashboard maintenance transaction has a 10-second Prisma timeout and a one-second pool-acquisition budget; both adapters retain five-second statement and one-second lock limits. Standalone statement limits are not a total transaction deadline. Shutdown stops coordinators and job loops before closing the maintenance pool. No database connection or timer is started by constructing these resources.
+
+Apply the prior retention migrations before enabling these runtimes. In a disposable PostgreSQL environment, run the opt-in conformance suites described above, then verify process connection counts, paging latency during a multi-source sweep, restart recovery and shutdown while a batch holds a lock. These runtime and capacity measurements have not been performed here. Coverage/settings API and screen wiring follows separately; deploy-baseline/backtest protections must precede activation of those later features.

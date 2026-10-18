@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import type { OnApplicationBootstrap, OnModuleDestroy } from "@nestjs/common";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
+  type RetentionCoordinator,
   DurableWorkScheduler,
   HealthDeployment,
   OperationalHealthCheck,
@@ -29,6 +30,7 @@ export class PostgresJobsRuntime
     jobLanes?: readonly (readonly string[])[],
     jobConcurrency?: Readonly<Record<string, number>>,
     health = new HealthDeployment(),
+    private readonly retention?: RetentionCoordinator,
   ) {
     if (
       health.watchdog &&
@@ -67,8 +69,13 @@ export class PostgresJobsRuntime
   onApplicationBootstrap(): void {
     this.scheduler.start();
     this.watchdog?.start();
+    this.retention?.start();
   }
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([this.scheduler.stop(), this.watchdog?.stop()]);
+    await Promise.all([
+      this.scheduler.stop(),
+      this.watchdog?.stop(),
+      this.retention?.stop(),
+    ]);
   }
 }

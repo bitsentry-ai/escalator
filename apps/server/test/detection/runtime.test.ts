@@ -1,3 +1,4 @@
+import { retentionFixture } from "../retention/runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Pool } from "pg";
@@ -23,6 +24,7 @@ test("standalone monitoring construction and shutdown do not open database conne
     keys,
     "https://example.test",
     () => {},
+    retentionFixture(),
   );
   await runtime.onModuleDestroy();
   assert.equal(connections, 0);

@@ -4,6 +4,11 @@ import { PostgresProbeRepository } from "../../platform/database/probes.reposito
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
+  RetentionMaintenanceJobs,
+  withRetentionHandlers,
+  retentionJobLane,
+  type RetentionRuntimeResources,
+  RetentionCoordinator,
   ProbeDeployment,
   HealthDeployment,
   WatchdogJobs,
@@ -37,6 +42,7 @@ export function standalonePagingRuntime(
   keys: SecretKeyRing,
   publicUrl: string,
   onError: (queue: WorkQueue) => void,
+  retention: RetentionRuntimeResources,
   deployment = new ProbeDeployment(),
   metrics = new MetricDeployment(),
   health = new HealthDeployment(),
@@ -66,6 +72,11 @@ export function standalonePagingRuntime(
       secrets,
     ),
   );
+  const retainedHandlers = withRetentionHandlers(
+    handlers,
+    new RetentionMaintenanceJobs(retention.repository),
+    retention.admission,
+  );
   const watchdog = health.watchdog
     ? new WatchdogJobs(
         repository,
@@ -79,13 +90,16 @@ export function standalonePagingRuntime(
   const runtime: PostgresJobsRuntime = new PostgresJobsRuntime(
     pool,
     scope,
-    watchdog ? withWatchdogHandlers(handlers, watchdog) : handlers,
+    watchdog
+      ? withWatchdogHandlers(retainedHandlers, watchdog)
+      : retainedHandlers,
     onError,
     [
       ...monitoringJobLanes,
       probeJobLane,
       heartbeatJobLane,
       metricJobLane,
+      retentionJobLane,
       ...(watchdog ? [watchdog.lane] : []),
     ],
     {
@@ -93,6 +107,12 @@ export function standalonePagingRuntime(
       "metrics.poll": metrics.limits.concurrency,
     },
     health,
+    new RetentionCoordinator(
+      retention.repository,
+      [scope],
+      retention.admission,
+      () => onError("job"),
+    ),
   );
   return { repository, runtime };
 }

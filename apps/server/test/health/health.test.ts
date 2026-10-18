@@ -1,3 +1,4 @@
+import { retentionFixture } from "../retention/runtime-fixture.js";
 import { PostgresJobsRuntime } from "../../src/platform/jobs/postgres-jobs.runtime.js";
 import "reflect-metadata";
 import test from "node:test";
@@ -10,6 +11,7 @@ import {
   OperationalHealthHttp,
   DurableWorkScheduler,
   WatchdogCoordinator,
+  RetentionCoordinator,
   ProbeDeployment,
   MetricDeployment,
 } from "@bitsentry-escalator/features/application";
@@ -131,18 +133,31 @@ test("standalone watchdog construction is inert and follows the actual scheduler
     keys,
     "https://example.test",
     () => {},
+    retentionFixture(),
     undefined,
     undefined,
     new HealthDeployment(configuration),
   );
   assert.equal(start.mock.callCount(), 0);
   assert.equal(watchStart.mock.callCount(), 0);
+  const retentionStart = context.mock.method(
+    RetentionCoordinator.prototype,
+    "start",
+    () => {},
+  );
+  const retentionStop = context.mock.method(
+    RetentionCoordinator.prototype,
+    "stop",
+    async () => {},
+  );
   runtime.onApplicationBootstrap();
   assert.equal(start.mock.callCount(), 1);
   assert.equal(watchStart.mock.callCount(), 1);
   await runtime.onModuleDestroy();
   assert.equal(stop.mock.callCount(), 1);
   assert.equal(watchStop.mock.callCount(), 1);
+  assert.equal(retentionStart.mock.callCount(), 1);
+  assert.equal(retentionStop.mock.callCount(), 1);
   assert.equal(connections, 0);
 });
 
@@ -178,7 +193,7 @@ test("watchdog configuration requires a registered handler and fits the existing
   });
   const metrics = new MetricDeployment({
     destinations,
-    limits: { maxActive: 100, maxConfigured: 500, concurrency: 26 },
+    limits: { maxActive: 100, maxConfigured: 500, concurrency: 25 },
   });
   const baseline = standalonePagingRuntime(
     pool,
@@ -186,6 +201,7 @@ test("watchdog configuration requires a registered handler and fits the existing
     keys,
     "https://example.test",
     () => {},
+    retentionFixture(),
     probes,
     metrics,
   );
@@ -198,6 +214,7 @@ test("watchdog configuration requires a registered handler and fits the existing
         keys,
         "https://example.test",
         () => {},
+        retentionFixture(),
         probes,
         metrics,
         health,
