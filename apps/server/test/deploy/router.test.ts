@@ -118,14 +118,12 @@ test("coverage override command conflicts do not leak store messages", async () 
     },
   } as unknown as AppContext["deploymentPreflight"];
   await assert.rejects(
-    deploymentsRouter
-      .createCaller(ctx)
-      .overrideCoverage({
-        targetId: "target",
-        decisionId: "decision",
-        key: "override",
-        reason: "Emergency",
-      }),
+    deploymentsRouter.createCaller(ctx).overrideCoverage({
+      targetId: "target",
+      decisionId: "decision",
+      key: "override",
+      reason: "Emergency",
+    }),
     (error: unknown) => {
       const e = error as { code: string; message: string };
       assert.equal(e.code, "CONFLICT");
@@ -133,4 +131,52 @@ test("coverage override command conflicts do not leak store messages", async () 
       return true;
     },
   );
+});
+
+test("deployment history and watch queries use the current session and reject request scope", async () => {
+  const seen: unknown[] = [];
+  const ctx = context({});
+  ctx.deploymentQueries = {
+    history: async (actor: unknown, input: unknown) => {
+      seen.push([actor, input]);
+      return { items: [], next: null };
+    },
+    detail: async (actor: unknown, input: unknown) => {
+      seen.push([actor, input]);
+      return {};
+    },
+  } as unknown as AppContext["deploymentQueries"];
+  const caller = deploymentsRouter.createCaller(ctx);
+  await caller.history({ targetId: "target" });
+  await caller.detail({ targetId: "target", id: "deployment" });
+  const actor = {
+    workspaceId: "local",
+    responderId: "admin",
+    role: "administrator",
+  };
+  assert.deepEqual(seen, [
+    [actor, { targetId: "target", limit: 25 }],
+    [actor, { targetId: "target", id: "deployment" }],
+  ]);
+  await assert.rejects(
+    caller.history({ targetId: "target", workspaceId: "other" } as never),
+    { code: "BAD_REQUEST" },
+  );
+  await assert.rejects(
+    caller.detail({
+      targetId: "target",
+      id: "deployment",
+      role: "administrator",
+    } as never),
+    { code: "BAD_REQUEST" },
+  );
+  delete ctx.req.session.account;
+  await assert.rejects(caller.history({ targetId: "target" }), {
+    code: "UNAUTHORIZED",
+  });
+  await assert.rejects(
+    caller.detail({ targetId: "target", id: "deployment" }),
+    { code: "UNAUTHORIZED" },
+  );
+  assert.equal(seen.length, 2);
 });

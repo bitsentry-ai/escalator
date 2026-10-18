@@ -1,6 +1,7 @@
 import type {
   DeploymentManagement,
   DeploymentPreflight,
+  DeploymentQueries,
 } from "@bitsentry-escalator/features/application";
 import type { RetentionManagement } from "@bitsentry-escalator/features/application";
 import type { MetricManagement } from "@bitsentry-escalator/features/application";
@@ -58,6 +59,7 @@ test("standalone incident routes require current identity, reject injected scope
     heartbeats: {} as HeartbeatManagement,
     deployments: {} as DeploymentManagement,
     deploymentPreflight: {} as DeploymentPreflight,
+    deploymentQueries: {} as DeploymentQueries,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     workspaceId: workspaceIdSchema.parse("local"),

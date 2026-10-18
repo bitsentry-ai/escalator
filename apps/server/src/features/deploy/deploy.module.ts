@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import {
   DeploymentManagement,
+  DeploymentQueries,
   DeploymentWatchReader,
   DeploymentWatchHttp,
   type DeploymentWatchTransaction,
@@ -43,6 +44,12 @@ import { DeploymentController } from "./deploy.controller.js";
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new PostgresDeploymentWatchRuntimeRepository(db.pool),
+    },
+    {
+      provide: DeploymentQueries,
+      inject: [PostgresDeploymentWatchRuntimeRepository],
+      useFactory: (repo: PostgresDeploymentWatchRuntimeRepository) =>
+        new DeploymentQueries(repo),
     },
     {
       provide: DeploymentManagement,
@@ -91,6 +98,6 @@ import { DeploymentController } from "./deploy.controller.js";
       },
     },
   ],
-  exports: [DeploymentManagement, DeploymentPreflight],
+  exports: [DeploymentManagement, DeploymentPreflight, DeploymentQueries],
 })
 export class DeploymentsModule {}

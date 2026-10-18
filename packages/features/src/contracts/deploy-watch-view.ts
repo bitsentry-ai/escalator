@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deploymentPageSchema } from "./deploy-management.js";
 import { opaqueIdSchema } from "./identity.js";
 import { deploymentSchema } from "./deploy.js";
 import { deploymentWatchRecordSchema } from "./deploy-watch-record.js";
@@ -21,3 +22,16 @@ export const deploymentWatchViewSchema = z
         watch.environmentId === deployment.environmentId),
   );
 export type DeploymentWatchView = z.infer<typeof deploymentWatchViewSchema>;
+
+export const deploymentHistoryQuerySchema = z.strictObject({
+  targetId: opaqueIdSchema,
+  ...deploymentPageSchema.shape,
+});
+export const deploymentDetailQuerySchema = z.strictObject({
+  targetId: opaqueIdSchema,
+  id: opaqueIdSchema,
+});
+export type DeploymentHistoryQuery = z.input<
+  typeof deploymentHistoryQuerySchema
+>;
+export type DeploymentDetailQuery = z.infer<typeof deploymentDetailQuerySchema>;

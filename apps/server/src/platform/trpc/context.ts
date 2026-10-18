@@ -14,6 +14,7 @@ import type {
   RetentionManagement,
   HeartbeatManagement,
   DeploymentManagement,
+  DeploymentQueries,
   DeploymentPreflight,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
@@ -26,6 +27,7 @@ export interface AppContext {
   retention: RetentionManagement;
   heartbeats: HeartbeatManagement;
   deployments: DeploymentManagement;
+  deploymentQueries: DeploymentQueries;
   deploymentPreflight: DeploymentPreflight;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;

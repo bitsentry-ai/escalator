@@ -1,6 +1,7 @@
 import type {
   DeploymentManagement,
   DeploymentPreflight,
+  DeploymentQueries,
 } from "@bitsentry-escalator/features/application";
 import type { RetentionManagement } from "@bitsentry-escalator/features/application";
 import type { MetricManagement } from "@bitsentry-escalator/features/application";
@@ -62,6 +63,7 @@ function fixture() {
     heartbeats: {} as HeartbeatManagement,
     deployments: {} as DeploymentManagement,
     deploymentPreflight: {} as DeploymentPreflight,
+    deploymentQueries: {} as DeploymentQueries,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     services: services as unknown as ServiceUseCases,

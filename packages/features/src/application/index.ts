@@ -193,3 +193,5 @@ export * from "./deploy/watch-overlap.js";
 
 export * from "./deploy/watch-read.js";
 export * from "./deploy/watch-http.js";
+
+export { DeploymentQueries } from "./deploy/queries.js";

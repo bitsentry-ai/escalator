@@ -43,3 +43,5 @@ export type {
   RetentionPolicyView,
 } from "./retention-client.js";
 export { RetentionScreen } from "./retention/RetentionScreen.js";
+
+export type { DeploymentsClient } from "./deployments-client.js";
