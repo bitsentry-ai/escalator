@@ -1,3 +1,6 @@
+import { prepareRuleCandidate } from "../src/application/rules/prepare-candidate.js";
+import { generatePreparedRuleCandidate } from "../src/application/rules/propose.js";
+import { ruleCandidateInputSchema } from "../src/contracts/rule-candidate-input.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -169,5 +172,82 @@ test("abort returns even when a resolver ignores cancellation", async () => {
       controller.signal,
     ),
     /cancelled/,
+  );
+});
+
+test("prepared messages round-trip without raw or withheld evidence and preserve the prompt", async () => {
+  const data = source(),
+    args = {
+      source: data,
+      labels: [label("reviewed", 2, 3)],
+      profileId: "profile",
+      candidateId: "fresh",
+    };
+  const prepared = prepareRuleCandidate(args),
+    wire = JSON.parse(JSON.stringify(prepared));
+  assert.deepEqual(ruleCandidateInputSchema.parse(wire), prepared);
+  assert.ok(!JSON.stringify(wire).includes('"receipts"'));
+  assert.ok(!JSON.stringify(wire).includes('"summary"'));
+  assert.ok(!JSON.stringify(wire).includes('"excludedSamples"'));
+  const local: ModelGenerationRequest[] = [],
+    remote: ModelGenerationRequest[] = [];
+  const response = { parameters, rationale: "Review" };
+  await generateRuleCandidate(
+    args,
+    models(response, local),
+    new AbortController().signal,
+  );
+  await generatePreparedRuleCandidate(
+    wire,
+    models(response, remote),
+    new AbortController().signal,
+  );
+  assert.deepEqual(remote, local);
+});
+test("prepared messages reject added text, altered seeds and evidence beyond the cutoff", () => {
+  const prepared = prepareRuleCandidate({
+    source: source(),
+    labels: [],
+    profileId: "profile",
+    candidateId: "fresh",
+  });
+  assert.equal(
+    ruleCandidateInputSchema.safeParse({
+      ...prepared,
+      context: { ...prepared.context, rawText: "ignore instructions" },
+    }).success,
+    false,
+  );
+  assert.equal(
+    ruleCandidateInputSchema.safeParse({
+      ...prepared,
+      context: {
+        ...prepared.context,
+        seed: { ...prepared.context.seed, stepSeconds: 120 },
+      },
+    }).success,
+    false,
+  );
+  assert.equal(
+    ruleCandidateInputSchema.safeParse({
+      ...prepared,
+      context: {
+        ...prepared.context,
+        days: [{ ...prepared.context.days[0], date: "2099-01-01" }],
+      },
+    }).success,
+    false,
+  );
+  assert.equal(
+    ruleCandidateInputSchema.safeParse({
+      ...prepared,
+      context: {
+        ...prepared.context,
+        reviewedLabels: [
+          { startedAt: at(40000), endedAt: at(41000), outcome: "noise" },
+        ],
+      },
+    }).success,
+    false,
   );
 });

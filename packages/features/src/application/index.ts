@@ -257,3 +257,9 @@ export * from "./rules/proposal-storage.js";
 export * from "./rules/proposal-claim-transition.js";
 
 export * from "./rules/proposal-evaluation.js";
+
+export * from "./rules/prepare-candidate.js";
+
+export * from "./rules/proposal-authorization.js";
+
+export * from "./rules/proposal-consumer.js";

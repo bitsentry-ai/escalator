@@ -1,3 +1,4 @@
+import { authorizeRuleProposalModel } from "../src/application/rules/proposal-authorization.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -369,4 +370,23 @@ test("a storage adapter cannot substitute a different generation attempt", async
   assert.equal(state.rows[0]?.generation, null);
   assert.deepEqual(state.scheduled, []);
   assert.equal(state.claim?.attempt, 1);
+});
+
+test("model access rechecks the live claim, responder and profile revision", async () => {
+  const f = await setup(),
+    row = await f.useCase.request(f.actor, f.request),
+    claim = await f.claim(row);
+  const profile = () =>
+    f.repository.transaction(claim.workspaceId, (tx) =>
+      authorizeRuleProposalModel(tx, claim),
+    );
+  assert.equal((await profile())?.id, f.request.profileId);
+  f.control.profileRevision = 2;
+  assert.equal(await profile(), undefined);
+  f.control.profileRevision = 1;
+  f.control.revoked = true;
+  assert.equal(await profile(), undefined);
+  f.control.revoked = false;
+  await f.useCase.complete(claim, f.candidate(row));
+  assert.equal(await profile(), undefined);
 });

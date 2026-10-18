@@ -1,4 +1,9 @@
-import { createHash } from "node:crypto";
+import {
+  loadRuleProposalSource as sourceFor,
+  lockRuleProposalGeneration as activeClaim,
+  ruleProposalModelProfile as permitted,
+} from "./proposal-authorization.js";
+import { prepareRuleCandidate } from "./prepare-candidate.js";
 import { hasCapability, type Actor } from "../../contracts/identity.js";
 import {
   ruleProposalSchema,
@@ -8,10 +13,6 @@ import {
   type RuleProposal,
   type RuleProposalClaim,
 } from "../../contracts/rule-proposal.js";
-import {
-  storedRuleReplaySnapshotSchema,
-  type StoredRuleReplaySnapshot,
-} from "../../contracts/replay-run.js";
 import { incidentLabelSchema } from "../../contracts/rule-label.js";
 import { modelProfileSchema } from "../../contracts/model-profile.js";
 import { compareUtcTimestamps } from "../../contracts/timestamps.js";
@@ -23,31 +24,9 @@ import type {
   RuleProposalRepository,
   RuleProposalTransaction,
 } from "./proposal-ports.js";
-const hash = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const terminal = (row: RuleProposal) =>
   ["ready", "failed", "cancelled"].includes(row.status);
-async function sourceFor(
-  tx: RuleProposalTransaction,
-  id: string,
-): Promise<StoredRuleReplaySnapshot> {
-  const raw = await tx.replay.snapshot(id);
-  if (!raw) throw new PersistenceError("not_found");
-  const source = storedRuleReplaySnapshotSchema.parse(raw);
-  if (
-    source.workspaceId !== tx.workspaceId ||
-    source.snapshot.snapshotId !== id
-  )
-    throw new PersistenceError("scope_violation");
-  if (
-    source.snapshot.evaluation ||
-    source.snapshot.candidateEvaluation ||
-    !source.snapshot.retained ||
-    hash(source.snapshot) !== source.inputHash
-  )
-    throw new Error("Proposal requires an intact original retained capture");
-  return source;
-}
+
 async function authorize(tx: RuleProposalTransaction, actor: Actor) {
   const responder = await tx.responders.get(actor.responderId);
   if (
@@ -101,30 +80,7 @@ async function save(
   await audit(tx, parsed, action, actor);
   return parsed;
 }
-async function activeClaim(
-  tx: RuleProposalTransaction,
-  input: RuleProposalClaim,
-) {
-  const row = await tx.proposals.lock(input.proposalId);
-  if (!row) return undefined;
-  const proposal = ruleProposalSchema.parse(row);
-  if (
-    proposal.workspaceId !== tx.workspaceId ||
-    proposal.id !== input.proposalId
-  )
-    throw new PersistenceError("scope_violation");
-  const claim = await tx.proposals.lockClaim(input);
-  if (!claim) return undefined;
-  const actual = ruleProposalClaimSchema.parse(claim);
-  if (
-    actual.workspaceId !== tx.workspaceId ||
-    actual.proposalId !== proposal.id ||
-    actual.runtimeId !== input.runtimeId ||
-    actual.token !== input.token
-  )
-    throw new PersistenceError("scope_violation");
-  return proposal.status === "generating" ? proposal : undefined;
-}
+
 async function fail(
   tx: RuleProposalTransaction,
   row: RuleProposal,
@@ -146,32 +102,7 @@ async function fail(
   await tx.proposals.releaseClaim(row.id);
   return next;
 }
-async function permitted(
-  tx: RuleProposalTransaction,
-  row: RuleProposal,
-  source: StoredRuleReplaySnapshot,
-) {
-  const responder = await tx.responders.get(row.requestedBy),
-    profileRaw = await tx.proposals.profile(row.profileId);
-  if (
-    !responder?.enabled ||
-    responder.workspaceId !== tx.workspaceId ||
-    responder.id !== row.requestedBy ||
-    !hasCapability(responder.role, "rule:propose") ||
-    !profileRaw
-  )
-    return false;
-  const profile = modelProfileSchema.parse(profileRaw),
-    d = source.snapshot.version.definition;
-  return (
-    profile.id === row.profileId &&
-    profile.revision === row.profileRevision &&
-    profile.scope.workspaceId === tx.workspaceId &&
-    profile.scope.serviceId === d.serviceId &&
-    profile.scope.environmentId === d.environmentId &&
-    JSON.stringify(profile.destination) === JSON.stringify(row.destination)
-  );
-}
+
 /** Generation never holds a database transaction open across model I/O. The
  * pending row is not reviewable; only later report attachment can make it ready. */
 export class RuleProposalGeneration {
@@ -287,6 +218,10 @@ export class RuleProposalGeneration {
         candidateId: row.candidateId,
       };
     });
+  }
+  async prepareInput(raw: RuleProposalClaim) {
+    const prepared = await this.prepare(raw);
+    return prepared ? prepareRuleCandidate(prepared) : undefined;
   }
   complete(raw: RuleProposalClaim, result: unknown): Promise<boolean> {
     const claim = ruleProposalClaimSchema.parse(raw),
