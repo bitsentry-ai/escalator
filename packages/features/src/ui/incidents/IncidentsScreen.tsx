@@ -1,3 +1,4 @@
+import type { InvestigationReportsClient } from "../investigation-reports-client.js";
 import { useState } from "react";
 import type { IncidentsClient } from "../incidents-client.js";
 import { useIncidentCollection } from "./useIncidentCollection.js";
@@ -7,12 +8,14 @@ import { EnvironmentForm } from "./EnvironmentForm.js";
 import { styles } from "./styles.js";
 export function IncidentsScreen({
   client,
+  reports,
   canCreate,
   canResolve,
   canManageEnvironment,
   t,
 }: {
   client: IncidentsClient;
+  reports?: InvestigationReportsClient;
   canCreate: boolean;
   canResolve: boolean;
   canManageEnvironment: boolean;
@@ -105,6 +108,7 @@ export function IncidentsScreen({
           key={selected}
           id={selected}
           client={client}
+          reports={reports}
           canResolve={canResolve}
           onResolved={list.refresh}
           t={t}

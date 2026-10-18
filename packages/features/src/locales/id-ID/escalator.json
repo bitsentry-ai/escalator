@@ -730,5 +730,74 @@
     "apiKey": "Kunci API",
     "storeCredential": "Simpan kredensial",
     "credentialError": "Kredensial tidak dapat disimpan. Periksa izin Anda dan masukkan kembali kuncinya."
+  },
+  "investigationReport": {
+    "heading": "Investigasi",
+    "refresh": "Muat ulang laporan",
+    "loading": "Memuat investigasi…",
+    "error": "Investigasi tidak dapat dimuat. Coba muat ulang.",
+    "observedAt": "Waktu pengamatan",
+    "receivedAt": "Waktu penerimaan",
+    "collectedAt": "Waktu pengumpulan",
+    "finishedAt": "Waktu selesai",
+    "empty": "Tidak ada investigasi yang tersimpan untuk insiden ini.",
+    "attempts": "Percobaan",
+    "configuredDestination": "Tujuan model yang dikonfigurasi",
+    "evidence": "Bukti",
+    "truncated": "Bukti ini telah dipotong.",
+    "snapshotMissing": "Salinan bukti yang dirujuk tidak lagi tersedia.",
+    "unavailable": "Sumber yang tidak tersedia",
+    "noneUnavailable": "Tidak ada sumber tidak tersedia yang tercatat.",
+    "execution": {
+      "configured": "Pelaksana telah dikonfigurasi. Status ini tidak memastikan worker sedang daring.",
+      "disabled": "Pelaksana investigasi dinonaktifkan.",
+      "integration_required": "Hubungkan pelaksana investigasi untuk memproses pekerjaan dalam antrean."
+    },
+    "states": {
+      "queued": "Dalam antrean investigasi.",
+      "running": "Klaim investigasi sedang aktif.",
+      "awaiting_reclaim": "Klaim kedaluwarsa; menunggu penugasan ulang.",
+      "failed": "Tidak ada laporan yang dihasilkan. Periksa konfigurasi investigasi dan kondisi worker.",
+      "reported": "Laporan investigasi tersedia.",
+      "report_unavailable": "Tidak ada laporan tersimpan yang tersedia.",
+      "cancelled": "Investigasi dibatalkan."
+    },
+    "locations": {
+      "local": "Lokal",
+      "remote": "Jarak jauh"
+    },
+    "outcomes": {
+      "complete": "Selesai",
+      "partial": "Sebagian",
+      "error": "Gagal",
+      "cancelled": "Dibatalkan"
+    },
+    "reasons": {
+      "completed": "Investigasi selesai",
+      "budget_exhausted": "Anggaran investigasi habis",
+      "model_unavailable": "Model tidak tersedia",
+      "evidence_unavailable": "Bukti tidak tersedia",
+      "invalid_model_output": "Respons model tidak dapat divalidasi",
+      "cancelled": "Investigasi dibatalkan",
+      "lease_lost": "Klaim worker kedaluwarsa atau berubah"
+    },
+    "unavailableReasons": {
+      "not_configured": "Sumber belum dikonfigurasi",
+      "not_authorized": "Akses tidak diizinkan",
+      "not_found": "Data sumber tidak ditemukan",
+      "timeout": "Permintaan sumber kehabisan waktu",
+      "unreachable": "Sumber tidak dapat dijangkau",
+      "invalid_response": "Respons sumber tidak valid",
+      "budget_exhausted": "Anggaran bukti habis",
+      "cancelled": "Permintaan sumber dibatalkan"
+    },
+    "kinds": {
+      "probe": "Probe",
+      "alert": "Peringatan",
+      "metric": "Metrik",
+      "log": "Log",
+      "deployment": "Deployment",
+      "git_diff": "Perbedaan repositori"
+    }
   }
 }

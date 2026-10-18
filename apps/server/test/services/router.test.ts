@@ -1,4 +1,5 @@
 import type {
+  InvestigationReports,
   InvestigationSettingsUseCases,
   InvestigationSourceCatalog,
 } from "@bitsentry-escalator/features/application";
@@ -63,6 +64,7 @@ function fixture() {
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
+    investigationReports: {} as InvestigationReports,
     investigationSettings: {} as InvestigationSettingsUseCases,
     investigationSourceCatalog: {} as InvestigationSourceCatalog,
     retention: {} as RetentionManagement,

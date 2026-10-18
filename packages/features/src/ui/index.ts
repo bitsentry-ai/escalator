@@ -52,3 +52,6 @@ export type { DeploymentSettingsClient } from "./deployment-settings-client.js";
 
 export type { InvestigationSettingsClient } from "./investigation-settings-client.js";
 export { InvestigationSettingsScreen } from "./investigation/InvestigationSettingsScreen.js";
+
+export * from "./investigation-reports-client.js";
+export * from "./investigation/InvestigationReportPanel.js";

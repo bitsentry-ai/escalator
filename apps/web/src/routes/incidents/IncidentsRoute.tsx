@@ -1,3 +1,4 @@
+import { investigationReportsClient } from "../investigation/investigation-reports-client.js";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { hasCapability } from "@bitsentry-escalator/features/contracts";
@@ -13,10 +14,12 @@ export function IncidentsRoute({
 }) {
   const { t } = useTranslation("escalator");
   const incidents = useMemo(() => incidentsClient(client), [client]);
+  const reports = useMemo(() => investigationReportsClient(client), [client]);
   return (
     <IncidentsScreen
       key={user.id}
       client={incidents}
+      reports={reports}
       canCreate={hasCapability(user.role, "incident:create")}
       canResolve={hasCapability(user.role, "incident:resolve")}
       canManageEnvironment={hasCapability(user.role, "service:manage")}

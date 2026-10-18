@@ -730,5 +730,74 @@
     "apiKey": "API key",
     "storeCredential": "Store credential",
     "credentialError": "Could not store the credential. Check your permissions and re-enter the key."
+  },
+  "investigationReport": {
+    "heading": "Investigation",
+    "refresh": "Refresh report",
+    "loading": "Loading investigation…",
+    "error": "Could not load the investigation. Try refreshing.",
+    "observedAt": "Observed at",
+    "receivedAt": "Received at",
+    "collectedAt": "Collected at",
+    "finishedAt": "Finished at",
+    "empty": "No investigation is retained for this incident.",
+    "attempts": "Attempts",
+    "configuredDestination": "Configured model destination",
+    "evidence": "Evidence",
+    "truncated": "This evidence was truncated.",
+    "snapshotMissing": "The referenced evidence snapshot is no longer available.",
+    "unavailable": "Unavailable sources",
+    "noneUnavailable": "No unavailable sources were recorded.",
+    "execution": {
+      "configured": "The runner is configured. This does not confirm that a worker is online.",
+      "disabled": "The investigation runner is disabled.",
+      "integration_required": "Connect the investigation runner to process queued work."
+    },
+    "states": {
+      "queued": "Queued for investigation.",
+      "running": "An investigation claim is active.",
+      "awaiting_reclaim": "The claim expired; awaiting reassignment.",
+      "failed": "No report was produced. Check investigation configuration and worker health.",
+      "reported": "An investigation report is available.",
+      "report_unavailable": "No retained report is available.",
+      "cancelled": "Investigation work was cancelled."
+    },
+    "locations": {
+      "local": "Local",
+      "remote": "Remote"
+    },
+    "outcomes": {
+      "complete": "Complete",
+      "partial": "Partial",
+      "error": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "reasons": {
+      "completed": "Investigation completed",
+      "budget_exhausted": "Investigation budget exhausted",
+      "model_unavailable": "Model unavailable",
+      "evidence_unavailable": "Evidence unavailable",
+      "invalid_model_output": "Model response could not be validated",
+      "cancelled": "Investigation cancelled",
+      "lease_lost": "Worker claim expired or changed"
+    },
+    "unavailableReasons": {
+      "not_configured": "Source is not configured",
+      "not_authorized": "Access is not authorized",
+      "not_found": "No source data was found",
+      "timeout": "Source request timed out",
+      "unreachable": "Source could not be reached",
+      "invalid_response": "Source response was invalid",
+      "budget_exhausted": "Evidence budget exhausted",
+      "cancelled": "Source request was cancelled"
+    },
+    "kinds": {
+      "probe": "Probe",
+      "alert": "Alert",
+      "metric": "Metric",
+      "log": "Log",
+      "deployment": "Deployment",
+      "git_diff": "Repository diff"
+    }
   }
 }

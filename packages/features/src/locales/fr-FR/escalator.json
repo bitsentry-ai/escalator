@@ -730,5 +730,74 @@
     "apiKey": "Clé API",
     "storeCredential": "Enregistrer le secret",
     "credentialError": "Impossible d’enregistrer le secret. Vérifiez vos autorisations et saisissez à nouveau la clé."
+  },
+  "investigationReport": {
+    "heading": "Investigation",
+    "refresh": "Actualiser le rapport",
+    "loading": "Chargement de l’investigation…",
+    "error": "Impossible de charger l’investigation. Actualisez la page.",
+    "observedAt": "Observé le",
+    "receivedAt": "Reçu le",
+    "collectedAt": "Collecté le",
+    "finishedAt": "Terminé le",
+    "empty": "Aucune investigation n’est conservée pour cet incident.",
+    "attempts": "Tentatives",
+    "configuredDestination": "Destination du modèle configuré",
+    "evidence": "Éléments de preuve",
+    "truncated": "Cet élément de preuve a été tronqué.",
+    "snapshotMissing": "L’instantané référencé n’est plus disponible.",
+    "unavailable": "Sources indisponibles",
+    "noneUnavailable": "Aucune source indisponible n’a été enregistrée.",
+    "execution": {
+      "configured": "L’exécuteur est configuré. Cela ne confirme pas qu’un worker est en ligne.",
+      "disabled": "L’exécuteur d’investigation est désactivé.",
+      "integration_required": "Connectez l’exécuteur d’investigation pour traiter les tâches en attente."
+    },
+    "states": {
+      "queued": "Investigation en attente.",
+      "running": "Une attribution d’investigation est active.",
+      "awaiting_reclaim": "L’attribution a expiré ; réattribution en attente.",
+      "failed": "Aucun rapport n’a été produit. Vérifiez la configuration et l’état du worker.",
+      "reported": "Un rapport d’investigation est disponible.",
+      "report_unavailable": "Aucun rapport conservé n’est disponible.",
+      "cancelled": "L’investigation a été annulée."
+    },
+    "locations": {
+      "local": "Local",
+      "remote": "Distant"
+    },
+    "outcomes": {
+      "complete": "Terminé",
+      "partial": "Partiel",
+      "error": "Échec",
+      "cancelled": "Annulé"
+    },
+    "reasons": {
+      "completed": "Investigation terminée",
+      "budget_exhausted": "Budget d’investigation épuisé",
+      "model_unavailable": "Modèle indisponible",
+      "evidence_unavailable": "Éléments de preuve indisponibles",
+      "invalid_model_output": "La réponse du modèle n’a pas pu être validée",
+      "cancelled": "Investigation annulée",
+      "lease_lost": "L’attribution du worker a expiré ou a changé"
+    },
+    "unavailableReasons": {
+      "not_configured": "Source non configurée",
+      "not_authorized": "Accès non autorisé",
+      "not_found": "Aucune donnée source trouvée",
+      "timeout": "Délai de la requête dépassé",
+      "unreachable": "Source inaccessible",
+      "invalid_response": "Réponse source invalide",
+      "budget_exhausted": "Budget de collecte épuisé",
+      "cancelled": "Requête source annulée"
+    },
+    "kinds": {
+      "probe": "Sonde",
+      "alert": "Alerte",
+      "metric": "Métrique",
+      "log": "Journal",
+      "deployment": "Déploiement",
+      "git_diff": "Différences du dépôt"
+    }
   }
 }

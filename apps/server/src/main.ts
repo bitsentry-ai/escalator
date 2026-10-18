@@ -17,6 +17,7 @@ import {
   sessionOptions,
 } from "./platform/auth/session-security.js";
 import {
+  InvestigationReports,
   InvestigationSettingsUseCases,
   ConfigurationUseCases,
   IncidentUseCases,
@@ -66,6 +67,7 @@ export async function createApp() {
     app.use("/v1/ingest", signalBodyParser());
     const incidents = app.get(IncidentUseCases);
     const configuration = app.get(ConfigurationUseCases);
+    const investigationReports = app.get(InvestigationReports);
     const investigationSettings = app.get(InvestigationSettingsUseCases);
     const investigationSourceCatalog = app.get(
       PostgresInvestigationSourceCatalog,
@@ -108,6 +110,7 @@ export async function createApp() {
           deploymentPreflight,
           incidents,
           configuration,
+          investigationReports,
           investigationSettings,
           investigationSourceCatalog,
           secretWriter,

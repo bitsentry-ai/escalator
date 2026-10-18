@@ -730,5 +730,74 @@
     "apiKey": "API 密钥",
     "storeCredential": "保存凭据",
     "credentialError": "无法保存凭据。请检查权限并重新输入密钥。"
+  },
+  "investigationReport": {
+    "heading": "事件调查",
+    "refresh": "刷新报告",
+    "loading": "正在加载调查…",
+    "error": "无法加载调查，请重试。",
+    "observedAt": "观察时间",
+    "receivedAt": "接收时间",
+    "collectedAt": "采集时间",
+    "finishedAt": "完成时间",
+    "empty": "此事件没有保留的调查记录。",
+    "attempts": "尝试次数",
+    "configuredDestination": "已配置的模型目标",
+    "evidence": "证据",
+    "truncated": "此证据已截断。",
+    "snapshotMissing": "引用的证据快照已不可用。",
+    "unavailable": "不可用的数据源",
+    "noneUnavailable": "未记录不可用的数据源。",
+    "execution": {
+      "configured": "调查执行器已配置，但这并不表示工作进程在线。",
+      "disabled": "调查执行器已停用。",
+      "integration_required": "请连接调查执行器以处理排队中的任务。"
+    },
+    "states": {
+      "queued": "正在排队等待调查。",
+      "running": "调查任务的租约有效。",
+      "awaiting_reclaim": "租约已过期，正在等待重新分配。",
+      "failed": "未生成报告。请检查调查配置和工作进程状态。",
+      "reported": "调查报告已生成。",
+      "report_unavailable": "没有可用的保留报告。",
+      "cancelled": "调查任务已取消。"
+    },
+    "locations": {
+      "local": "本地",
+      "remote": "远程"
+    },
+    "outcomes": {
+      "complete": "已完成",
+      "partial": "部分完成",
+      "error": "失败",
+      "cancelled": "已取消"
+    },
+    "reasons": {
+      "completed": "调查已完成",
+      "budget_exhausted": "调查预算已耗尽",
+      "model_unavailable": "模型不可用",
+      "evidence_unavailable": "证据不可用",
+      "invalid_model_output": "无法验证模型响应",
+      "cancelled": "调查已取消",
+      "lease_lost": "工作进程租约已过期或变更"
+    },
+    "unavailableReasons": {
+      "not_configured": "未配置数据源",
+      "not_authorized": "未获访问授权",
+      "not_found": "未找到数据源记录",
+      "timeout": "数据源请求超时",
+      "unreachable": "无法连接数据源",
+      "invalid_response": "数据源响应无效",
+      "budget_exhausted": "证据预算已耗尽",
+      "cancelled": "数据源请求已取消"
+    },
+    "kinds": {
+      "probe": "探测",
+      "alert": "告警",
+      "metric": "指标",
+      "log": "日志",
+      "deployment": "部署",
+      "git_diff": "代码仓库差异"
+    }
   }
 }

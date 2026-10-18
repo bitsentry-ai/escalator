@@ -1,3 +1,5 @@
+import { InvestigationReports } from "@bitsentry-escalator/features/application";
+import { PostgresInvestigationReportRepository } from "../../../platform/database/postgres-investigation-report.repository.js";
 import { Logger, Module } from "@nestjs/common";
 import {
   DatabaseModule,
@@ -9,7 +11,20 @@ import { StandaloneInvestigationDeployment } from "./deployment.js";
 import { StandaloneInvestigationRuntime } from "./runtime.js";
 @Module({
   imports: [DatabaseModule, SecretKeysModule],
+  exports: [InvestigationReports],
   providers: [
+    {
+      provide: InvestigationReports,
+      inject: [StandaloneDatabase, StandaloneInvestigationDeployment],
+      useFactory: (
+        db: StandaloneDatabase,
+        deployment: StandaloneInvestigationDeployment,
+      ) =>
+        new InvestigationReports(
+          new PostgresInvestigationReportRepository(db.pool),
+          () => (deployment.enabled ? "configured" : "disabled"),
+        ),
+    },
     {
       provide: StandaloneInvestigationDeployment,
       useFactory: () =>

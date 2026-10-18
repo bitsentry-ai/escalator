@@ -1,4 +1,5 @@
 import type {
+  InvestigationReports,
   InvestigationSettingsUseCases,
   InvestigationSourceCatalog,
 } from "@bitsentry-escalator/features/application";
@@ -59,6 +60,7 @@ test("standalone configuration routes use current identity and reject injected s
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
+    investigationReports: {} as InvestigationReports,
     investigationSettings: {} as InvestigationSettingsUseCases,
     investigationSourceCatalog: {} as InvestigationSourceCatalog,
     retention: {} as RetentionManagement,

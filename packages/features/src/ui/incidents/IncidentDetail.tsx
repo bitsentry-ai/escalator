@@ -1,3 +1,5 @@
+import { InvestigationReportPanel } from "../investigation/InvestigationReportPanel.js";
+import type { InvestigationReportsClient } from "../investigation-reports-client.js";
 import { styles } from "./styles.js";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -7,12 +9,14 @@ import type {
 import type { IncidentsClient } from "../incidents-client.js";
 export function IncidentDetail({
   client,
+  reports,
   id,
   canResolve,
   onResolved,
   t,
 }: {
   client: IncidentsClient;
+  reports?: InvestigationReportsClient;
   id: string;
   canResolve: boolean;
   onResolved: () => void;
@@ -143,6 +147,18 @@ export function IncidentDetail({
       {detail && (
         <>
           <h2>{detail.incident.title}</h2>
+          {reports && (
+            <InvestigationReportPanel
+              client={reports}
+              scope={{
+                workspaceId: detail.incident.workspaceId,
+                serviceId: detail.incident.serviceId,
+                environmentId: detail.incident.environmentId,
+                incidentId: detail.incident.id,
+              }}
+              t={t}
+            />
+          )}
           <dl>
             <dt>{t("incidents.state")}</dt>
             <dd>{t(`incidents.states.${detail.state}`)}</dd>

@@ -1,3 +1,4 @@
+import { investigationReportsRouter } from "../../features/investigation/report.router.js";
 import { deploymentsRouter } from "../../features/deploy/deploy.router.js";
 import { retentionRouter } from "../../features/retention/retention.router.js";
 import { monitoringSecretsRouter } from "../../features/configuration/monitoring-secrets.router.js";
@@ -15,6 +16,7 @@ import { getEscalatorPackageInfo } from "@bitsentry-escalator/features/applicati
 import { servicesRouter } from "../../features/services/services.router.js";
 import { investigationSettingsRouter } from "../../features/investigation/settings.router.js";
 export const appRouter = t.router({
+  investigationReports: investigationReportsRouter,
   investigationSettings: investigationSettingsRouter,
   auth: authRouter,
   services: servicesRouter,
