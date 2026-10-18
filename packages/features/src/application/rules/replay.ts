@@ -1,3 +1,4 @@
+import { retainedReplayReader } from "./retained-replay.js";
 import {
   compareUtcTimestamps,
   hasSubmillisecondTime,
@@ -130,11 +131,14 @@ export function replayRuleWindows(
     budget = ruleReplayBudgetSchema.parse(limits);
   const cursor = prior === null ? null : ruleReplayCursorSchema.parse(prior);
   validateScope(snapshot, cursor);
-  const samples = [...snapshot.samples].sort(
-    (a, b) =>
-      ruleSampleTime(snapshot.version.definition, a) -
-      ruleSampleTime(snapshot.version.definition, b),
-  );
+  const retained = retainedReplayReader(snapshot);
+  const samples =
+    retained?.samples ??
+    [...snapshot.samples].sort(
+      (a, b) =>
+        ruleSampleTime(snapshot.version.definition, a) -
+        ruleSampleTime(snapshot.version.definition, b),
+    );
   const policies = intervals(snapshot.policies),
     coverage = intervals(snapshot.coverage);
   const rule = snapshot.version.definition,
@@ -169,7 +173,7 @@ export function replayRuleWindows(
     }
     const policy = visibleInterval(policies, at),
       segment = visibleInterval(coverage, at);
-    const decision = advanceRuleDecision(snapshot.version, state, {
+    const input = retained?.input(new Date(at).toISOString(), from, to) ?? {
       window: {
         decisionAt: new Date(at).toISOString(),
         complete: snapshot.complete,
@@ -178,7 +182,8 @@ export function replayRuleWindows(
       },
       enabled: policy?.enabled ?? true,
       maintenance: policy?.maintenance ?? false,
-    });
+    };
+    const decision = advanceRuleDecision(snapshot.version, state, input);
     result.decisions.push(decision);
     result.sampleVisits += to - from;
     state = decision.state;

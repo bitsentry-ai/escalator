@@ -1,3 +1,5 @@
+import type { RuleReplayRepository } from "./replay-ports.js";
+import { RuleReplayExecution } from "./replay-job.js";
 import type { WorkHandlers } from "../jobs/scheduler.js";
 import type { WorkHandler } from "../jobs/runner.js";
 import type { RuleLiveRepository } from "./live-ports.js";
@@ -14,6 +16,23 @@ export function withRuleEvaluationHandlers(
     job: new Map<string, WorkHandler>([
       ...handlers.job,
       ["rules.evaluate", (lease) => runner.process(lease)],
+    ]),
+    outbox: handlers.outbox,
+  };
+}
+
+export const ruleReplayLane = ["rules.replay"] as const;
+export function withRuleReplayHandlers(
+  handlers: WorkHandlers,
+  repository: RuleReplayRepository,
+): WorkHandlers {
+  if (handlers.job.has("rules.replay"))
+    throw new Error("Replay handler already registered");
+  const runner = new RuleReplayExecution(repository);
+  return {
+    job: new Map<string, WorkHandler>([
+      ...handlers.job,
+      ["rules.replay", (lease) => runner.process(lease)],
     ]),
     outbox: handlers.outbox,
   };

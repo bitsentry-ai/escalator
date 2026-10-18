@@ -1,8 +1,11 @@
+import { PostgresRuleReplayRepository } from "../../platform/database/rule-replay.repository.js";
 import { PostgresRuleLiveRepository } from "../../platform/database/rule-live.repository.js";
 import { postgresRulePolicyStore } from "../../platform/database/postgres-rule-policy.store.js";
 import {
   withRuleEvaluationHandlers,
   ruleEvaluationLane,
+  ruleReplayLane,
+  withRuleReplayHandlers,
 } from "@bitsentry-escalator/features/application";
 import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import {
@@ -117,6 +120,10 @@ export function standalonePagingRuntime(
       repositoryConnections,
     ),
   );
+  const replayHandlers = withRuleReplayHandlers(
+    ruleHandlers,
+    new PostgresRuleReplayRepository(pool),
+  );
   const watchdog = health.watchdog
     ? new WatchdogJobs(
         repository,
@@ -130,7 +137,7 @@ export function standalonePagingRuntime(
   const runtime: PostgresJobsRuntime = new PostgresJobsRuntime(
     pool,
     scope,
-    watchdog ? withWatchdogHandlers(ruleHandlers, watchdog) : ruleHandlers,
+    watchdog ? withWatchdogHandlers(replayHandlers, watchdog) : replayHandlers,
     onError,
     [
       ...monitoringJobLanes,
@@ -142,12 +149,14 @@ export function standalonePagingRuntime(
       metricJobLane,
       retentionJobLane,
       ruleEvaluationLane,
+      ruleReplayLane,
       ...(watchdog ? [watchdog.lane] : []),
     ],
     {
       "probe.execute": deployment.limits.concurrency,
       "metrics.poll": metrics.limits.concurrency,
       "rules.evaluate": 1,
+      "rules.replay": 1,
     },
     health,
     new RetentionCoordinator(

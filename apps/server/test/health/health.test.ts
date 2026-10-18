@@ -193,8 +193,8 @@ test("watchdog configuration requires a registered handler and fits the existing
   });
   const metrics = new MetricDeployment({
     destinations,
-    // Eleven reserved lanes include timeout, watch, cadence and rule evaluation workers; 32 + 21 + 11 = 64.
-    limits: { maxActive: 100, maxConfigured: 500, concurrency: 21 },
+    // Twelve reserved lanes include timeout, watch, cadence and rule evaluation and replay workers; 32 + 20 + 12 = 64.
+    limits: { maxActive: 100, maxConfigured: 500, concurrency: 20 },
   });
   assert.throws(
     () =>
@@ -208,7 +208,7 @@ test("watchdog configuration requires a registered handler and fits the existing
         probes,
         new MetricDeployment({
           destinations,
-          limits: { maxActive: 100, maxConfigured: 500, concurrency: 22 },
+          limits: { maxActive: 100, maxConfigured: 500, concurrency: 21 },
         }),
       ),
     /scheduler limit/,
@@ -234,7 +234,7 @@ test("watchdog configuration requires a registered handler and fits the existing
     probes,
     new MetricDeployment({
       destinations,
-      limits: { maxActive: 100, maxConfigured: 500, concurrency: 20 },
+      limits: { maxActive: 100, maxConfigured: 500, concurrency: 19 },
     }),
     health,
   );

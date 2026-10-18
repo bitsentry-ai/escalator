@@ -35,6 +35,7 @@ export async function enqueueRuleReplay(
   await tx.work.enqueue("job", {
     id,
     kind: "rules.replay",
+    priority: -100,
     idempotencyKey: id,
     dueAt: row.updatedAt,
     payload: { runId: row.id, batch: row.nextBatch },

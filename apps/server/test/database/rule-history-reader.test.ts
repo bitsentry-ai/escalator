@@ -7,6 +7,7 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import { PostgresRuleHistoryRepository } from "../../src/platform/database/rule-history.repository.js";
 import { ruleHistorySql } from "../../src/platform/database/rule-history-sql.js";
+import { ruleReplayCaptureSql } from "../../src/platform/database/rule-replay-capture-sql.js";
 import { mixedParameterCasts } from "./parameter-casts.js";
 const scope = workspaceIdSchema.parse("org_a");
 const query = ruleHistoryQuerySchema.parse({
@@ -96,4 +97,8 @@ test("invalid history bounds fail before acquiring a connection", async () => {
 test("history SQL gives every bound parameter a single type", () => {
   for (const kind of ["probe", "metric", "signal"] as const)
     assert.deepEqual(mixedParameterCasts(ruleHistorySql(kind)), [], kind);
+});
+test("replay capture SQL keeps the history parameter types", () => {
+  for (const kind of ["probe", "metric", "signal"] as const)
+    assert.deepEqual(mixedParameterCasts(ruleReplayCaptureSql(kind)), [], kind);
 });

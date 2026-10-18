@@ -227,3 +227,8 @@ export * from "./rules/replay-ports.js";
 export * from "./rules/replay-job.js";
 export * from "./rules/replay-transaction.js";
 export * from "./rules/backtest.js";
+
+export * from "./rules/replay-storage-codec.js";
+
+export * from "./rules/replay-capture.js";
+export * from "./rules/replay-capture-transaction.js";
