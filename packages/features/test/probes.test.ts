@@ -261,3 +261,42 @@ test("probe configuration rejects body assertions on HEAD, unsafe URLs and non-s
     false,
   );
 });
+
+test("probes emit only active-state transitions across repeated observations", () => {
+  const f = fixture();
+  const signals = [
+    "healthy",
+    "healthy",
+    "healthy",
+    "failed",
+    "failed",
+    "failed",
+    "unknown",
+    "failed",
+    "failed",
+    "healthy",
+    "healthy",
+    "healthy",
+  ].map(
+    (outcome) =>
+      (
+        f.observe(outcome as "healthy" | "failed" | "unknown").decision as {
+          signal: unknown;
+        }
+      ).signal,
+  );
+  assert.deepEqual(signals, [
+    null,
+    null,
+    null,
+    null,
+    "active",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "recovered",
+    null,
+  ]);
+});

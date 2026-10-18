@@ -46,6 +46,7 @@ export const metricScheduleSchema = z
     jobId: opaqueIdSchema.nullable(),
     dueAt: utcTimestampSchema.nullable(),
     lastObservationId: opaqueIdSchema.nullable(),
+    active: z.boolean().default(false),
   })
   .refine((value) => (value.jobId === null) === (value.dueAt === null));
 const hash = z.string().regex(/^[a-f0-9]{64}$/);

@@ -1,5 +1,6 @@
 import { emailCredentialsSchema } from "./email-credentials.js";
 import { z } from "zod";
+import { pagingChannelSchema } from "./contact.js";
 
 function endpoint(value: string, kind: "ntfy" | "slack" | "discord") {
   try {
@@ -121,7 +122,7 @@ export type CreateChannelSecretInput = z.input<
   typeof createChannelSecretSchema
 >;
 
-export const channelSecretOptionsSchema = z.strictObject({
+export const monitoringSecretOptionsSchema = z.strictObject({
   available: z.boolean(),
   items: z
     .array(
@@ -132,5 +133,19 @@ export const channelSecretOptionsSchema = z.strictObject({
     )
     .max(50),
   next: z.string().min(1).max(200).nullable(),
+});
+export type MonitoringSecretOptions = z.infer<
+  typeof monitoringSecretOptionsSchema
+>;
+export const channelSecretOptionsSchema = monitoringSecretOptionsSchema.extend({
+  items: z
+    .array(
+      z.strictObject({
+        id: z.string().min(1).max(200),
+        name: z.string().min(1).max(120),
+        channel: pagingChannelSchema,
+      }),
+    )
+    .max(50),
 });
 export type ChannelSecretOptions = z.infer<typeof channelSecretOptionsSchema>;

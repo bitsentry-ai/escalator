@@ -128,11 +128,17 @@ test(
     f.advance(60000);
     await f.run();
     assert.deepEqual(await f.statuses(), ["active"]);
+    f.advance(60000);
+    await f.run();
+    assert.deepEqual(await f.statuses(), []);
     f.errors(0);
     f.advance(60000);
     await f.run();
     assert.deepEqual(await f.statuses(), ["recovered"]);
-    assert.equal(f.calls(), 3);
+    f.advance(60000);
+    await f.run();
+    assert.deepEqual(await f.statuses(), []);
+    assert.equal(f.calls(), 5);
   },
 );
 test(

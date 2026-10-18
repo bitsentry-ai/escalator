@@ -169,10 +169,7 @@ export class WatchProbeCadenceJobs {
       }
       const plan = planWatchCadence(watch, captured, probe, current, tx.now);
       if (plan.state === "skip") {
-        if (
-          current &&
-          (plan.decision === "superseded" || plan.decision === "disabled")
-        )
+        if (current && plan.decision === "superseded")
           if (
             !(await tx.cadence.removeLease(
               watch.targetId,

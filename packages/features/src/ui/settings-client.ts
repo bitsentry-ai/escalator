@@ -32,7 +32,7 @@ export interface PagingSettingsClient extends OnCallClient {
   secretOptions(input: ConfigurationPageInput): Promise<ChannelSecretOptions>;
   createSecret?(
     input: CreateChannelSecretInput,
-  ): Promise<{ id: string; name: string }>;
+  ): Promise<ChannelSecretOptions["items"][number]>;
 }
 
 export type ContactSettingsClient = Pick<

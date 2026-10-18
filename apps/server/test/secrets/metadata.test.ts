@@ -60,3 +60,41 @@ test("metadata selection is bounded and scoped without decrypting credentials", 
   await assert.rejects(writer.list(actor, { limit: 51 }));
   assert.equal(calls.length, count);
 });
+
+test("channel credentials retain channel metadata across create and list", async () => {
+  let stored: { id: string; name: string; channel: string } | undefined;
+  const pool = {
+    connect: async () => ({
+      query: async (sql: string, values: unknown[] = []) => {
+        if (sql.startsWith("INSERT INTO escalator_secret"))
+          stored = {
+            id: String(values[1]),
+            name: String(values[2]),
+            channel: String(values[4]),
+          };
+        return {
+          rows: sql.startsWith("SELECT id,name") && stored ? [stored] : [],
+        };
+      },
+      release() {},
+    }),
+  } as unknown as Pool;
+  const keys = {
+    seal: () => ({ encrypted: true }),
+  } as unknown as SecretKeyRing;
+  const writer = new PostgresSecretWriter(pool, keys);
+  const actor: Actor = {
+    workspaceId: workspaceIdSchema.parse("local"),
+    responderId: responderIdSchema.parse("owner"),
+    role: "administrator",
+  };
+  const created = await writer.create(
+    actor,
+    "Mail",
+    Buffer.from("credential"),
+    "email",
+  );
+  assert.deepEqual((await writer.list(actor, {}, true)).items, [
+    { id: created.id, name: "Mail", channel: "email" },
+  ]);
+});

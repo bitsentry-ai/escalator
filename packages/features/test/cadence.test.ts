@@ -116,7 +116,7 @@ test("overlapping watch extends ownership without forgetting the original interv
     assert.equal(restored.probe.version, 3);
   }
 });
-test("operator edits prevent both renewal and restoration even when the interval remains 60", async () => {
+test("edits that preserve the interval retain renewal and restoration", async () => {
   const f = await fixture(),
     first = planWatchCadence(f.watch, f.captured, f.probe, undefined, at(1));
   if (first.state !== "tighten") throw new Error();
@@ -126,13 +126,17 @@ test("operator edits prevent both renewal and restoration even when the interval
     name: "Operator edited",
     updatedAt: at(10),
   };
-  assert.deepEqual(
-    planWatchCadence(f.watch, f.captured, edited, first.lease, at(10)),
-    { state: "skip", decision: "superseded" },
+  assert.equal(
+    planWatchCadence(f.watch, f.captured, edited, first.lease, at(10)).state,
+    "join",
   );
-  assert.deepEqual(planWatchCadenceRestore(first.lease, edited, at(1800)), {
-    state: "superseded",
-  });
+  const restored = planWatchCadenceRestore(first.lease, edited, at(1800));
+  assert.equal(restored.state, "restore");
+  if (restored.state === "restore") {
+    assert.equal(restored.probe.intervalSeconds, 300);
+    assert.equal(restored.probe.name, "Operator edited");
+    assert.equal(restored.probe.version, 4);
+  }
 });
 test("disabled, already fast and expired watches do not mutate probe cadence", async () => {
   const f = await fixture();

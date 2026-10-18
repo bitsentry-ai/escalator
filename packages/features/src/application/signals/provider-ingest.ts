@@ -58,7 +58,7 @@ export class ProviderIntake {
     context: { sourceId: string; id: string },
     request: ProviderDelivery,
   ): Promise<Prepared> {
-    const source = await tx.sources.get(context.sourceId);
+    const source = await tx.sources.lock(context.sourceId);
     const grant = await tx.tokens.getByHash(hash);
     if (
       !this.allowedWorkspace(tx.workspaceId) ||

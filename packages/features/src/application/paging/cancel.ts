@@ -58,7 +58,7 @@ export async function cancelDeliveryWork(
         pageId: delivery.pageId,
         deliveryId: delivery.id,
         secretId: delivery.secretId,
-        approvedSecretIds: delivery.secretId ? [delivery.secretId] : [],
+        approvedSecretIds: [delivery.secretId],
       },
       dueAt: tx.now,
     });

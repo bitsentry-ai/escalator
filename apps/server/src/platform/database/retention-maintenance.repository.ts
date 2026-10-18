@@ -125,7 +125,7 @@ export class PostgresRetentionMaintenanceRepository implements RetentionMaintena
       await db.query("SET LOCAL lock_timeout = '1s'");
       if (
         sourceHint !== null &&
-        !(await postgresSignalStore(db, scope).getSource(sourceHint))
+        !(await postgresSignalStore(db, scope).getSource(sourceHint, true))
       )
         throw new PersistenceError("not_found");
       const noSource = async (): Promise<never> => {

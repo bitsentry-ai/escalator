@@ -56,7 +56,7 @@ export function observeProbe(
     );
     if (state.consecutiveFailures >= probe.failureThreshold) {
       state.active = true;
-      signal = "active";
+      if (!current?.active) signal = "active";
     }
   } else if (result.outcome === "healthy") {
     state.consecutiveSuccesses = Math.min(
@@ -65,7 +65,7 @@ export function observeProbe(
     );
     if (state.consecutiveSuccesses >= probe.recoveryThreshold) {
       state.active = false;
-      signal = "recovered";
+      if (current?.active) signal = "recovered";
     }
   }
   return { state: probeStateSchema.parse(state), signal };

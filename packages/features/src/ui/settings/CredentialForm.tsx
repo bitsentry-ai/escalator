@@ -1,5 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { createChannelSecretSchema } from "../../contracts/index.js";
+import {
+  createChannelSecretSchema,
+  pagingChannelSchema,
+  type PagingChannel,
+  type ChannelSecretOptions,
+} from "../../contracts/index.js";
 import type { PagingSettingsClient } from "../settings-client.js";
 import { styles } from "../incidents/styles.js";
 export function CredentialForm({
@@ -8,12 +13,10 @@ export function CredentialForm({
   t,
 }: {
   client: Pick<PagingSettingsClient, "createSecret">;
-  onCreated: (value: { id: string; name: string }) => void;
+  onCreated: (value: ChannelSecretOptions["items"][number]) => void;
   t: (key: string) => string;
 }) {
-  const [channel, setChannel] = useState<
-    "pushover" | "webhook" | "ntfy" | "slack" | "discord" | "email"
-  >("pushover");
+  const [channel, setChannel] = useState<PagingChannel>("pushover");
   const [name, setName] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
@@ -109,26 +112,20 @@ export function CredentialForm({
             style={styles.input}
             value={channel}
             onChange={(event) => {
-              const selected = event.target.value;
-              if (
-                selected === "pushover" ||
-                selected === "webhook" ||
-                selected === "ntfy" ||
-                selected === "slack" ||
-                selected === "discord" ||
-                selected === "email"
-              )
-                setChannel(selected);
+              setChannel(pagingChannelSchema.parse(event.target.value));
               setFields({});
               setError(false);
             }}
           >
-            <option value="pushover">Pushover</option>
-            <option value="webhook">Webhook</option>
-            <option value="ntfy">ntfy</option>
-            <option value="slack">Slack</option>
-            <option value="discord">Discord</option>
-            <option value="email">{t("settings.emailChannel")}</option>
+            {pagingChannelSchema.options.map((value) => (
+              <option key={value} value={value}>
+                {value === "email"
+                  ? t("settings.emailChannel")
+                  : value === "ntfy"
+                    ? value
+                    : value[0].toUpperCase() + value.slice(1)}
+              </option>
+            ))}
           </select>
         </label>
         {(channel === "email"

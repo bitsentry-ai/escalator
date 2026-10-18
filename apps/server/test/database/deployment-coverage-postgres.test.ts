@@ -51,6 +51,7 @@ async function create(coverageMutationPrivileges = false) {
           },
           "provider",
           Buffer.from("fixture"),
+          "webhook",
         )
       ).id,
     dispose: () => database.dispose(),

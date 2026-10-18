@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import {
   createMonitoringSecretSchema,
-  channelSecretOptionsSchema,
+  monitoringSecretOptionsSchema,
   configurationPageSchema,
   hasCapability,
 } from "@bitsentry-escalator/features/contracts";
@@ -16,7 +16,7 @@ const administrator = authenticated.use(({ ctx, next }) => {
 export const monitoringSecretsRouter = t.router({
   list: administrator
     .input(configurationPageSchema)
-    .output(channelSecretOptionsSchema)
+    .output(monitoringSecretOptionsSchema)
     .query(({ ctx, input }) =>
       ctx.secretWriter
         .list(ctx.actor, input)

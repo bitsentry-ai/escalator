@@ -66,11 +66,12 @@ test("configuration replacement checks the previous persisted version", async ()
 });
 test("contact metadata lookup excludes authentication secrets and never reads envelopes", async () => {
   const f = fixture();
-  assert.equal(await f.store.secretExists("secret"), true);
+  assert.equal(await f.store.secretExists("secret", "webhook"), true);
   const call = f.calls[0];
   assert.match(call.sql, /^SELECT 1 /);
+  assert.match(call.sql, /channel=\$3/);
   assert.match(call.sql, /disabled_at IS NULL/);
   assert.match(call.sql, /purpose='provider'/);
   assert.equal(call.sql.includes("envelope"), false);
-  assert.deepEqual(call.values, [f.scope, "secret"]);
+  assert.deepEqual(call.values, [f.scope, "secret", "webhook"]);
 });

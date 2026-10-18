@@ -11,7 +11,12 @@ function fixture(role = "administrator", fail = false) {
     workspaceId: workspaceIdSchema.parse("local"),
     auth: { current: async () => ({ id: "owner", role }) },
     secretWriter: {
-      create: async (actor: unknown, name: string, value: Uint8Array) => {
+      create: async (
+        actor: unknown,
+        name: string,
+        value: Uint8Array,
+        channel: string,
+      ) => {
         assert.deepEqual(actor, {
           workspaceId: "local",
           responderId: "owner",
@@ -20,13 +25,14 @@ function fixture(role = "administrator", fail = false) {
         assert.deepEqual(JSON.parse(Buffer.from(value).toString()), {
           url: "https://example.com/page",
         });
+        assert.equal(channel, "webhook");
         bytes = value;
         calls++;
         if (fail) throw new Error("storage unavailable");
         return { workspaceId: "local", id: "opaque", name };
       },
       list: async () => ({
-        items: [{ id: "opaque", name: "Operations" }],
+        items: [{ id: "opaque", name: "Operations", channel: "webhook" }],
         next: null,
       }),
     },
@@ -47,11 +53,12 @@ test("credential creation returns metadata only and clears its owned plaintext b
   assert.deepEqual(await value.caller.create(input), {
     id: "opaque",
     name: "Operations",
+    channel: "webhook",
   });
   assert.ok(value.bytes()?.every((byte) => byte === 0));
   assert.deepEqual(await value.caller.list({}), {
     available: true,
-    items: [{ id: "opaque", name: "Operations" }],
+    items: [{ id: "opaque", name: "Operations", channel: "webhook" }],
     next: null,
   });
 });

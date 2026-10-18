@@ -141,10 +141,28 @@ export function postgresConfigurationStore(
       if (result.rowCount !== 1)
         throw new Error("Configuration replacement conflict");
     },
-    async secretExists(id) {
-      const result = await connection.query(
-        "SELECT 1 FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND disabled_at IS NULL AND purpose='provider'",
+    async routingContacts(id) {
+      const result = await connection.query<{ data: Record<string, unknown> }>(
+        "SELECT data FROM escalator_contact WHERE workspace_id=$1 AND responder_id=$2 ORDER BY id",
         [scope, id],
+      );
+      return result.rows.map((row) => ({ ...row.data, workspaceId: scope }));
+    },
+    async contactCount(id) {
+      await connection.query(
+        "SELECT id FROM escalator_responder WHERE workspace_id=$1 AND id=$2 FOR UPDATE",
+        [scope, id],
+      );
+      const result = await connection.query<{ count: string }>(
+        "SELECT count(*)::text AS count FROM escalator_contact WHERE workspace_id=$1 AND responder_id=$2",
+        [scope, id],
+      );
+      return Number(result.rows[0].count);
+    },
+    async secretExists(id, channel) {
+      const result = await connection.query(
+        "SELECT 1 FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND disabled_at IS NULL AND purpose='provider' AND channel=$3 FOR SHARE",
+        [scope, id, channel],
       );
       return result.rowCount === 1;
     },

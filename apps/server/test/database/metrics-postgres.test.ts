@@ -57,6 +57,7 @@ test(
           jobId: metricJobId(scope, monitor.id, 1, tx.now),
           dueAt: tx.now,
           lastObservationId: receipt.id,
+          active: false,
         });
       });
       const connection = await fixture.app.connect();

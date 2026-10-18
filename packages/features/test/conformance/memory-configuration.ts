@@ -82,7 +82,12 @@ export class MemoryConfigurationRepository implements ConfigurationRepository {
           if (index < 0) throw new PersistenceError("not_found");
           data[kind][index] = structuredClone(value);
         },
-        secretExists: async (id) => id === "fixture-secret",
+        routingContacts: async (id) =>
+          structuredClone(rows("contacts").filter((r) => r.responderId === id)),
+        contactCount: async (id) =>
+          rows("contacts").filter((r) => r.responderId === id).length,
+        secretExists: async (id, channel) =>
+          id === "fixture-secret" && channel === "webhook",
       };
       return work(
         configurationTransaction(base, store, guard),

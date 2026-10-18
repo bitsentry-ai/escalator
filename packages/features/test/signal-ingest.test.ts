@@ -123,8 +123,8 @@ test("token expiry is checked with live time after source lock acquisition", asy
           ...tx,
           sources: {
             ...tx.sources,
-            get: async (id) => {
-              const source = await tx.sources.get(id);
+            lock: async (id) => {
+              const source = await tx.sources.lock(id);
               advance();
               return source;
             },

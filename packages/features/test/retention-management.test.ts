@@ -58,7 +58,7 @@ function fixture() {
   );
   return { seen, gate, management };
 }
-test("maintenance capacity is shared by settings and coverage without queuing", async () => {
+test("settings remain usable while maintenance capacity gates coverage", async () => {
   const f = fixture();
   let release!: () => void;
   const held = f.gate.tryRun(
@@ -67,15 +67,14 @@ test("maintenance capacity is shared by settings and coverage without queuing", 
         release = resolve;
       }),
   );
-  await assert.rejects(f.management.get(actor), { code: "retention_busy" });
+  assert.ok(await f.management.get(actor));
+  assert.ok(await f.management.update(actor, input));
   await assert.rejects(f.management.report(actor, query), {
     code: "retention_busy",
   });
-  assert.deepEqual(f.seen, []);
+  assert.deepEqual(f.seen, [actor, actor]);
   release();
   await held;
-  await f.management.get(actor);
-  assert.deepEqual(f.seen, [actor]);
 });
 test("authorization and strict input validation happen before maintenance admission", async () => {
   const f = fixture();

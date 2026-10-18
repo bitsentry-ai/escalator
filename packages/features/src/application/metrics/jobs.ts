@@ -26,6 +26,7 @@ export async function scheduleMetric(
   dueAt: string,
   lastObservationId: string | null = null,
   cancelPrevious = true,
+  active?: boolean,
 ) {
   const old = await tx.metrics.schedule(monitor.id);
   const jobId = monitor.enabled
@@ -55,6 +56,7 @@ export async function scheduleMetric(
     jobId,
     dueAt: jobId ? dueAt : null,
     lastObservationId,
+    active: active ?? old?.active ?? false,
   });
 }
 type Ready = {
@@ -198,7 +200,13 @@ export class MetricPollingJobs {
         sample: reason === "sampled" ? observation!.samples[0] : null,
         provenance: reason === "sampled" ? observation!.provenance : null,
       });
-      if (record.evaluation.state !== "insufficient_data")
+      const previousActive =
+        (await tx.metrics.schedule(monitor.id))?.active ?? false;
+      const active =
+        record.evaluation.state === "insufficient_data"
+          ? previousActive
+          : record.evaluation.state === "active";
+      if (active !== previousActive)
         await recordSignal(tx, current.source, "internal-metrics", {
           version: 1,
           eventId: `metrics:${record.id}`,
@@ -227,7 +235,7 @@ export class MetricPollingJobs {
         await tx.currentTime(),
         monitor.stepSeconds,
       );
-      await scheduleMetric(tx, monitor, next.dueAt, record.id, false);
+      await scheduleMetric(tx, monitor, next.dueAt, record.id, false, active);
       await tx.audit.append({
         id: `metric.observed:${record.id}`,
         workspaceId: tx.workspaceId,

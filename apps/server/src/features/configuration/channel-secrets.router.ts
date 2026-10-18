@@ -19,8 +19,10 @@ export const channelSecretsRouter = t.router({
     .output(channelSecretOptionsSchema)
     .query(({ ctx, input }) =>
       ctx.secretWriter
-        .list(ctx.actor, input)
-        .then((page) => ({ ...page, available: true })),
+        .list(ctx.actor, input, true)
+        .then((page) =>
+          channelSecretOptionsSchema.parse({ ...page, available: true }),
+        ),
     ),
   create: administrator
     .input(createChannelSecretSchema)
@@ -31,8 +33,9 @@ export const channelSecretsRouter = t.router({
           ctx.actor,
           input.name,
           bytes,
+          input.channel,
         );
-        return { id: value.id, name: value.name };
+        return { id: value.id, name: value.name, channel: input.channel };
       } finally {
         bytes.fill(0);
       }

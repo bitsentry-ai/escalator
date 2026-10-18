@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import {
   hasCapability,
+  pagingChannelSchema,
+  type PagingChannel,
   configurationPageSchema,
   type ConfigurationPageInput,
   type Actor,
@@ -71,9 +73,15 @@ export class PostgresSecretWriter {
       ],
     );
   }
-  async create(actor: Actor, name: string, value: Uint8Array) {
+  async create(
+    actor: Actor,
+    name: string,
+    value: Uint8Array,
+    channel: PagingChannel | null = null,
+  ) {
     if (!hasCapability(actor.role, "secret:manage"))
       throw new SecretAccessError();
+    if (channel !== null) pagingChannelSchema.parse(channel);
     const label = name.trim();
     if (!label || label.length > 120)
       throw new Error("Secret name must contain 1–120 characters");
@@ -86,27 +94,42 @@ export class PostgresSecretWriter {
       );
       await this.transaction(actor, async (client) => {
         await client.query(
-          "INSERT INTO escalator_secret (workspace_id,id,name,envelope) VALUES ($1,$2,$3,$4::jsonb)",
-          [actor.workspaceId, id, label, JSON.stringify(envelope)],
+          "INSERT INTO escalator_secret (workspace_id,id,name,envelope,channel) VALUES ($1,$2,$3,$4::jsonb,$5)",
+          [actor.workspaceId, id, label, JSON.stringify(envelope), channel],
         );
         await this.audit(client, actor, id, "secret.created");
       });
-      return { workspaceId: actor.workspaceId, id, name: label };
+      return { workspaceId: actor.workspaceId, id, name: label, channel };
     } finally {
       owned.fill(0);
     }
   }
-  async list(actor: Actor, input: ConfigurationPageInput) {
+  async list(
+    actor: Actor,
+    input: ConfigurationPageInput,
+    channelsOnly = false,
+  ) {
     const { limit = 25, after } = configurationPageSchema.parse(input);
     return this.transaction(actor, async (client) => {
-      const result = await client.query<{ id: string; name: string }>(
-        `SELECT id,name FROM escalator_secret
+      const result = await client.query<{
+        id: string;
+        name: string;
+        channel: PagingChannel | null;
+      }>(
+        `SELECT id,name,channel FROM escalator_secret
          WHERE workspace_id=$1 AND purpose='provider' AND disabled_at IS NULL
+           AND ${channelsOnly ? "channel IS NOT NULL" : "channel IS NULL"}
            AND ($2::text IS NULL OR id>$2)
          ORDER BY id LIMIT $3`,
         [actor.workspaceId, after ?? null, limit + 1],
       );
-      const items = result.rows.slice(0, limit);
+      const items = result.rows
+        .slice(0, limit)
+        .map((row) =>
+          channelsOnly
+            ? { ...row, channel: pagingChannelSchema.parse(row.channel) }
+            : { id: row.id, name: row.name },
+        );
       return {
         items,
         next: result.rows.length > limit ? items.at(-1)!.id : null,

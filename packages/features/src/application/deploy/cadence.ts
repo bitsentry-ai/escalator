@@ -76,10 +76,7 @@ export function planWatchCadence(
     return { state: "skip", decision: "expired" };
   if (!probe.enabled) return { state: "skip", decision: "disabled" };
   if (lease) {
-    if (
-      probe.version !== lease.appliedProbeVersion ||
-      probe.intervalSeconds !== deploymentWatchProbeIntervalSeconds
-    )
+    if (probe.intervalSeconds !== deploymentWatchProbeIntervalSeconds)
       return { state: "skip", decision: "superseded" };
     return {
       state: "join",
@@ -148,11 +145,7 @@ export function planWatchCadenceRestore(
     Date.parse(now) < Date.parse(probe.updatedAt)
   )
     throw new RangeError("Cadence time moved backwards");
-  if (
-    probe.version !== lease.appliedProbeVersion ||
-    probe.intervalSeconds !== deploymentWatchProbeIntervalSeconds ||
-    !probe.enabled
-  )
+  if (probe.intervalSeconds !== deploymentWatchProbeIntervalSeconds)
     return { state: "superseded" };
   if (Date.parse(now) < Date.parse(lease.restoreAt))
     return { state: "wait", dueAt: lease.restoreAt };

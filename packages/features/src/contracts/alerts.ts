@@ -81,6 +81,7 @@ export const processedSignalSchema = z.strictObject({
     "future",
     "manual_recovery",
     "manually_resolved",
+    "unbound",
   ]),
   recordedAt: utcTimestampSchema,
 });

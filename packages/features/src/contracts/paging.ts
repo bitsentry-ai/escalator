@@ -98,8 +98,8 @@ export const recipientDeliverySchema = z.strictObject({
   stepId: opaqueIdSchema,
   recipientId: responderIdSchema,
   contactId: opaqueIdSchema,
-  /** Frozen opaque credential reference; null reads pre-activation records safely. */
-  secretId: opaqueIdSchema.nullable().default(null),
+  /** Frozen opaque credential reference. */
+  secretId: opaqueIdSchema,
   channel: z.enum(["pushover", "webhook", "ntfy", "slack", "discord", "email"]),
   createdAt: utcTimestampSchema,
 });

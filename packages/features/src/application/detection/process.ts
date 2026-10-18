@@ -145,8 +145,10 @@ export class SignalProcessing {
           binding?.enabled && binding.policyId
             ? await tx.configuration.policies.get(binding.policyId)
             : undefined;
-        if (!policy?.enabled || policy.serviceId !== signal.serviceId)
-          throw new Error("Automatic paging policy is unavailable");
+        if (!policy?.enabled || policy.serviceId !== signal.serviceId) {
+          await receipt(tx, signal, "unbound", null);
+          return { state: "completed" };
+        }
         const id = pagingWorkId(
           tx.workspaceId,
           "signal-incident",

@@ -14,8 +14,9 @@ export interface SignalTransaction extends FoundationTransaction {
   /** Live database time; read after acquiring source/token locks for expiry. */
   currentTime(): Promise<string>;
   sources: {
-    /** Lock source before token/event/work rows, including source edits. */
     get(id: string): Promise<SignalSource | undefined>;
+    /** Lock source before intake and source edits. Ordinary reads never lock. */
+    lock(id: string): Promise<SignalSource | undefined>;
     list(page: PageRequest): Promise<Page<SignalSource>>;
     /** Lock/check the source-bound secret metadata until this transaction commits. */
     hasUsableSecret(
@@ -60,12 +61,12 @@ export interface SignalRepository {
 }
 
 /** Scoped host primitives; each operation uses the surrounding DB transaction.
- * Source reads lock the row. replaceSource is a conditional update. insertSignal
+ * Only explicit source lock reads lock the row. replaceSource is a conditional update. insertSignal
  * handles its natural-key conflict atomically and never overwrites the first event.
  */
 export interface SignalRecordStore {
   currentTime(): Promise<string>;
-  getSource(id: string): Promise<SignalSource | undefined>;
+  getSource(id: string, lock?: boolean): Promise<SignalSource | undefined>;
   listSources(page: PageRequest): Promise<Page<SignalSource>>;
   insertSource(source: SignalSource): Promise<void>;
   replaceSource(

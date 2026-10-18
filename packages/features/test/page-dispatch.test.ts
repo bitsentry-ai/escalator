@@ -335,19 +335,48 @@ test("failure to append the opening audit rolls back incident, page and deadline
   });
   assert.equal(await f.claim(), undefined);
 });
-test("a foreign contact fails closed without recording a step or sending a delivery", async () => {
+test("a foreign contact is skipped and the step records missing coverage", async () => {
   const f = await fixture();
   const page = await f.creation.open(f.scope, f.input);
   f.contacts[0]!.workspaceId = workspaceIdSchema.parse("foreign");
-  await assert.rejects(f.advancement.advance((await f.claim())!));
+  assert.equal(
+    (await f.advancement.advance((await f.claim())!)).state,
+    "completed",
+  );
   await f.repository.transaction(f.scope, async (tx) => {
     assert.equal(
-      (await tx.steps.forPage(page.id, { limit: 100 })).items.length,
-      0,
+      (await tx.steps.forPage(page.id, { limit: 100 })).items[0]?.disposition,
+      "uncovered",
     );
     assert.equal(
       (await tx.deliveries.forPage(page.id, { limit: 100 })).items.length,
       0,
+    );
+  });
+});
+
+test("invalid and excessive stored contacts do not block a usable route", async () => {
+  const f = await fixture();
+  const good = f.contacts[0]!;
+  f.contacts.unshift({ ...good, id: "invalid", priority: -1 });
+  for (let i = 0; i < 101; i++)
+    f.contacts.push({ ...good, id: `extra-${i}`, enabled: false });
+  const page = await f.creation.open(f.scope, f.input);
+  assert.equal(
+    (await f.advancement.advance((await f.claim())!)).state,
+    "completed",
+  );
+  await f.repository.transaction(f.scope, async (tx) => {
+    const deliveries = (await tx.deliveries.forPage(page.id, { limit: 100 }))
+      .items;
+    assert.deepEqual(
+      deliveries.map((delivery) => delivery.contactId),
+      [good.id],
+    );
+    assert.ok(
+      (await tx.audit.list({ limit: 100 })).items.some(
+        (event) => event.action === "paging.contact_skipped",
+      ),
     );
   });
 });

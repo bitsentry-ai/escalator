@@ -67,5 +67,12 @@ export interface ConfigurationRecordStore {
     kind: K,
     value: ConfigurationRecordMap[K],
   ): Promise<void>;
-  secretExists(id: string): Promise<boolean>;
+  /** Raw rows let routing isolate malformed contacts without failing the step. */
+  routingContacts(responderId: string): Promise<unknown[]>;
+  /** Serializes contact saves for this responder before counting. */
+  contactCount(responderId: string): Promise<number>;
+  secretExists(
+    id: string,
+    channel: ConfigurationRecordMap["contacts"]["channel"],
+  ): Promise<boolean>;
 }

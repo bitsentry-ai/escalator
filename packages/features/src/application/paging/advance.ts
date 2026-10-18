@@ -97,13 +97,14 @@ export class PageAdvancement {
         const ids = await this.recipients(tx, page, step.target, step.dueAt);
         const requireAck =
           "deployment" in page.policy && step.target !== "operator";
-        let routes = await this.routes(tx, ids, requireAck);
+        let routes = await this.routes(tx, ids, requireAck, lease.id);
         // No usable mapped contact: do not wait for the independent fallback deadline.
         if (step.target === "deployer" && routes.length === 0)
           routes = await this.routes(
             tx,
             page.policy.fallbackResponderIds,
             true,
+            `${lease.id}:fallback`,
           );
         const stepId = pagingWorkId(
           tx.workspaceId,
@@ -183,6 +184,7 @@ export class PageAdvancement {
     tx: DispatchTransaction,
     ids: readonly ResponderId[],
     requireAck: boolean,
+    stepWorkId: string,
   ): Promise<{ responderId: ResponderId; contact: PagingContact }[]> {
     const routes: { responderId: ResponderId; contact: PagingContact }[] = [];
     for (const id of ids) {
@@ -190,20 +192,39 @@ export class PageAdvancement {
       if (!responder?.enabled) continue;
       if (requireAck && !hasCapability(responder.role, "incident:acknowledge"))
         continue;
-      const candidates = (await tx.routing.contacts(id)).map((contact) =>
-        pagingContactSchema.parse(contact),
-      );
-      if (
-        candidates.length > 100 ||
-        new Set(candidates.map((contact) => contact.id)).size !==
-          candidates.length ||
-        candidates.some(
-          (contact) =>
-            contact.workspaceId !== tx.workspaceId ||
-            contact.responderId !== id,
-        )
-      )
-        throw new Error("Invalid contact scope");
+      const candidates: PagingContact[] = [];
+      const seen = new Set<string>();
+      let index = 0;
+      for (const raw of await tx.routing.contacts(id)) {
+        index++;
+        const parsed = pagingContactSchema.strip().safeParse(raw);
+        if (
+          !parsed.success ||
+          parsed.data.workspaceId !== tx.workspaceId ||
+          parsed.data.responderId !== id ||
+          seen.has(parsed.data.id)
+        ) {
+          await tx.audit.append({
+            id: pagingWorkId(
+              tx.workspaceId,
+              "invalid-contact",
+              stepWorkId,
+              id,
+              String(index),
+            ),
+            workspaceId: tx.workspaceId,
+            actor: { kind: "system", component: "paging" },
+            action: "paging.contact_skipped",
+            subjectType: "responder",
+            subjectId: id,
+            recordedAt: tx.now,
+            metadata: { reason: "invalid_contact" },
+          });
+          continue;
+        }
+        seen.add(parsed.data.id);
+        candidates.push(parsed.data);
+      }
       const contact = candidates
         .filter((entry) => entry.enabled)
         .sort((a, b) => a.priority - b.priority || (a.id < b.id ? -1 : 1))[0];

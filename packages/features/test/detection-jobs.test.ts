@@ -199,11 +199,22 @@ test("a failed audit rolls back the incident, alert, receipt and escalation jobs
   await f.processing.process(lease);
   assert.ok((await f.receipt("failure"))?.incidentId);
 });
-test("missing explicit binding fails visibly without consuming the signal", async () => {
+test("an unbound signal completes with a durable audited disposition", async () => {
   const f = await fixture(false);
   const lease = await f.event("no-policy", "active");
-  await assert.rejects(f.processing.process(lease), /policy is unavailable/);
-  assert.equal(await f.receipt("no-policy"), undefined);
+  assert.equal((await f.processing.process(lease)).state, "completed");
+  await f.processing.process(lease);
+  assert.equal((await f.receipt("no-policy"))?.disposition, "unbound");
+  await f.repo.transaction(f.scope, async (tx) => {
+    assert.ok(
+      (await tx.audit.list({ limit: 100 })).items.some(
+        (event) =>
+          event.subjectId === "no-policy" &&
+          event.metadata.disposition === "unbound",
+      ),
+    );
+    assert.equal((await tx.incidents.list({ limit: 100 })).items.length, 1);
+  });
 });
 test("spoofed work hints and an expired lease cannot open a page", async () => {
   const f = await fixture();

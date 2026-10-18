@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ConfiguredContact,
+  ChannelSecretOptions,
   ConfigurationPageInput,
 } from "../../contracts/index.js";
 import type { ContactSettingsClient } from "../settings-client.js";
@@ -18,7 +19,7 @@ export function ContactsScreen({
   t: (key: string) => string;
 }) {
   const [available, setAvailable] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string }[]>([]);
+  const [created, setCreated] = useState<ChannelSecretOptions["items"]>([]);
   const [selected, setSelected] = useState<ConfiguredContact | null>();
   const generation = useRef(0);
   useEffect(() => {

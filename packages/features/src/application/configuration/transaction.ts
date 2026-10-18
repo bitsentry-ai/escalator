@@ -30,7 +30,8 @@ export class ConfigurationError extends Error {
       | "invalid_version"
       | "stale_preview"
       | "invalid_preview"
-      | "identity_change",
+      | "identity_change"
+      | "too_many_contacts",
   ) {
     super(code);
   }
@@ -171,7 +172,10 @@ export function configurationTransaction(
     configuredContactSchema,
     async (value) => {
       await responders([value.responderId]);
-      if (!(await store.secretExists(value.secretId)))
+      const count = await store.contactCount(value.responderId);
+      if (count >= 100 && !(await store.get("contacts", value.id)))
+        throw new ConfigurationError("too_many_contacts");
+      if (!(await store.secretExists(value.secretId, value.channel)))
         throw new PersistenceError("not_found");
     },
   );
@@ -232,12 +236,10 @@ export function configurationTransaction(
       contacts: (id) =>
         guard.operation(async () => {
           opaqueIdSchema.parse(id);
-          // Fail closed rather than silently truncate an excessive routing configuration.
-          const page = await store.list("contacts", { limit: 100 }, id);
-          if (page.next !== null) throw new Error("Too many paging contacts");
-          return page.items.map((contact) =>
-            pagingContactSchema.strip().parse(contact),
-          );
+          return (await store.routingContacts(id)).map((raw) => {
+            const parsed = pagingContactSchema.strip().safeParse(raw);
+            return parsed.success ? parsed.data : raw;
+          });
         }),
     },
   };

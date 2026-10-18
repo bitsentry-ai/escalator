@@ -49,7 +49,7 @@ export class SignalIntake {
       throw new SignalIngressError("invalid_token");
     return this.repository.transaction(context.workspaceId, async (tx) => {
       // Source edits and grant revocation use this same lock ordering.
-      const source = await tx.sources.get(sourceId);
+      const source = await tx.sources.lock(sourceId);
       const grant = await tx.tokens.getByHash(hash);
       const now = Date.parse(await tx.currentTime());
       if (

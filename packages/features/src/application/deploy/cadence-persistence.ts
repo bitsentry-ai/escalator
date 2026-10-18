@@ -177,7 +177,7 @@ export function withWatchCadence<Tx extends DeploymentWatchTransaction>(
               !current ||
               current.generationId !== value.generationId ||
               current.appliedProbeVersion !== value.appliedProbeVersion ||
-              probe.version !== value.appliedProbeVersion
+              probe.version < value.appliedProbeVersion
             )
               throw new PersistenceError("scope_violation");
           }
@@ -202,7 +202,7 @@ export function withWatchCadence<Tx extends DeploymentWatchTransaction>(
           if (
             !probe.enabled ||
             probe.intervalSeconds !== deploymentWatchProbeIntervalSeconds ||
-            probe.version !== value.appliedProbeVersion
+            probe.version < value.appliedProbeVersion
           )
             throw new PersistenceError("scope_violation");
           if (Date.parse(await base.currentTime()) >= Date.parse(watch.endsAt))

@@ -63,3 +63,54 @@ test("configured contacts stay scoped and availability does not suppress duty", 
     },
   );
 });
+
+test("contact saves reject a wrong-channel credential and cap new contacts at 100", async () => {
+  const repo = new MemoryConfigurationRepository();
+  const scope = workspaceIdSchema.parse("contact-limits");
+  await repo.transaction(scope, seedPagingFixture);
+  const contact = configuredContactSchema.parse({
+    id: "contact",
+    workspaceId: scope,
+    responderId: "primary",
+    version: 1,
+    secretId: "fixture-secret",
+    channel: "webhook",
+    enabled: true,
+    priority: 0,
+  });
+  await assert.rejects(
+    repo.transaction(scope, (tx) =>
+      tx.configuration.contacts.put({ ...contact, channel: "pushover" }, null),
+    ),
+    /not_found/,
+  );
+  await repo.transaction(scope, async (tx) => {
+    for (let i = 0; i < 100; i++)
+      assert.equal(
+        await tx.configuration.contacts.put(
+          { ...contact, id: `contact-${i}` },
+          null,
+        ),
+        true,
+      );
+  });
+  await assert.rejects(
+    repo.transaction(scope, (tx) =>
+      tx.configuration.contacts.put(contact, null),
+    ),
+    /too_many_contacts/,
+  );
+  await repo.transaction(scope, async (tx) => {
+    assert.equal(
+      await tx.configuration.contacts.put(
+        { ...contact, id: "contact-0", version: 2, enabled: false },
+        1,
+      ),
+      true,
+    );
+    assert.equal(
+      (await tx.configuration.contacts.list({ limit: 100 })).items.length,
+      100,
+    );
+  });
+});

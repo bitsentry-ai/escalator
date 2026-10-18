@@ -142,7 +142,7 @@ export class SignalManagement {
     const { id, expectedVersion, ...fields } =
       updateSignalSourceSchema.parse(input);
     return this.repository.transaction(actor.workspaceId, async (tx) => {
-      const current = await tx.sources.get(id);
+      const current = await tx.sources.lock(id);
       if (!current) throw new PersistenceError("not_found");
       if (["probe", "heartbeat", "metrics"].includes(current.kind))
         throw new SignalManagementError("source_kind");
@@ -179,7 +179,7 @@ export class SignalManagement {
     const grant = await this.repository.transaction(
       actor.workspaceId,
       async (tx) => {
-        const source = await tx.sources.get(sourceId);
+        const source = await tx.sources.lock(sourceId);
         if (!source) throw new PersistenceError("not_found");
         if (!source.enabled) throw new SignalManagementError("source_disabled");
         const signed = source.intake
@@ -268,7 +268,7 @@ export class SignalManagement {
     const { id, expectedVersion, intake, authSecretId } =
       updateProviderSourceSchema.parse(input);
     return this.repository.transaction(actor.workspaceId, async (tx) => {
-      const current = await tx.sources.get(id);
+      const current = await tx.sources.lock(id);
       if (!current) throw new PersistenceError("not_found");
       if (current.version !== expectedVersion)
         throw new SignalManagementError("conflict");

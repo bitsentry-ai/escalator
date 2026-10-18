@@ -44,8 +44,8 @@ export function postgresSignalStore(
       );
       return result.rows[0].now.toISOString();
     },
-    async getSource(id) {
-      const row = await read("source", "id", id, true);
+    async getSource(id, lock = false) {
+      const row = await read("source", "id", id, lock);
       return row ? signalSourceSchema.parse(row) : undefined;
     },
     async listSources(page) {

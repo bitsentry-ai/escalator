@@ -11,6 +11,7 @@ export class AuthenticationError extends Error {
 /** Host-only adapters. Password hashing and OTP algorithms belong to reviewed libraries. */
 export class PasswordHasher {
   private active = 0;
+  private readonly waiting: (() => void)[] = [];
   constructor(private readonly maximumConcurrent = 2) {
     if (
       !Number.isInteger(maximumConcurrent) ||
@@ -20,12 +21,15 @@ export class PasswordHasher {
       throw new Error("Invalid password hashing concurrency");
   }
   private async bounded<T>(work: () => Promise<T>): Promise<T> {
-    if (this.active >= this.maximumConcurrent) throw new AuthenticationError();
-    this.active++;
+    if (this.active >= this.maximumConcurrent)
+      await new Promise<void>((resolve) => this.waiting.push(resolve));
+    else this.active++;
     try {
       return await work();
     } finally {
-      this.active--;
+      const next = this.waiting.shift();
+      if (next) next();
+      else this.active--;
     }
   }
   async create(password: string): Promise<string> {

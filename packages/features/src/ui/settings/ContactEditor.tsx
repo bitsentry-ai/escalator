@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   writeContactSchema,
+  pagingChannelSchema,
+  type ChannelSecretOptions,
   type ConfiguredContact,
   type Responder,
   type WriteContactInput,
@@ -18,7 +20,7 @@ export function ContactEditor({
 }: {
   initial?: ConfiguredContact;
   responders: Responder[];
-  secrets: { id: string; name: string }[];
+  secrets: ChannelSecretOptions["items"];
   client: Pick<PagingSettingsClient, "writeContact">;
   onSaved: () => void;
   onCancel: () => void;
@@ -118,34 +120,19 @@ export function ContactEditor({
               style={styles.input}
               value={draft.channel}
               onChange={(event) => {
-                const channel = event.target.value;
-                if (
-                  channel === "pushover" ||
-                  channel === "webhook" ||
-                  channel === "ntfy" ||
-                  channel === "slack" ||
-                  channel === "discord" ||
-                  channel === "email"
-                )
-                  setDraft({ ...draft, channel });
+                const channel = pagingChannelSchema.parse(event.target.value);
+                setDraft({ ...draft, channel, secretId: "" });
               }}
             >
-              <option value="pushover">Pushover</option>
-              <option value="webhook">Webhook</option>
-              <option value="ntfy">ntfy</option>
-              <option value="slack">Slack</option>
-              <option value="discord">Discord</option>
-              <option value="email">{t("settings.emailChannel")}</option>
-              {![
-                "pushover",
-                "webhook",
-                "ntfy",
-                "slack",
-                "discord",
-                "email",
-              ].includes(draft.channel) && (
-                <option value={draft.channel}>{draft.channel}</option>
-              )}
+              {pagingChannelSchema.options.map((channel) => (
+                <option key={channel} value={channel}>
+                  {channel === "email"
+                    ? t("settings.emailChannel")
+                    : channel === "ntfy"
+                      ? channel
+                      : channel[0].toUpperCase() + channel.slice(1)}
+                </option>
+              ))}
             </select>
           </label>
           <label style={styles.label}>
@@ -160,16 +147,22 @@ export function ContactEditor({
             >
               <option value="">{t("settings.chooseCredential")}</option>
               {draft.secretId &&
-                !secrets.some((secret) => secret.id === draft.secretId) && (
+                !secrets.some(
+                  (secret) =>
+                    secret.id === draft.secretId &&
+                    secret.channel === draft.channel,
+                ) && (
                   <option value={draft.secretId}>
                     {t("settings.unlistedCredential")}
                   </option>
                 )}
-              {secrets.map((secret) => (
-                <option key={secret.id} value={secret.id}>
-                  {secret.name}
-                </option>
-              ))}
+              {secrets
+                .filter((secret) => secret.channel === draft.channel)
+                .map((secret) => (
+                  <option key={secret.id} value={secret.id}>
+                    {secret.name}
+                  </option>
+                ))}
             </select>
           </label>
           <label style={styles.label}>

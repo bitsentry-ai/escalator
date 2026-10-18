@@ -33,13 +33,13 @@ export class RetentionManagement {
   get(actor: Actor) {
     if (!hasCapability(actor.role, "service:read"))
       throw new RetentionManagementError("forbidden");
-    return this.run(() => this.policies.get(actor));
+    return this.policies.get(actor);
   }
   update(actor: Actor, raw: UpdateReplayRetention) {
     if (!hasCapability(actor.role, "service:manage"))
       throw new RetentionManagementError("forbidden");
     const input = updateReplayRetentionSchema.parse(raw);
-    return this.run(() => this.policies.save(actor, input));
+    return this.policies.save(actor, input);
   }
   report(actor: Actor, raw: ReplayCoverageQuery) {
     if (!hasCapability(actor.role, "service:read"))

@@ -281,7 +281,7 @@ export class PostgresReplayPruneRepository implements ReplayPruneRepository {
     return this.foundation.withConnection(scope, async (base, db, guard) => {
       await db.query("SET LOCAL statement_timeout = '5s'");
       await db.query("SET LOCAL lock_timeout = '1s'");
-      if (!(await postgresSignalStore(db, scope).getSource(sourceId)))
+      if (!(await postgresSignalStore(db, scope).getSource(sourceId, true)))
         throw new PersistenceError("not_found");
       return work(
         replayPruneTransaction(

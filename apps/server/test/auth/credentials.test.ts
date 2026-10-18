@@ -10,13 +10,20 @@ import {
 } from "../../src/platform/auth/credentials.js";
 import { persistedRegistrationSchema } from "../../src/platform/auth/schemas.js";
 
-test("password adapter bounds concurrent work and preserves password whitespace", async () => {
+test("password adapter queues concurrent work and preserves password whitespace", async () => {
   const passwords = new PasswordHasher(1);
   const pending = passwords.create("  synthetic-long-password  ");
-  await assert.rejects(passwords.create("another-long-password"), {
-    code: "authentication_failed",
-  });
+  const queued = passwords.create("another-long-password");
   const encoded = await pending;
+  const second = await queued;
+  assert.deepEqual(
+    await Promise.all([
+      passwords.matches(encoded, "  synthetic-long-password  "),
+      passwords.matches(second, "another-long-password"),
+      passwords.matches(encoded, "  synthetic-long-password  "),
+    ]),
+    [true, true, true],
+  );
   assert.equal(
     await passwords.matches(encoded, "  synthetic-long-password  "),
     true,

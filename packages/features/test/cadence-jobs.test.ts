@@ -69,7 +69,7 @@ const owner = (f: Fixture) =>
   f.repo.transaction(scope, (tx) =>
     tx.cadence.lease(f.entry.targetId, "probe"),
   );
-async function edit(f: Fixture) {
+async function edit(f: Fixture, intervalSeconds = 600) {
   await f.repo.transaction(scope, async (tx) => {
     const context = tx.probeContext;
     await context.probes.lockCapacity();
@@ -77,7 +77,7 @@ async function edit(f: Fixture) {
       source = (await context.sources.get(current.sourceId))!;
     const next = {
       ...current,
-      intervalSeconds: 600,
+      intervalSeconds,
       version: current.version + 1,
       updatedAt: tx.now,
     };
@@ -181,6 +181,7 @@ test("an overlapping watch extends the first restoration deadline", async () => 
   assert.ok(await f.repo.work.settle(first, await jobs(f).tighten(first)));
   const original = (await owner(f))!;
   f.time(600);
+  await edit(f, 60);
   const captured = f.repo.watches.captureBaseline!;
   const version = (await probe(f))!.version;
   f.repo.watches.captureBaseline = (entry) => {
@@ -229,7 +230,7 @@ test("an overlapping watch extends the first restoration deadline", async () => 
   assert.equal(renewed.generationId, original.generationId);
   assert.equal(renewed.originalIntervalSeconds, 300);
   assert.equal(renewed.restoreAt, at(2400));
-  assert.equal((await probe(f))?.version, 2);
+  assert.equal((await probe(f))?.version, 3);
   f.time(1800);
   const oldRestore = await claim(f, "deployment.watch-cadence-restore");
   assert.equal(oldRestore.payload.revision, 1);
@@ -494,4 +495,27 @@ test("overlap cannot extend faster cadence after configured capacity is reduced"
     tx.cadence.receipt(watch.targetId, watch.deploymentId, "probe"),
   );
   assert.equal(receipt?.decision, "capacity_limited");
+});
+
+test("an unrelated probe edit during a watch still restores its original cadence", async () => {
+  const f = await fixture();
+  await jobs(f).tighten(await ready(f));
+  f.time(10);
+  await f.repo.transaction(scope, async (tx) => {
+    const context = tx.probeContext;
+    const current = (await context.probes.lock("probe"))!;
+    const edited = {
+      ...current,
+      name: "Renamed during watch",
+      version: current.version + 1,
+      updatedAt: tx.now,
+    };
+    assert.ok(await context.probes.put(edited, current.version));
+    await scheduleProbe(context, edited, tx.now);
+  });
+  f.time(1800);
+  await jobs(f).restore(await claim(f, "deployment.watch-cadence-restore"));
+  assert.equal((await probe(f))?.intervalSeconds, 300);
+  assert.equal((await probe(f))?.name, "Renamed during watch");
+  assert.equal(await owner(f), undefined);
 });

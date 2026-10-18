@@ -63,6 +63,8 @@ export function signalTransaction(
     sources: {
       get: (id) =>
         guard.operation(() => store.getSource(opaqueIdSchema.parse(id))),
+      lock: (id) =>
+        guard.operation(() => store.getSource(opaqueIdSchema.parse(id), true)),
       hasUsableSecret: (id, expectedVersion) =>
         guard.operation(async () => {
           const source = await store.getSource(opaqueIdSchema.parse(id));
@@ -99,7 +101,7 @@ export function signalTransaction(
             value.version !== expected + 1
           )
             throw new SignalError("invalid_version");
-          const current = required(await store.getSource(value.id));
+          const current = required(await store.getSource(value.id, true));
           if (current.version !== expected) return false;
           for (const key of [
             "kind",
@@ -139,7 +141,7 @@ export function signalTransaction(
           atNow(value.createdAt);
           if (value.revokedAt !== null)
             throw new SignalError("invalid_timestamp");
-          required(await store.getSource(value.sourceId));
+          required(await store.getSource(value.sourceId, true));
           await store.insertToken(value);
         }),
       revoke: (id) =>
@@ -147,7 +149,7 @@ export function signalTransaction(
           opaqueIdSchema.parse(id);
           const token = await store.getToken(id);
           if (!token) return false;
-          required(await store.getSource(token.sourceId));
+          required(await store.getSource(token.sourceId, true));
           return store.revokeToken(id, await store.currentTime());
         }),
     },
@@ -159,7 +161,7 @@ export function signalTransaction(
           const value = signalEventSchema.parse(input);
           scoped(value);
           atNow(value.receivedAt);
-          const source = required(await store.getSource(value.sourceId));
+          const source = required(await store.getSource(value.sourceId, true));
           if (
             source.serviceId !== value.serviceId ||
             source.environmentId !== value.environmentId

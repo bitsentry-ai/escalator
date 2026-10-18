@@ -61,6 +61,7 @@ test(
         },
         "provider",
         Buffer.from("fixture"),
+        "webhook",
       );
       await repo.transaction(scope, async (tx) => {
         const schedule = scheduleSchema.parse({

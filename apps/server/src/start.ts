@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { reportStartupFailure } from "./platform/http/startup-error.js";
 import type { Express } from "express";
 import { createApp } from "./main.js";
 import { listenPort } from "./platform/http/listen-port.js";
@@ -18,10 +19,4 @@ export async function start(): Promise<void> {
     throw error;
   }
 }
-if (require.main === module)
-  void start().catch(() => {
-    console.error(
-      "Escalator could not start; verify the database, mounted keys, public origin and built assets.",
-    );
-    process.exitCode = 1;
-  });
+if (require.main === module) void start().catch(reportStartupFailure);
