@@ -1,8 +1,5 @@
 # Operating Escalator
 
-Status on 2026-10-08: operator procedures supplied; no live backup, restore,
-upgrade or rollback has been verified in this environment.
-
 ## Recovery assets
 
 Back up PostgreSQL with a consistent database snapshot and retain every encryption

@@ -41,7 +41,3 @@ Each organization receives its own destination policy and management limits afte
 Missing organization configuration uses one deny-all worker to drain previously scheduled probes into unknown observations without network requests. Removing approval never produces a successful observation or silently marks recovery. Disabling a probe cancels its pending schedule through the normal audited API.
 
 Dashboard activation still requires the separately integrated secret broker binding. Without it, no monitoring runtime starts and enabled configuration writes are rejected. This stack does not install a replacement broker.
-
-## Verification boundary
-
-Construction, scoped configuration, schema validation and handler composition are unit-testable without listeners or a database. Actual PostgreSQL scheduling, live HTTP/TLS/DNS, container deployment and load measurement are not runtime-verified here. Follow the opt-in database and HTTP policy procedures in an authorized environment. No new infrastructure is started by these tests.

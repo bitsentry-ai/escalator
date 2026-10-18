@@ -23,8 +23,6 @@ See [deployment setup](probe-host-activation.md), [management contract](probe-ma
 
 ## Disposable-environment acceptance procedure
 
-Not runtime-verified in this implementation environment; do not run against production.
-
 - In each host, create a service and environment, then create a disabled GET probe for an operator-approved test endpoint.
 - Confirm no request is scheduled while disabled. Enable it and observe a successful run. Check that the configuration audit contains the authenticated actor and scoped probe ID without credentials.
 - Change the endpoint response to violate an assertion. Confirm the documented threshold opens one incident; restore it and check the recovery threshold and hold.

@@ -58,6 +58,5 @@ rules without starting a server or using network credentials.
 Implementation references: [Node HTTPS](https://nodejs.org/api/https.html),
 [IANA IPv4 special-purpose registry](https://www.iana.org/assignments/iana-ipv4-special-registry/),
 and [IANA IPv6 special-purpose registry](https://www.iana.org/assignments/iana-ipv6-special-registry/).
-Real DNS, TLS, provider receipt expiry, and retry cancellation remain not runtime-verified.
 Dashboard secret activation still depends on integration of the separate broker
 stack (D3); this work does not merge or duplicate it.

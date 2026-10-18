@@ -17,16 +17,3 @@ Claim, renewal, trace and publication acquire locks in investigation-then-job or
 Publish the terminal job state, report and redacted snapshots in one transaction. A rejected or expired claim cannot write a result. Trace sequences are scoped to each claim attempt, so a reclaimed run starts its own trace without overwriting prior evidence. Identical trace retries are idempotent; conflicting content for the same attempt and sequence is rejected. Human reads require the exact workspace, incident, service and environment scope.
 
 A ten-second deadline bounds connection acquisition, callback work and commit together. Queries also have five-second statement and one-second lock timeouts. A deadline destroys the connection rather than returning a running transaction to the pool. A connection arriving after timeout is destroyed without starting work. A commit reply lost at timeout remains uncertain; callers must inspect durable state and must not retry model execution automatically.
-
-## Verification procedure
-
-No disposable PostgreSQL test database was available during implementation. The database conformance cases are opt-in and must not be reported as runtime-proven from memory tests.
-
-1. Provide `ESCALATOR_TEST_MIGRATION_DATABASE_URL` and `ESCALATOR_TEST_DATABASE_URL` for an existing disposable database, with separate migration and non-superuser/non-owner application roles. Never use the application's database URL as a test fallback.
-2. Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` and `pnpm --dir apps/escalator --filter @bitsentry-escalator/server test`.
-3. Confirm every `PostgreSQL investigation persistence` case runs without skips. The fixture creates an isolated random schema, applies migrations and grants scoped privileges, then removes that schema on disposal. It reserves an independent connection before claiming work to check committed visibility.
-4. Verify parallel claim exclusion, expiry before reclaim, stale token/runtime rejection, configuration revocation, bounded attempts, atomic report/evidence persistence and trace retry behavior. Repeat against the supported PostgreSQL version before deployment.
-
-The shared memory suite defines the same persistence contract. Unit tests separately exercise transaction cleanup and noncooperative/late connection deadlines without starting a server or database.
-
-Standalone first-page enqueueing is described in `first-page-investigation.md`. Runner activation and human report APIs/UI remain T5.5–T5.7 integration work. Dashboard persistence uses `organizationId` and targets the existing broker stack; it does not share this installation's database or credentials.

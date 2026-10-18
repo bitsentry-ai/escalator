@@ -27,10 +27,8 @@ Probe/metric observation timestamps must fit the scheduled bucket and the config
 
 Results contain coverage reports, selected receipt references, aggregate counts and effective thresholds. They contain no provider bodies, credential values or destination URLs. Existing coverage-only callers retain their previous report API without allocating the selected-reference list.
 
-## Remaining host obligations
+## Host obligations
 
 The persistence/orchestration parts must capture immutable baselines, protect required history from retention, constrain probe tightening to available capacity, and preserve operator changes when restoring cadence. They must retain the first failed verdict/evidence, open or link its incident exactly once, and keep collecting evidence through watch completion. A later aggregate improvement must not erase an earlier failure decision.
 
 Overlapping deployments need separate watch records and an explicit uncertain-attribution marker. Neither a failed watch nor a correlation establishes causality, authorizes rollback or implements a promotion gate.
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` for the pure evidence-selection and evaluator cases. Database and runtime watch integration are not delivered by this part.

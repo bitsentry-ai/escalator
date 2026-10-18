@@ -32,6 +32,4 @@ pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
 pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand
 ```
 
-The shared cases cover: upgrading populated pre-recording tables without inventing receipt times; capturing only current configurations at the upgrade boundary; recording new source/probe revisions and matching scheduled slots; leaving unmatched schedules unknown; immutable old version payloads; failed unversioned changes rolling back; and populated tenant isolation under the restricted role. In this environment all PostgreSQL cases are skipped because no disposable database is configured. They are delivered, not runtime-verified.
-
 On a staging database, additionally run the host's normal migration command twice and confirm its migration journal prevents a second backfill. Preserve the capture timestamps, journal counts and legacy NULL metadata across that rerun. Exercise old-binary writes after grants and verify the triggers capture them; then upgrade the application binary. These runtime checks are procedures only here. No server, database, container or provider was started.

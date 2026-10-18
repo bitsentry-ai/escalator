@@ -56,15 +56,3 @@ credentials or retain them outside the bounded callback.
 This projection adds no authorization and does not alter generic source/channel
 secret formats. D3 still requires integration with the separate Dashboard broker
 stack, including purpose/destination and generation/revocation enforcement.
-
-## Verification and remaining integration
-
-The shared fixture exercises authorization, optimistic concurrency, audit
-rollback, tenant isolation, strict inputs, revocation and transaction lifetime.
-Credential tests check projection, denial, cancellation and buffer erasure.
-These are in-memory tests, not PostgreSQL or live broker proof.
-
-This part defines configuration and management behavior. Host settings tables,
-source catalogs, tRPC procedures, forms, first-page enqueue composition and runner
-activation are delivered in subsequent parts. The existing persistence adapters
-must not be activated with permissive policy callbacks in the meantime.

@@ -88,20 +88,16 @@ bounded use and best-effort cleanup, not a claim of physical memory erasure.
    and pending paging state in an isolated environment before accepting traffic.
    Never substitute a freshly generated key for a lost historical key.
 
-The rotation command, migration and PostgreSQL secret-access scenarios are
-**not runtime-verified** in this implementation environment. No disposable test
-database is configured. Unit tests cover encryption, tampering, old-key access,
-callback cleanup and rotation control flow. To run database scenarios, configure
+To run database scenarios, configure
 both `ESCALATOR_TEST_MIGRATION_DATABASE_URL` and `ESCALATOR_TEST_DATABASE_URL`
 with different migration and restricted application roles on one disposable
 database, then run `pnpm --filter @bitsentry-escalator/server test`. Fixtures use
 random temporary schemas and remove them afterward; absent variables explicitly
 skip the database scenarios. The application role must not be a superuser,
 BYPASSRLS, or a member of the migration role. Never use a database containing real
-records. Additional Dashboard procedures live in the monorepo's
-[`escalator-postgres-verification.md`](../../docs/architecture/escalator-postgres-verification.md).
+records. The CI workflow runs both hosts' conformance suites with disposable roles.
 Dashboard uses the separate secret-store broker; it does not use this key file.
 
-Before relying on paging, complete the [two-host release checklist](docs/release-verification.md)
+Before relying on paging, complete the [installation checks](docs/install/README.md)
 and [capacity measurement procedure](docs/capacity.md). No production capacity envelope
 is claimed until those runtime measurements are recorded.

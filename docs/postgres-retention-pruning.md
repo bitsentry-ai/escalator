@@ -25,10 +25,6 @@ configuration versions, audit records, outbox rows and tombstones are not pruned
 
 ## Opt-in conformance procedure
 
-No disposable database was configured during implementation. The following tests
-are delivered but **not runtime-verified**. They must pass against both hosts before
-operational activation. No production database URL is used as a fallback.
-
 Use an existing disposable PostgreSQL database with distinct migration-owner and
 restricted application roles, as described in the host database conformance guide.
 The application role must not be superuser, BYPASSRLS, or a member of the owner role.

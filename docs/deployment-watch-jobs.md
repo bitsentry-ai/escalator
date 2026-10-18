@@ -17,9 +17,3 @@ The evaluated record, incident/page, paging jobs and transition audit share the 
 The evidence port must use the captured baseline and source inventory, historical configuration versions and the fixed receipt cutoff at watch end plus two minutes. Delayed workers must not add later evidence. Overlapping deployment IDs are bounded and incomplete inventory must remain explicit. A verdict indicates observed health, not that a deployment caused a failure.
 
 Successful polls wait at most one minute until the fixed final deadline. Durable work adapters reset retry attempts on successful waits. Missing baseline or incomplete telemetry finalizes as `INSUFFICIENT_DATA`; it cannot produce a healthy result. Provider delivery remains in the existing outbox and the watch never rolls back a deployment.
-
-## Verification
-
-`pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` includes transaction rollback, duplicate evaluation, stale lease, failed audit, missing baseline, late finish, overlap visibility finalization and detector correlation cases using the existing in-memory transaction adapter.
-
-PostgreSQL scheduling, concurrency, cadence restoration and provider delivery remain not runtime-verified. Deliver corresponding opt-in tests with host activation; no disposable database or new infrastructure is started by this work.

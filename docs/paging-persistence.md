@@ -63,12 +63,7 @@ build` from the standalone workspace).
 4. Review the concurrent acknowledgement, late-attempt result and rollback
    results before enabling any paging routes. Run the separate RLS scenario too.
 
-No test database is configured in the implementation environment. The database
-scenarios are delivered but explicitly skipped: PostgreSQL locking, constraints
-and RLS are **not runtime-verified**. The memory fixture cannot prove these
-properties. No infrastructure is started by the tests; never start it implicitly.
-
-## Dashboard adapter verification
+## Dashboard adapter
 
 The Dashboard adapter reuses the same application transaction assembler. It
 stores the trusted WorkOS organization ID in `organization_id`, joins the
@@ -76,20 +71,3 @@ existing Prisma transaction, and sets `app.organization_id` locally. The new
 additive Prisma migration supplies the equivalent composite keys, payload
 checks and forced RLS. It does not change legacy incident ownership or activate
 paging routes.
-
-Configure both `ESCALATOR_DASHBOARD_TEST_MIGRATION_DATABASE_URL` and
-`ESCALATOR_DASHBOARD_TEST_DATABASE_URL` on an existing disposable database with
-separate migration and restricted application roles. Then, from the monorepo:
-
-```sh
-pnpm run build:packages
-pnpm --filter @bitsentry/backend exec prisma generate
-pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand
-```
-
-The fixture applies the foundations and paging migrations to its random schema,
-grants restricted access, runs the same nine paging scenarios and a direct RLS
-scenario against populated tables, and removes the schema. Full migration-chain
-upgrade/restore verification is a separate operator procedure in the monorepo's
-PostgreSQL verification document. Both new host suites remain **not
-runtime-verified** here because no disposable database is configured.

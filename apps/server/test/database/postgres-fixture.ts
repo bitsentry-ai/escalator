@@ -40,6 +40,7 @@ export async function postgresFixture(
     baselineMutationPrivileges?: boolean;
     replayPruningDeletes?: boolean;
     labelMutationPrivileges?: boolean;
+    serviceMutationPrivileges?: boolean;
   } = {},
 ) {
   if (!testDatabaseConfigured())
@@ -140,6 +141,10 @@ export async function postgresFixture(
     await admin.query(
       `GRANT UPDATE(id) ON escalator_workspace, escalator_environment TO ${identifier(current.role)}`,
     );
+    if (options.serviceMutationPrivileges)
+      await admin.query(
+        `GRANT UPDATE(enabled,updated_at) ON escalator_service TO ${identifier(current.role)}`,
+      );
     for (const table of [
       "escalator_detection_binding",
       "escalator_probe",

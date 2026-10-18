@@ -41,6 +41,17 @@ test("locale gate rejects missing keys and changed interpolation", () => {
   );
 });
 
+test("regional locale overrides allow fallback but reject unknown keys and changed interpolation", () => {
+  const source = { title: "Title", message: "Hello {{name}}" };
+  checkLocale(source, { message: "Hi {{name}}" }, { partial: true });
+  assert.throws(() =>
+    checkLocale(source, { typo: "Title" }, { partial: true }),
+  );
+  assert.throws(() =>
+    checkLocale(source, { message: "Hi {{other}}" }, { partial: true }),
+  );
+});
+
 test("contracts cannot pull React or UI into a server consumer", () => {
   assert.ok(
     checkSource("/src/contracts/index.ts", 'import "react";', "/src").length,

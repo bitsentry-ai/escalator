@@ -198,12 +198,14 @@ export class PageAdvancement {
       for (const raw of await tx.routing.contacts(id)) {
         index++;
         const parsed = pagingContactSchema.strip().safeParse(raw);
+        // A contact from another workspace or responder is corrupt data: fail the step loudly.
         if (
-          !parsed.success ||
-          parsed.data.workspaceId !== tx.workspaceId ||
-          parsed.data.responderId !== id ||
-          seen.has(parsed.data.id)
-        ) {
+          parsed.success &&
+          (parsed.data.workspaceId !== tx.workspaceId ||
+            parsed.data.responderId !== id)
+        )
+          throw new Error("Invalid contact scope");
+        if (!parsed.success || seen.has(parsed.data.id)) {
           await tx.audit.append({
             id: pagingWorkId(
               tx.workspaceId,

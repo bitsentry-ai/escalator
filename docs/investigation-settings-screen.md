@@ -35,15 +35,3 @@ Dashboard users reference credentials from the existing secret broker. Secret-
 backed activation remains dependent on integrating that separate stack; the
 settings adapter denies an unapproved reference. Local Ollama can be configured
 without a credential. Creating a credential alone does not activate a model.
-
-## Verification and remaining runtime work
-
-Pure form tests cover scope-free payloads, preserved revisions/selections,
-endpoint validation and budgets. The frontend DOM suite covers both transport
-mappings, scoped async responses, read-only access, duplicate submission,
-conflict preservation and credential separation. No server or browser runtime
-is started for these checks.
-
-First-page enqueue, runtime consumers, external evidence connections and report
-UI remain separate Phase 5 implementation work. This screen does not establish
-live model execution, PostgreSQL conformance or Docker/Encore image inclusion.

@@ -36,17 +36,3 @@ adapters reset that budget under the same token/expiry fence. Outbox work cannot
 use `wait`. Receipt reconciliation and cancellation are implemented in
 [paging-provider-jobs.md](paging-provider-jobs.md). Production routing persistence
 and host registration follow in subsequent parts; sends are not activated yet.
-
-## Verification and runtime gaps
-
-The feature suite exercises committed grants before I/O, duplicate claims,
-recovery before settlement, ambiguous retries, permanent and retryable rejection,
-late acceptance after acknowledgement, stale deadlines and safe receipt storage.
-Provider calls use in-memory fixtures and do not send real notifications.
-
-The durable-work conformance suite includes pending-wait scheduling, budget reset,
-stale fencing and rejection of waits on the outbox. The same suite is registered
-against both PostgreSQL adapters. Follow [paging-persistence.md](paging-persistence.md)
-for a disposable database; no database was available during implementation, and
-these checks remain not runtime-verified. Dashboard secret activation also depends
-on integration of the separate `secret-store/*` broker stack (D3).

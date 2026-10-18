@@ -335,19 +335,15 @@ test("failure to append the opening audit rolls back incident, page and deadline
   });
   assert.equal(await f.claim(), undefined);
 });
-test("a foreign contact is skipped and the step records missing coverage", async () => {
+test("a foreign contact fails the step instead of paging anyone", async () => {
   const f = await fixture();
   const page = await f.creation.open(f.scope, f.input);
   f.contacts[0]!.workspaceId = workspaceIdSchema.parse("foreign");
-  assert.equal(
-    (await f.advancement.advance((await f.claim())!)).state,
-    "completed",
+  await assert.rejects(
+    f.advancement.advance((await f.claim())!),
+    /Invalid contact scope/,
   );
   await f.repository.transaction(f.scope, async (tx) => {
-    assert.equal(
-      (await tx.steps.forPage(page.id, { limit: 100 })).items[0]?.disposition,
-      "uncovered",
-    );
     assert.equal(
       (await tx.deliveries.forPage(page.id, { limit: 100 })).items.length,
       0,

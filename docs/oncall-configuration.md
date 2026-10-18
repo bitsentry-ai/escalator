@@ -37,12 +37,3 @@ credential store is provided in the Dashboard adapter.
 
 Working-hour availability helps choose scheduled peers. It does not suppress a
 primary responder's assigned on-call shift.
-
-## Verification
-
-Shared tests cover scope injection, denied writes, concurrent edits, immutable
-previews, stale-preview activation and audit rollback. Host tests verify that
-authenticated context supplies identity. PostgreSQL conformance remains opt-in:
-use the dedicated test database variables described in the persistence guides.
-Never point those tests at an application database or start infrastructure as part
-of the unit suite.

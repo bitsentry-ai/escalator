@@ -324,7 +324,12 @@ export function signalConformance(
     async ({ repository }, a, b) => {
       await repository.transaction(a, async (tx) => {
         const source = (await tx.sources.get("source"))!;
-        await tx.sources.insert({ ...source, id: "other" });
+        await tx.sources.insert({
+          ...source,
+          id: "other",
+          createdAt: tx.now,
+          updatedAt: tx.now,
+        });
         await tx.tokens.insert({
           ...fixtureToken(tx, "1".repeat(64)),
           id: "grant-a",

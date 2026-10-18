@@ -38,32 +38,3 @@ These are per-statement bounds, not a measured end-to-end deadline. A failure
 rolls back deployment, receipt, work and audit writes together. No network call
 belongs inside the callback. Paging latency under contention still needs runtime
 measurement in the hardening phase.
-
-## Opt-in database verification
-
-Provide both environment variables through the existing private test configuration:
-
-- `ESCALATOR_TEST_MIGRATION_DATABASE_URL`: disposable database migration role.
-- `ESCALATOR_TEST_DATABASE_URL`: restricted non-owner, non-superuser,
-  non-BYPASSRLS application role on that same database.
-
-The fixture verifies role separation, creates a random test schema, applies and
-reapplies migrations to check the journal, grants the required privileges and
-cleans up its schema. It never falls back to the application's database URL.
-
-From the repository root, run:
-
-```sh
-pnpm run escalator:build
-pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
-```
-
-Expect the shared deployment conformance cases and dedicated PostgreSQL tests to
-execute, covering RLS, exact-hash lookup/reset, concurrent starts, scoped foreign
-keys and receipt immutability. Confirm they are not reported as skipped. Also run
-the existing server suites, since all use the complete migration set.
-
-No disposable database was available during implementation. These checks are
-delivered but **not runtime-verified**; skipped tests do not prove SQL syntax,
-locking, query plans, migration execution or capacity. No database, container or
-application was started for this work.

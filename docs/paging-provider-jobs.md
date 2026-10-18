@@ -38,16 +38,10 @@ including the additional intents created after late provider acceptance.
 Persisted later escalation steps keep an older delivery superseded even if the
 database clock moves backward before cancellation executes.
 
-## Activation and verification
+## Activation
 
 Register receipt/cancellation handlers in a separate provider-job polling lane,
 filtered by kind. Keep their network calls off the pure escalation deadline lane.
 Use the shared `createPagingChannels` factory with the host secret adapter and
 `PublicHttpsChannelTransport`; do not replace validated egress with raw fetch.
 Dashboard secret activation depends on integration of the separate broker stack.
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` for
-in-memory recovery, expiry, claim-fence, frozen-secret and acknowledgement races.
-These fixtures do not send live notifications. PostgreSQL, live-provider,
-Docker and Encore execution remain not runtime-verified. The final paging
-scenario part registers the remaining end-to-end scenarios for both adapters.

@@ -109,6 +109,7 @@ export function heartbeatConformance(
           ...original,
           id: "grant-two",
           tokenHash: heartbeatTokenHash(`ehb_${"B".repeat(43)}`),
+          createdAt: tx.now,
         });
         await tx.heartbeats.revokeGrant(probe.id, "grant");
         const first = await tx.heartbeats.grants(probe.id, { limit: 1 });

@@ -17,6 +17,7 @@ import type { ReplayRecordingFixture } from "./replay-recording.js";
 import { seedProbeFixture } from "./probes.js";
 import { seedMetricFixture, metricFixtureObservation } from "./metrics.js";
 import { fixtureSignal } from "./signals.js";
+import { compareUtcTimestamps } from "../../src/contracts/timestamps.js";
 export interface CoverageFixture extends ReplayRecordingFixture {
   coverage: ReplayCoverageRepository;
 }
@@ -107,7 +108,8 @@ export function replayCoverageConformance(
       });
       assert.equal(raw.receipts.length, 1);
       assert.equal(raw.receipts[0]!.usable, true);
-      assert.equal(raw.receipts[0]!.slotAt, startAt);
+      // PostgreSQL preserves six fractional digits; compare instants without losing precision.
+      assert.equal(compareUtcTimestamps(raw.receipts[0]!.slotAt!, startAt), 0);
       assert.equal(raw.configurations[0]!.anchorAt, startAt);
       assert.ok(raw.receipts[0]!.receivedAt);
       assert.equal(JSON.stringify(raw).includes("example.test"), false);

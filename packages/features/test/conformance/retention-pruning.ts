@@ -415,9 +415,10 @@ export function retentionPruningConformance(
         });
         await f.pruning.transaction(scope, source, async (tx) => {
           const remaining = await tx.retentionPrune.snapshot(null);
+          // Compare plain string copies: driver rows may come from another realm.
           assert.deepEqual(
-            remaining.candidates.map((row) => row.id),
-            [ids[1]],
+            Array.from(remaining.candidates, (row) => String(row.id)),
+            [String(ids[1])],
           );
         });
       }

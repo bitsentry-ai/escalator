@@ -20,8 +20,6 @@ A miss occurs only strictly after its deadline. At the exact millisecond boundar
 
 A recorded miss clears its deadline pointer and emits one active signal atomically. A crash before lease settlement can replay the handler, but the cleared pointer prevents a second signal. Further silence never emits recovery. If the owning service is disabled, the handler waits instead of claiming an outage; re-enabling a still-enabled heartbeat with an expired deadline allows that miss to be recorded. An operator can edit the heartbeat to start a fresh deadline explicitly. An exhausted `heartbeat.deadline` job is never settled as failed: the durable runner re-arms the same job after the maximum retry backoff with a fresh attempt budget, so a persistent fault delays the miss instead of losing it.
 
-## Adapter contract and verification
+## Adapter contract
 
 Both hosts must compose the heartbeat store with existing signal, durable-work and audit storage on one physical transaction. The shared guard enforces scope, immutable ownership, version checks, grant validity, receipt-backed ping transitions and closed/poisoned handles. Grant reads must lock their rows until commit; all reads and unique keys are tenant-scoped except the trusted globally unique hash lookup.
-
-The shared conformance suite covers idempotent receipts, trusted scope, revocation, rollback, prohibited recovery writes and handle lifetime. In-memory deadline scenarios cover a claimed miss cancelled by a ping, restart before settlement and the exact timestamp boundary. Real PostgreSQL contention/RLS checks require the disposable test configuration that has not been supplied. No infrastructure or server listener is started by these tests.

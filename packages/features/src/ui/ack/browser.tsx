@@ -18,7 +18,10 @@ const locale =
         locales.find((value) => value.split("-")[0] === language.split("-")[0]),
     )
     .find(Boolean) ?? "en-US";
-const labels = escalatorResources[locale].escalator.ack;
+const labels = {
+  ...escalatorResources["en-US"].escalator,
+  ...escalatorResources[locale].escalator,
+}.ack;
 document.documentElement.lang = locale;
 const element = document.getElementById("root");
 if (element)

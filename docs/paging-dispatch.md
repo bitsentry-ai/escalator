@@ -31,9 +31,3 @@ cancellation execution. Routing persistence and runtime adapters must use the sa
 physical transaction as paging; a second pool connection is not an implementation
 of this port. Late provider acceptance after cancellation still requires a fresh
 attempt-specific cancellation intent in the provider dispatcher.
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` for the
-memory-backed creation/dispatch scenarios. They exercise persisted state and
-rollback without starting a server or database. Full PostgreSQL scenario execution
-and live provider delivery remain not runtime-verified until the documented test
-environment is supplied and the host/runtime integration parts are complete.

@@ -87,32 +87,6 @@ seek without taking a second source lock. Statement and lock timeouts remain fiv
 and one seconds. These adapters do not yet start a production scheduler; runtime
 admission and management screens follow.
 
-### Disposable database verification
-
-**Not runtime-verified:** no test database was available. Follow the role and
-explicit-variable setup in [the pruning procedure](postgres-retention-pruning.md),
-then run from the root checkout:
-
-```sh
-pnpm run escalator:build:packages
-pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
-pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand
-```
-
-Verify that all six `retention maintenance` cases execute in each host, rather
-than skip. They exercise concurrent initialization, tenant isolation and foreign
-keys; 100/5-row continuation and retry after commit before lease settlement;
-audit-failure rollback; and expired-owner fencing with delayed repair after an
-exhausted job. Two further cases cover obsolete-job cleanup, cross-tenant and
-malformed-work protection, retry idempotency and cleanup-audit rollback. Existing
-pruning cases use the same fixture and still run.
-The fixture grants schedule SELECT/INSERT/UPDATE only to its restricted test role.
-
-Before operational activation, also measure query plans and lock contention with
-production-shaped histories in an authorized environment. Passing shared memory
-tests or compiling these opt-in cases does not establish PostgreSQL performance,
-physical locking behavior, or a completed database migration rehearsal.
-
 ## Obsolete maintenance work
 
 Each valid current maintenance claim can retire at most 100 old maintenance jobs
@@ -135,10 +109,6 @@ that bounded query. Protected malformed rows remain in place and may delay later
 cleanup if they fill the candidate window; unexplained work requires inspection,
 not relaxed validation. The existing current-job foreign key also prevents deleting
 a schedule's active reference.
-
-Run the shared and both-host commands above. Database cases and physical query-plan
-and contention measurements remain **not runtime-verified** until an authorized
-disposable PostgreSQL environment is available. These changes do not start a timer.
 
 ## Host activation and capacity
 

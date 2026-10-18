@@ -339,7 +339,7 @@ export function ruleCatalogConformance(
       await s.drafts.edit(s.actor, {
         ruleId: s.entry.id,
         expectedRevision: 1,
-        definition: { ...s.definition, minimumSamples: 2 },
+        definition: { ...s.definition, windowSeconds: 120, minimumSamples: 2 },
       });
       await assert.rejects(
         s.review.activate(s.actor, {
@@ -387,6 +387,8 @@ export function ruleCatalogConformance(
         f.repository.transaction(s.actor.workspaceId, async (tx) => {
           const version = { id: ruleId, revision: 1, definition: s.definition };
           await tx.catalog.insertVersion(version);
+          const step = s.definition.stepSeconds * 1000;
+          const now = Date.parse(await tx.catalog.currentTime());
           await tx.catalog.activateRuntime({
             version,
             generation: 1,
@@ -396,7 +398,7 @@ export function ruleCatalogConformance(
             measurementHash: "a".repeat(64),
             state: null,
             incidentId: null,
-            dueAt: await tx.catalog.currentTime(),
+            dueAt: new Date((Math.floor(now / step) + 1) * step).toISOString(),
             jobId: randomUUID(),
           });
         }),

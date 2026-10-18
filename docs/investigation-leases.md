@@ -18,10 +18,6 @@ Persist report, snapshots and terminal job state atomically. Return `published` 
 
 Stop renewal after completion and dispose timers/listeners on every exit. Callers log outcome metadata only, not the report/evidence body or exceptions containing credentials. Paging has separate capacity and does not await this coordinator.
 
-## Verification limits
-
-Unit fixtures cover claim loss, hanging ports, shutdown and ambiguous publication. PostgreSQL adapters must also run the shared fence/conformance scenarios against a disposable database when configured. These helpers do not implement the host database adapters, worker authentication mapping, broker integration, queue consumer or standalone activation by themselves.
-
 ## Dashboard machine boundary
 
 The internal `POST /api/worker/escalator-investigations/claim` route accepts only `workspaceId` and `runtimeId`. The heartbeat, result and trace routes add `/:id/heartbeat`, `/:id/result` and `/:id/trace` respectively and require the current `claimToken`. Result and trace requests carry `result` or `event`. These are machine-ingress exceptions to the Dashboard's tRPC application API.

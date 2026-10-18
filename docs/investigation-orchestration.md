@@ -17,7 +17,3 @@ Only strict JSON containing a summary and cited findings is accepted. Unknown fi
 Trace writes contain structured metadata, reference IDs and usage only. They carry the claim's scope, runtime and token; the host must reject a stale/expired claim and conflicting duplicate sequence. A rejected trace stops the run. The model has no trace or repository access.
 
 The runner returns the report plus redacted evidence snapshots. Host adapters must persist both atomically under a live claim fence. A report reference alone is insufficient to reproduce what the model saw. Human evidence reads must authorize the same workspace/service/environment/incident scope. Paging runs independently and must not wait for these reads, model requests or report writes.
-
-## Verification limits
-
-Fixtures cover provenance, cancellation, budgets, noncooperative ports, output validation and no-action behavior. This does not prove PostgreSQL lease fencing, live model requests, broker authorization or worker image inclusion. Those remain host adapter and environment checks; no service or infrastructure is started by these unit tests.

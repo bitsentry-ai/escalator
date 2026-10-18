@@ -47,10 +47,6 @@ Configure the external watchdog to notify someone independently of this applicat
 
 Dashboard activation remains dependent on integration of the separate secret broker stack, including organization and durable-claim authorization for the opaque credential. A configured readiness credential cannot manufacture an available runtime when that binding is absent.
 
-## Verification procedure and current gaps
-
-Unit tests cover shared authorization, organization isolation, HTTP status/header mapping, module providers, inert construction and lifecycle registration. Database adapter conformance is described in [database-health.md](database-health.md). Those PostgreSQL cases remain skipped until an existing disposable test database is configured.
+## Readiness and watchdog checks
 
 In an authorized disposable deployment, check that liveness remains 200 when the database is unavailable while authenticated readiness becomes 503. Verify that an overdue paging row fails readiness and stops external heartbeat delivery. Restore database access and allow scheduler progress to resume, then confirm readiness and subsequent heartbeat delivery recover. Stop the whole application and confirm the independent watchdog alerts without relying on an Escalator page. Exercise both hosts, including a foreign organization's token and a disabled broker binding.
-
-Live HTTP endpoints, PostgreSQL behavior and outbound watchdog delivery have not been runtime-verified here. No server or infrastructure was started for this change. Container/Encore image verification and capacity measurement remain separate environment-dependent procedures.

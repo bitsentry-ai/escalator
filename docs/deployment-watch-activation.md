@@ -8,19 +8,14 @@ The in-process scheduler registers `deployment.watch` in a reserved lane and the
 
 Cadence work uses the host's existing probe capacity limits. Eligible probes may temporarily run every minute. Immutable receipts and versioned ownership keep retries, overlapping watches and operator edits from restoring the wrong interval. Dashboard authenticated-probe changes use the same scoped broker metadata check as normal probe updates. Missing integration fails closed. No secret values are copied into watches or work payloads.
 
-## Upgrade and runtime verification procedure
+## Upgrade
 
-This procedure was not executed: no disposable PostgreSQL database, provider credentials or permission to start infrastructure is available in this task.
+Apply baseline, watch and cadence migrations before activating handlers. Older
+schedulers do not understand the new job kinds: stop ingress and drain or stop old
+workers before replacing the application. Back up first.
 
-1. Apply all prior migrations, including baseline, watch and cadence storage, before activating these handlers. Avoid mixed old/new application versions: older schedulers do not know the new job kinds. Stop ingress and drain or stop old workers before replacing the application. Back up first.
-2. Configure one disposable service with a probe above a 60-second interval, a valid paging contact and enough pre-deploy evidence. On Dashboard, integrate the separate secret-broker stack and enable the organization before accepting machine writes.
-3. Start and finish a deployment. Confirm one baseline, watch and pair of initial job intents. Retry the same finish key and payload; verify no duplicate watch or page.
-4. Confirm probe cadence tightens only within the configured capacity budget. Overlap a second deployment, then change a probe manually. Check that old restoration jobs preserve the operator's version and that overlap is reported as uncertain attribution.
-5. Interrupt the process after finish and restart it. Confirm persisted work resumes, evaluates the original window and never admits observations received after its fixed receipt cutoff. A failed watch should link to one incident, including when normal detection runs concurrently.
-6. Let the watch expire and verify an owned interval is restored, while a manually edited interval is preserved. Test missing evidence and verify an insufficient verdict rather than a pass.
-7. Run both opt-in PostgreSQL conformance wrappers described in `deployment-watch-runtime-transactions.md`; use disposable non-superuser application roles and separate migration credentials.
-
-Deployments already started before baseline capture was activated are not backfilled. Their missing baseline remains visible as insufficient evidence. Dashboard activation still depends on integration with the separate broker stack. Image inclusion, live timing and provider delivery remain unverified.
+Deployments started before baseline capture are not backfilled. A missing baseline
+remains insufficient evidence.
 
 ## Machine watch status
 

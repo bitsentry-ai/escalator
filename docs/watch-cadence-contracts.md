@@ -13,9 +13,3 @@ The probe transaction is namespaced as `probeContext` so its signal-ingress toke
 The shared port takes capacity before target/source/probe locks, checks scope and captured inventory, and uses the existing poisoned-transaction guard. Host primitives must filter every operation by the host tenant key. The Dashboard key remains the WorkOS organization ID. No provider calls or secret resolution belong inside these transactions.
 
 Probe configuration writes use the existing transaction timestamp. Workers also check live database time for expired watches; backwards or stale chronology must retry instead of backdating configuration. Restoring a longer interval reduces request capacity but still uses the capacity lock for serialization.
-
-## Verification
-
-`pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` covers ownership, overlap extension, operator edits, scope checks, receipt replay, stale-generation removal and rollback of caught receipt-write failures with one shared in-memory transaction.
-
-PostgreSQL concurrency, actual interval changes and restoration timing remain not runtime-verified. Deliver opt-in PostgreSQL cases alongside the host adapters; no test database or infrastructure is started here. Cadence workers must fit within the existing global worker ceiling before either host activates them.

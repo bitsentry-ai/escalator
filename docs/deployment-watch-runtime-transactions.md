@@ -13,9 +13,3 @@ Attribution is uncertain when another deployment's execution or its following 30
 Reads are scoped by workspace/organization, service and environment, exclude the watched deployment, and fetch at most 129 rows. The result retains 128 IDs and explicitly reports incomplete inventory on overflow. A held target lock serializes deployment lifecycle writes for that service/environment. The shared validator rejects foreign scope, duplicates, self-reference and impossible chronology.
 
 Receipt visibility is capped at the evidence snapshot and the original watch end plus its 120-second grace period. A delayed worker cannot include a newly accepted, backdated deployment or a finish receipt beyond that cutoff. Overlap is correlation, not proof of cause; it does not replace measured health or trigger rollback.
-
-## Verification
-
-Shared unit cases cover overlapping completed watches, unknown unfinished deployments, overflow, invalid identities and fixed receipt visibility. The same opt-in PostgreSQL suite runs in both hosts and checks atomic start/finish effects, usable cadence work, whole-finish rollback and scoped overlap reads.
-
-No disposable PostgreSQL configuration is available here. Database cases are delivered but not runtime-verified. Configure the existing explicit test database variables described in each host's cadence-storage guide, then run the standalone server suite and Dashboard Escalator Jest suite. They start no servers or infrastructure. Live scheduler activation and timing still require the next runtime-registration change and an equipped environment.

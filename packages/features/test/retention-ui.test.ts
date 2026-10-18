@@ -107,7 +107,11 @@ test("event evidence does not claim continuous monitoring", () => {
   assert.doesNotMatch(html, /retention.available/);
 });
 test("all coverage gap reasons have nonempty labels in all six locales", () => {
-  for (const locale of Object.values(escalatorResources))
+  for (const locale of Object.values(escalatorResources)) {
+    const { retention } = {
+      ...escalatorResources["en-US"].escalator,
+      ...locale.escalator,
+    };
     for (const reason of [
       "configuration_unknown",
       "configuration_unavailable",
@@ -118,5 +122,6 @@ test("all coverage gap reasons have nonempty labels in all six locales", () => {
       "unusable",
       "query_truncated",
     ] as const)
-      assert.ok(locale.escalator.retention.gap[reason].trim());
+      assert.ok(retention.gap[reason].trim());
+  }
 });

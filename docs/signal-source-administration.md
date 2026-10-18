@@ -30,5 +30,4 @@ These use cases are not yet exposed by host routes in this part. The following
 host-wiring parts bind them to authenticated tRPC procedures and the bounded
 machine-ingress endpoint. Provider-specific source creation is introduced with
 its own adapter; generic ingestion cannot mint grants for a probe or a provider
-signature endpoint. Database execution remains covered by the opt-in procedures
-and has not been runtime-verified in the implementation environment.
+signature endpoint.

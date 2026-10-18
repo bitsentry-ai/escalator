@@ -29,22 +29,3 @@ Dashboard application tRPC. Standalone checks its configured workspace;
 Dashboard checks its rollout allowlist before database access. Capability checks
 remain required regardless of cookies or any WorkOS session. Responses disable
 caching and referrers; the screen has a restrictive same-origin content policy.
-
-## Verification and deployment procedure
-
-Unit tests cover GET/POST separation, scope rejection, fragment removal, request
-transport, explicit button activation and both controller adapters. Existing
-paging conformance covers expired/foreign grants and atomic ownership. The
-shared screen uses a fluid border-box layout and full-width acknowledgement
-button; check it at 360px width on the target device before rollout.
-
-After applying migrations in an authorized environment, create a configured
-page, open its notification link, confirm that merely opening it does not
-acknowledge, then press the button and verify persisted ownership and cancellation.
-Repeat with an expired link, a different workspace and a concurrent recipient.
-Verify the reverse proxy forwards the acknowledgement paths to the API and
-redacts authorization headers. Never put the token into access logs.
-
-No HTTP server, PostgreSQL or browser runtime was started during implementation.
-Live mobile rendering and deployment routing are not runtime-verified. Dashboard
-paging activation still depends on integrating the separate secret-broker stack.

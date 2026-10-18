@@ -42,13 +42,17 @@ test("an unavailable metric sample renders insufficient data and its old configu
 
 test("every metric outcome and provider reason has a nonempty label in all six locales", () => {
   for (const { escalator } of Object.values(escalatorResources)) {
+    const { metrics } = {
+      ...escalatorResources["en-US"].escalator,
+      ...escalator,
+    };
     for (const reason of metricObservationSchema.shape.reason.options)
-      assert.ok(escalator.metrics.providerReasons[reason].trim());
+      assert.ok(metrics.providerReasons[reason].trim());
     for (const state of metricObservationSchema.shape.evaluation.shape.state
       .options)
-      assert.ok(escalator.metrics.states[state].trim());
+      assert.ok(metrics.states[state].trim());
     for (const reason of metricObservationSchema.shape.evaluation.shape.reason
       .options)
-      assert.ok(escalator.metrics.reasons[reason].trim());
+      assert.ok(metrics.reasons[reason].trim());
   }
 });

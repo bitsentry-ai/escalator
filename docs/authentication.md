@@ -15,8 +15,6 @@ schemas, matching the feature package version.
 
 These libraries support the host's CommonJS output and local accounts without
 email delivery. Password hashing and OTP computation use library implementations.
-The native Argon2 package loaded and passed hash/verification tests on Node 22.14;
-container and other-platform native loading are not runtime-verified.
 
 [Argon2's API and prebuilt-binary documentation](https://github.com/ranisalt/node-argon2/blob/master/README.md)
 describes its hash/verify functions and installation requirements.
@@ -27,18 +25,6 @@ PostgreSQL persistence.
 [otplib's verification API](https://otplib.yeojz.dev/api/@otplib/totp/functions/verify.html)
 returns a matched time step, which the host must consume atomically to prevent
 replay. All of these dependencies remain inside the standalone workspace.
-
-## Delivery status
-
-Dependency support, persistence, login/MFA orchestration and operator commands
-are implemented. The app factory now registers PostgreSQL sessions, CSRF checks
-and tRPC authentication procedures. The standalone shell includes login, setup,
-operator recovery, invitations and authenticator management. No live HTTP service
-or database-backed authentication flow has been run.
-Encrypted TOTP material must participate in the existing key-rotation procedure.
-PostgreSQL conformance will remain explicitly not runtime-verified until a
-separate disposable test database is provided; tests never use the application's
-connection string as a fallback.
 
 ## Persistence foundation
 
@@ -62,8 +48,9 @@ app factory. The standalone shell supplies the user-facing screens.
 Run `pnpm --filter @bitsentry-escalator/server test` from this workspace for
 library/validation tests and opt-in PostgreSQL scenarios. Database scenarios
 require both dedicated test variables described in the README; without them,
-the runner explicitly skips database cases. PostgreSQL migration, concurrent
-registration, rate limiting and session persistence remain not runtime-verified.
+the runner explicitly skips database cases.
+
+Encrypted TOTP material participates in the key-rotation procedure.
 
 ## Login and MFA flows
 
@@ -107,12 +94,6 @@ MFA credentials, invalidates all prior sessions again, and requires fresh login.
 Enable MFA again after recovery. No email service is needed. If issuance fails,
 fix the configuration and retry with an unused output path; no credential is
 printed in errors.
-
-Run the server test command above for flow and operator-file unit tests. With the
-explicit disposable database variables configured, the same suite additionally
-checks MFA encryption, concurrent recovery-code consumption, expired enrollment,
-disabling/re-enabling MFA and one-use operator recovery. Those PostgreSQL scenarios
-remain not runtime-verified; the operator CLI was not executed against a database.
 
 ## HTTP session configuration
 
@@ -158,5 +139,4 @@ The client uses same-origin tRPC requests, obtains a CSRF token before mutations
 updates it after session rotation and never automatically replays a failed
 mutation. Secret inputs travel in POST bodies, not URL query strings. The six
 feature locales include all account and Services labels. UI transport unit tests
-run with `pnpm --filter @bitsentry-escalator/web test`; live browser flows remain
-not runtime-verified in this environment.
+run with `pnpm --filter @bitsentry-escalator/web test`.

@@ -20,8 +20,6 @@ The snapshot cutoff is not a replay engine. A later replay must independently fi
 
 Webhook sources have no promised sample cadence. Their report counts visible, late and retrospective events and states that continuity is not inferred. An empty event history cannot be labeled healthy, a clean negative, or continuous monitoring. Incomplete reads remain explicitly incomplete.
 
-## Adapter obligations and pending verification
+## Adapter obligations
 
 Both PostgreSQL adapters must scope every receipt and configuration query to the authenticated workspace (Dashboard organization ID). They must return complete bounded pages or mark the report incomplete, preserve observation and receipt times, and report retention boundaries rather than reconstructing deleted data. Pruning must preserve ingress idempotency after replay payloads are removed.
-
-Unit fixtures cover coverage semantics and policy arithmetic. PostgreSQL conformance and migration execution require the separately documented disposable test variables; none is configured in this environment. They will be delivered with the database adapters. No runtime database, server, container or provider is started for this part.

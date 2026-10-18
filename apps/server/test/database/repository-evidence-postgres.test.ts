@@ -34,6 +34,7 @@ import {
 } from "@bitsentry-escalator/features/investigation";
 import { readMigrations } from "../../src/platform/database/migrate.js";
 import { PostgresDeploymentRepository } from "../../src/platform/database/deployments.repository.js";
+import { postgresDeploymentStore } from "../../src/platform/database/postgres-deployments.store.js";
 import { PostgresConfigurationRepository } from "../../src/platform/database/configuration.repository.js";
 import { PostgresFoundationRepository } from "../../src/platform/database/foundation.repository.js";
 import { PostgresWorkStore } from "../../src/platform/jobs/postgres-work.store.js";
@@ -102,8 +103,12 @@ async function record(
   kind: "base" | "head" | "late",
   commit: string,
 ) {
-  await f.repository.transaction(workspaceId, async (tx) => {
-    const entry = await fixtureDeployment(tx, id);
+  const entry = await f.repository.transaction(workspaceId, (tx) =>
+    fixtureDeployment(tx, id),
+  );
+  // Seed retained history directly: live ingress deliberately rejects backdated
+  // acceptance times and inserting an already-terminal deployment.
+  await f.foundation.withConnection(workspaceId, async (_base, db) => {
     const successful = kind !== "head";
     const start =
       kind === "head" ? "2026-10-01T01:00:00.000Z" : "2026-10-01T00:00:00.000Z";
@@ -113,7 +118,7 @@ async function record(
       kind === "late" ? "2026-10-01T00:50:00.000Z" : "2026-10-01T00:10:00.000Z";
     const received =
       kind === "late" ? "2026-10-01T01:01:00.000Z" : "2026-10-01T00:10:01.000Z";
-    await tx.deployments.insert({
+    await postgresDeploymentStore(db, workspaceId).insertDeployment({
       ...entry,
       deployment: deploymentSchema.parse({
         ...entry.deployment,
@@ -329,7 +334,7 @@ test(
         );
       });
       const paging = new PostgresPagingRepository(f.database.app, connections);
-      const incident = await paging.transaction(f.a, async (tx) => {
+      const page = await paging.transaction(f.a, async (tx) => {
         const seed = (await tx.pages.get("page"))!;
         return openPageInTransaction(tx, {
           incident: {
@@ -345,7 +350,7 @@ test(
       await f.foundation.withConnection(f.a, async (_base, db) => {
         const result = await db.query(
           "SELECT configuration FROM escalator_investigation WHERE workspace_id=$1 AND incident_id=$2",
-          [f.a, incident.id],
+          [f.a, page.incidentId],
         );
         assert.equal(result.rows.length, 1);
         const captured = result.rows[0].configuration;
@@ -357,7 +362,7 @@ test(
           },
         ]);
         assert.deepEqual(captured.secretIds, []);
-        const incidentScope = { ...scope(f.a), incidentId: incident.id };
+        const incidentScope = { ...scope(f.a), incidentId: page.incidentId };
         assert.equal(
           sameInvestigationConfiguration(
             captured,

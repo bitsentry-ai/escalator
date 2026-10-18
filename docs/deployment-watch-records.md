@@ -22,10 +22,6 @@ The PostgreSQL queries exclude receipts unavailable at the fixed grace cutoff be
 
 Both readers validate organization/workspace, target, deployment, service and environment bindings before SQL. They run on the caller's scoped transaction, lock captured sources in stable source-ID order, and acquire those locks before work/accounting locks. They do not resolve credentials, contact providers or start another transaction.
 
-## Paging and verification
+## Paging
 
 The policy helper requires a recorded failure. Watch paging retains the captured service schedule ladder, unlike timeout paging's deployer-first ladder. Generated watch policy metadata identifies the accepted deployment. Disabling new intake must not erase an already accepted failed watch's page. Actual paging activation waits for atomic watch/incident persistence.
-
-Run the feature suite for watch transitions, first-failure preservation, finalization, missing evidence, overlap bounds, historical compatibility, late receipts and scope binding. Existing baseline cases exercise the shared projection refactor too. Both host builds/typechecks validate reader consumption through compiled package exports.
-
-PostgreSQL reader execution and concurrency are not runtime-verified here: no disposable test database is configured. The full watch integration suite must additionally check disabled-after-window sources, post-window definition edits and more than 128 late receipts before runtime activation. Docker/Encore and Dashboard broker integration gaps remain unchanged.

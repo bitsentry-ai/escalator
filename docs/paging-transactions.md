@@ -39,14 +39,3 @@ Its attempt result must be recorded independently of the cancelled outbox lease,
 with the late-completion flag, followed by another durable cancellation intent if
 needed. Cancellation before a late provider acceptance cannot prove that retries
 stopped. The dispatcher must account for this race explicitly.
-
-## Verification
-
-The shared conformance suite covers stored-versus-forged lease payloads, stale and
-revoked claims, scoped pagination, concurrent acknowledgements, first-owner
-retention, atomic rollback, cancellation intents and recording an in-flight result.
-The memory tests also advance the clock during a page-lock wait to verify grant
-expiry is checked again. Both PostgreSQL adapters register the same conformance
-suite; they remain opt-in and not runtime-verified without a disposable test database.
-See `paging-persistence.md` and the Dashboard PostgreSQL verification procedure.
-No server or database startup is needed to run the memory suite.

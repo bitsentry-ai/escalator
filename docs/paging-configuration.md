@@ -33,8 +33,6 @@ does not suppress an assigned responder's overnight pages.
 
 The reusable `test/conformance/configuration.ts` suite exercises compare-and-swap,
 scope isolation, stale previews, rollback, and handle lifetime. The memory adapter
-shares the foundation and paging transaction draft, including rollback. Standalone
-and Dashboard adapters and registrations follow in the next stack parts. No live
-PostgreSQL run is claimed: no disposable test database is configured. Host test
-procedures must keep using explicit test-only database variables without falling
-back to the application database.
+shares the foundation and paging transaction draft, including rollback. Host tests
+require explicit test-only database variables and never fall back to an application
+database.

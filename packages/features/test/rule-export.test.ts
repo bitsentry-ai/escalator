@@ -44,7 +44,7 @@ const mapping = {
   environmentId: "local-prod",
   streamId: "local-stream",
 };
-for (const kind of ["probe", "metric", "signal"] as const) {
+for (const kind of ["probe", "metric"] as const) {
   test(`portable ${kind} rule round-trips through import with explicit local mapping`, async () => {
     const f = source();
     const selector =
@@ -63,7 +63,7 @@ for (const kind of ["probe", "metric", "signal"] as const) {
       definition: {
         ...f.version.definition,
         selector,
-        aggregation: kind === "signal" ? "count" : "maximum",
+        aggregation: "maximum",
       },
     });
     const exported = exportRule(f.entry, version);

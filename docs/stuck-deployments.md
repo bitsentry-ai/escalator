@@ -20,12 +20,6 @@ The standalone adapter uses its existing pool and workspace identity. The Dashbo
 
 The deadline decorator applies to newly accepted starts. It does not backfill deployments accepted by an earlier tracking-only part of this stack. Before upgrading such an installation, pause new deploy submissions, let in-flight deployments finish through their existing hooks, and verify that no `STARTED` deployments remain before switching to the timeout-enabled build. Resume submissions afterward. Do not mark an active deployment complete merely to satisfy this check. A live upgrade with unfinished legacy rows needs a separately tested scoped deadline backfill; this part does not provide or claim that backfill.
 
-## Verification procedure
-
-Run the feature unit suite and existing paging conformance suite. The latter now round-trips the generated timeout policy, checks workspace isolation, and rejects rewriting its saved responder mapping. With disposable PostgreSQL configured using the existing standalone/Dashboard test variables, run both host suites to exercise the same persistence contract. No database is started by the tests.
-
-Live scheduling, provider delivery, restart races and PostgreSQL execution remain not runtime-verified until the documented environment checks run. The shared tests cover in-memory atomic rollback, claim expiry, retries and late completion; they do not substitute for database concurrency tests.
-
 ## PostgreSQL conformance
 
 Provide two distinct URLs for an existing disposable database: a migration/role-provisioning connection and a restricted application connection. Tests refuse unconfigured execution and clean up their isolated fixtures. Do not point them at production.
@@ -35,4 +29,4 @@ Provide two distinct URLs for an existing disposable database: a migration/role-
 | Standalone | `ESCALATOR_TEST_MIGRATION_DATABASE_URL`, `ESCALATOR_TEST_DATABASE_URL`                     | `pnpm --dir apps/escalator --filter @bitsentry-escalator/server test`                                         |
 | Dashboard  | `ESCALATOR_DASHBOARD_TEST_MIGRATION_DATABASE_URL`, `ESCALATOR_DASHBOARD_TEST_DATABASE_URL` | `pnpm --filter @bitsentry/backend exec jest --config src/features/escalator/test/jest.config.cjs --runInBand` |
 
-Build shared packages before the Dashboard suite. The shared timeout suite checks rollback after caught validation errors, accepted-start/job rollback, timeout/page/audit rollback, duplicate claims, invalid claim tokens, concurrent finish-versus-timeout outcomes, scope isolation and late completion. It seeds an already-due deployment instead of starting a scheduler or sleeping for its timeout. The in-memory variant runs without a database; PostgreSQL variants remain not runtime-verified in this implementation environment.
+Build shared packages before the Dashboard suite. The shared timeout suite checks rollback after caught validation errors, accepted-start/job rollback, timeout/page/audit rollback, duplicate claims, invalid claim tokens, concurrent finish-versus-timeout outcomes, scope isolation and late completion. It seeds an already-due deployment instead of starting a scheduler or sleeping for its timeout. The in-memory variant runs without a database.

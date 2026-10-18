@@ -43,11 +43,3 @@ The broker stack is neither edited nor merged here. Dashboard activation and cre
 ## Probe inspection
 
 The existing probe detail query adds `lastResult`, resolved through the persisted state's observation ID in the same scoped transaction. It is nullable when no retained receipt is available. Its version can precede the current probe configuration; clients must display that distinction rather than imply that an older result validates new settings. History keeps its existing record-ID pagination.
-
-## Verification
-
-The shared signal conformance suite checks grant pagination, source/tenant isolation, revocation metadata, missing sources and page bounds. Both PostgreSQL registrations use the same cases; see [database verification](signal-storage-verification.md). They remain opt-in without disposable test database configuration.
-
-Unit cases cover administrative access, response redaction, current-session routing, credential encoding, header injection, UTF-8 limits and buffer clearing. No listener or infrastructure is started.
-
-In a separately authorized disposable installation, issue multiple grants across sources and organizations; check that pages cannot cross either boundary. Revoke a listed grant, confirm its original timestamp persists, and verify ingress rejects it. Provision each credential format, bind it to its intended monitor/provider, and verify success and rejection after revocation. Real provider delivery, PostgreSQL execution and Dashboard provisioning remain runtime checks.

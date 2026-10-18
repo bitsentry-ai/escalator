@@ -17,19 +17,3 @@ Baseline pins protect the source's observation window for 604,800 elapsed second
 Migration `0018_deployment_baselines.sql` adds tables, scoped foreign keys, indexes and forced row-level security. It does not backfill historical deployments. Apply migrations before running the new retention adapter. Stop older retention consumers before eventually activating baseline capture: an older binary does not understand these pins.
 
 The restricted application role needs `SELECT, INSERT` on `escalator_deployment_baseline` and `SELECT, INSERT, DELETE` on `escalator_deployment_pin`. Grant these only within the application's schema. RLS permits pin deletion only after expiry, even if the role has broader mutation grants; it permits no baseline updates or deletes. The migration role remains separate from the non-BYPASSRLS application role.
-
-## Opt-in PostgreSQL verification
-
-No test database is configured in the implementation environment, so the PostgreSQL cases are not runtime-verified. Use an existing disposable database and configure both names below; never substitute a production `DATABASE_URL`:
-
-- `ESCALATOR_TEST_MIGRATION_DATABASE_URL`: migration role allowed to create and drop test schemas.
-- `ESCALATOR_TEST_DATABASE_URL`: separate restricted application role on that same database.
-
-From the repository root, run:
-
-```sh
-pnpm run escalator:setup
-pnpm --dir apps/escalator --filter @bitsentry-escalator/server test
-```
-
-The fixture creates a random schema, applies migrations twice to verify journal stability, grants scoped test privileges and drops only that schema afterward. Confirm that deployment-baseline cases execute rather than skip, and that the existing retention suite still passes. The new cases check scoped actual-value capture, duplicate-start immutability, absence of configuration payloads in saved history, populated-tenant RLS, active-pin protection and rollback of all related rows.

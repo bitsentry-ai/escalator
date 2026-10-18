@@ -23,9 +23,13 @@ import { readMigrations } from "../../src/platform/database/migrate.js";
 import { postgresFixture, testDatabaseConfigured } from "./postgres-fixture.js";
 import { postgresSignalStore } from "../../src/platform/database/postgres-signals.store.js";
 const skip = !testDatabaseConfigured();
-async function fixture(enabled: boolean | undefined) {
+async function fixture(
+  enabled: boolean | undefined,
+  serviceMutationPrivileges = false,
+) {
   const database = await postgresFixture(
     await readMigrations(resolve("migrations")),
+    { serviceMutationPrivileges },
   );
   try {
     const workspaceId = workspaceIdSchema.parse("first_page_" + randomUUID());
@@ -358,7 +362,7 @@ test(
   "standalone service disablement fences production investigation reads and renewal",
   { skip },
   async () => {
-    const f = await fixture(true);
+    const f = await fixture(true, true);
     try {
       await f.open();
       const repository = new PostgresInvestigationRepository(f.database.app, {

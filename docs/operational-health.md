@@ -17,7 +17,3 @@ A small coordinator only enqueues a PostgreSQL intent for the current database-t
 The durable handler validates the persisted claim, configuration and current interval, obtains credentials through that claim, evaluates fresh readiness after broker access, rechecks the database fence, then sends a GET heartbeat. Failed readiness, expired claims and obsolete intervals suppress network I/O. Provider or post-send broker uncertainty is reported as unknown, without exposing error details. Diagnostic observer failure cannot stop durable processing. An in-flight heartbeat cannot be recalled if readiness changes after transmission.
 
 A new interval seeds a new intent even if a preceding attempt exhausted retries. Active handlers discard expired intervals. Retention must also retire expired intents left behind by removed configurations; that cleanup is part of T3.12. Operators must allow startup grace while scheduler lanes establish their first actual progress and complete configuration changes across all replicas.
-
-## Verification scope
-
-Unit scenarios cover queue-age boundaries, stopped/stalled schedulers, timer-only false positives, database timeouts, stranded-query backpressure, scoped intent deduplication, rolling configuration isolation, readiness degradation during secret access, expired claims and post-send uncertainty. The tests use in-memory repositories and transports. PostgreSQL behavior, real watchdog delivery and host endpoint operation still require an authorized runtime environment.

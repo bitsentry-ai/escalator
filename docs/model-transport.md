@@ -27,18 +27,3 @@ and SDK cancellation are honored, including DNS waits. Compressed responses are
 rejected and response bytes are bounded before SDK JSON parsing. Exceptions
 contain fixed reason codes, not credentials, prompts, destination URLs or raw
 provider error bodies.
-
-## Verification and remaining integration
-
-Unit tests inject DNS and request doubles; they do not start an HTTP server.
-They cover local loopback approval, private CIDRs, mixed answers, metadata,
-pinned peers, TLS options, origin/path escapes, redirects, unsafe request
-shapes, byte limits, truncated/compressed bodies, timeouts and cancellation.
-
-This part supplies transport primitives for T5.2/T5.4. It does not authorize a
-profile, acquire a secret, invoke Ollama, schedule an investigation or establish
-host parity. The scoped resolver must validate the live work claim and captured
-profile binding before each call, resolve an opaque secret through the existing
-host secret adapter, disable SDK retries/tools, validate provider output and
-publish the explicit model destination. Host activation follows those adapters.
-Live model calls and final container/Encore inclusion remain runtime-unverified.

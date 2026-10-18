@@ -39,26 +39,3 @@ Settings use the existing foundation transaction with a five-second statement
 timeout and one-second lock timeout. It has no provider or broker network calls.
 The separate investigation execution repository retains its dedicated bounded
 pool/transaction contract; these settings APIs do not activate a runner.
-
-## Verification procedure
-
-No disposable PostgreSQL database is configured in this work environment. The
-opt-in cases are delivered but not runtime-verified. Configure only the dedicated
-`ESCALATOR_TEST_MIGRATION_DATABASE_URL` and `ESCALATOR_TEST_DATABASE_URL` variables
-for a disposable database, using separate migration and unprivileged application
-roles. Never substitute the production application's database URL.
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/server test`.
-The database fixture applies migrations in a random schema, verifies migration
-idempotency, grants scoped privileges and removes the schema afterward. The new
-cases exercise selection uniqueness, concurrent revision checks, rollback,
-row-level security, scoped source pagination and cross-workspace source denial.
-A passing TypeScript build does not prove those database behaviors.
-
-The router tests use authenticated caller fixtures and an in-memory writer; they
-verify session-derived scope, rejected caller scope, error handling and key buffer
-erasure. They do not start an HTTP server or contact a provider.
-
-Dashboard settings persistence, both-host settings screens, source connection
-adapters, first-page enqueue and runner activation follow in later parts. No
-investigation feature should be marked complete based on these settings alone.

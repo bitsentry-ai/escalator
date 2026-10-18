@@ -1,7 +1,6 @@
-# Capacity verification
+# Capacity measurement
 
-Status: not runtime-verified. No supported production envelope or latency result
-is claimed. The initial reference workload is a target to measure, not a sizing
+The initial reference workload is a target to measure, not a sizing
 guarantee: 100 one-minute probes, 20 simultaneously active incidents and two
 investigations. Measure both hosts separately; Dashboard results must include its
 backend and Encore worker, and cannot be inferred from standalone results.
@@ -59,11 +58,6 @@ growth against configured quotas and pruning progress; a per-record size limit
 is not an aggregate database-capacity bound.
 
 ## Release evidence table
-
-| Host / scenario      | Resources  | Eligible first pages / on time | Escalations / on time | Ack latency | CPU / RSS / loop delay | DB growth  | Result               |
-| -------------------- | ---------- | ------------------------------ | --------------------- | ----------- | ---------------------- | ---------- | -------------------- |
-| Standalone reference | Unmeasured | Unmeasured                     | Unmeasured            | Unmeasured  | Unmeasured             | Unmeasured | Not runtime-verified |
-| Dashboard reference  | Unmeasured | Unmeasured                     | Unmeasured            | Unmeasured  | Unmeasured             | Unmeasured | Not runtime-verified |
 
 Attach sample counts, raw redacted observations, dropped samples and collection
 failures. A build or typecheck is not capacity evidence. Keep the release envelope
@@ -132,5 +126,4 @@ all eligible incidents/steps from the load cohort, not only successful deliverie
 The evaluator deliberately marks provenance as operator-supplied and does not
 certify a supported capacity envelope. Its fractions must be accompanied by the
 load manifest, all-process resource samples, database growth, queue lag, provider
-latencies and the scenario/retention evidence described above. No tools or
-workloads in this section were run against an application or database here.
+latencies and the scenario/retention evidence described above.

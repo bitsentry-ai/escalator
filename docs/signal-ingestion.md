@@ -38,4 +38,4 @@ pnpm --dir apps/escalator --filter @bitsentry-escalator/features test
 The current conformance fixture runs in memory. Both PostgreSQL adapters will
 register the same scenarios; database execution remains unverified without the
 explicit disposable test database configuration described in the
-[database verification guide](../../../docs/architecture/escalator-postgres-verification.md).
+[installation guide](install/README.md).

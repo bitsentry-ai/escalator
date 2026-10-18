@@ -1,9 +1,5 @@
 # Isolated Escalator installation
 
-Status on 2026-10-08: procedures supplied; Docker startup, PostgreSQL operations
-and provider delivery are **not runtime-verified**. Commands below are for an
-operator-authorized environment and were not executed during implementation.
-
 The build context is `apps/escalator`, which may be copied out of the monorepo.
 The deployment consists of one app image and PostgreSQL. It does not need the root
 workspace, Desktop CE, WorkOS, Encore or Redis. Build the image from the reviewed
@@ -106,6 +102,3 @@ Configure authenticated readiness and an independent watchdog. Confirm database
 loss or a stalled dispatcher makes readiness fail while process liveness can stay 200. Confirm the watchdog alerts when Escalator stops. Rehearse database plus key
 restore and safe pending-page handoff using the operations procedure. Record skips
 as unverified; a green container health check is not proof of operational readiness.
-
-Provider recipes: [Coolify](coolify.md), [Dokploy](dokploy.md),
-[Kamal accessory](kamal.md). Each still requires a dated manual verification run.

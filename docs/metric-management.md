@@ -65,5 +65,4 @@ Example standalone policy (operator must replace the approved hostname):
 Credentials are opaque secret IDs; the configured encrypted store/broker releases
 plaintext only for the persisted live job claim. Network I/O uses the same DNS
 pinning and destination policy as probes. Query windows use immutable configuration
-versions and database receipt visibility. PostgreSQL execution, live provider
-queries and measured capacity remain not runtime-verified in this environment.
+versions and database receipt visibility.

@@ -53,26 +53,3 @@ receiver issuance also requires `sourceVerification`; existing generic/token
 modes do not imply permission to decrypt an inbound verification secret. Metadata
 checks must hold the scoped enabled-secret lock until the surrounding acceptance
 transaction commits. The default Dashboard metadata adapter denies access.
-
-## Runtime verification procedure
-
-These checks require a separately authorized disposable installation and provider
-configuration; they were not executed during implementation. No new infrastructure
-is started by the unit tests.
-
-1. Configure each mode and its source/service/environment through authenticated
-   administration. For signed modes, provision an opaque verification secret
-   through the host's authorized secret setup integration and issue a receiver.
-2. Send a real provider notification and record a sanitized fixture with provider
-   version and relevant header names. Never commit live MAC keys or bearer tokens.
-3. Repeat Sentry/Grafana delivery and verify a duplicate response without a second
-   processing job. Repeat native GlitchTip delivery and verify separate receipts
-   with a stable fingerprint and no duplicate incident page once grouping is bound.
-4. Tamper with raw bytes, signature, timestamp and source reference. Verify 401 or
-   400 without exposing credential, organization or database details.
-5. Revoke the receiver or disable its secret while verification is waiting for
-   broker I/O. Verify no signal commits. Repeat during metadata-lock contention.
-6. Send an oversized/compressed body and disconnect an unfinished request. Verify
-   bounded rejection and no retained raw-body evidence in request diagnostics.
-7. Confirm source edits, receiver issuance/revocation and accepted signals appear
-   in the scoped audit trail, with no plaintext credentials or arbitrary payloads.

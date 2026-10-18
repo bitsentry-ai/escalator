@@ -35,11 +35,3 @@ credentials within the same trusted organization. Existing broker credentials
 are user-owned, so their IDs alone do not establish organization ownership.
 Do not enable paging using a permissive metadata or authorization callback.
 The binding is server-owned and cannot be supplied by application requests.
-
-## Verification limits
-
-Unit tests exercise independent deadline capacity, shutdown draining, stored
-secret authorization and inactive Dashboard behavior. PostgreSQL conformance
-requires the disposable test database variables documented in the adapter guides.
-No database, server, Docker image or Encore runtime was started for these checks.
-Deployment activation remains dependent on broker integration and runtime checks.

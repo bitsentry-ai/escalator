@@ -44,16 +44,3 @@ before executing commands. The transport never echoes exception messages or
 bearer credentials. A 202 records acceptance, 200 a lifecycle duplicate, and 409
 a rejected lifecycle transition or conflicting idempotency key. An exact receipt
 retry preserves its original result and status, including an original 202.
-
-## Verification
-
-Run the feature command/HTTP tests and both host route suites without listeners.
-The suites check local/organization identity, injected scope rejection, writer
-activation gating, capability separation, malformed input, sanitized errors and
-bounded admission. PostgreSQL conformance uses only the opt-in disposable
-configuration described in `deployment-postgres.md`.
-
-Not runtime-verified: PostgreSQL concurrency, live ingress/reverse-proxy behavior
-and Dashboard broker activation. No test database or new infrastructure is
-started. Stuck-deploy jobs, coverage preflight and post-deploy watch are separate
-Phase 4 tasks; this change activates lifecycle recording only.

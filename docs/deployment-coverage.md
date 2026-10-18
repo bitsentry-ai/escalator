@@ -42,12 +42,3 @@ ports and their shared guard. It does not yet persist decisions in either host,
 activate a preflight endpoint, issue audited overrides or enforce decisions at
 start. Those follow with both adapters and application/route bindings. No CI
 protection is claimed until those pieces and the hook recipes are installed.
-
-## Verification
-
-Feature tests cover DST, half-open working windows, unknown mapping, role/contact
-eligibility, stable fingerprints, changed versions, expiry, deployment binding,
-override authorization, scope rejection, forged evidence, defensive copies and
-poisoned/closed transaction handles. These tests need no database or listener.
-PostgreSQL conformance and transactional audit rollback must additionally be
-verified by the host adapters; there is currently no disposable test database.

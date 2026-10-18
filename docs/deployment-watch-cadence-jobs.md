@@ -11,9 +11,3 @@ Both tightening and overlapping extension require a fresh check against configur
 A successful change updates the actual probe/source versions, retained configuration history and schedule, then stores ownership, queues restoration and records the receipt/audit in the same physical transaction. The original interval is retained across overlaps. Probe, source and work operations use the namespaced probe context without replacing deployment-token methods.
 
 Restoration checks the current generation, lease revision, probe version and deadline under the same lock order. Each ownership revision queues its own restoration job, so an overlap supersedes the old job and re-arms restoration even if an earlier job failed terminally. A manual edit supersedes ownership even if it retains the same numeric interval. Successful restoration reschedules the longer interval; superseded restoration leaves the operator's configuration untouched. Receipt or audit failure rolls back all effects, including restoration work.
-
-## Verification
-
-`pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` covers retry-safe fan-out, tightening/restoration, expired leases, capacity rejection, reduced-capacity overlap, manual edits, rollback and extended deadlines using one in-memory physical transaction.
-
-PostgreSQL locking/timing and live probe execution remain not runtime-verified. The jobs perform no provider calls themselves. Deliver opt-in database cases with both host adapters and document the worker-slot accounting before runtime registration. No infrastructure is started by these tests.

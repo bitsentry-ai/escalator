@@ -37,6 +37,5 @@ reads and unavailable sources remain explicit; they do not prove system health.
 The existing security-telemetry diagnosis behavior and its specifications remain
 unchanged. Tests use the real Wazuh query helper with fixture executors; the global
 adapter is disabled in the new suite to prevent accidental external access.
-Live Wazuh transport, D3 broker integration and final Encore image inclusion are
-not runtime-verified. Deployment requires the scoped host composition, not a
-mock or always-authorized source binding.
+Deployment requires the scoped host composition, not a mock or always-authorized
+source binding.

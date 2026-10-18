@@ -50,10 +50,3 @@ responses too. A reducer result alone supplies none of these runtime guarantees.
 from deployment lifecycle. A successful deploy does not imply a healthy service.
 Watch orchestration, baseline retention and related incidents arrive in T4.5;
 there is no rollback, promotion gate or release lock here.
-
-## Verification
-
-`pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` includes
-the lifecycle matrix, timeout/finish races, persisted replay, conflicting events,
-scope checks, untrusted actor mapping, chronology and record invariants. These
-are pure unit checks and require no PostgreSQL or running host.

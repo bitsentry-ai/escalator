@@ -147,7 +147,7 @@ export function retentionAccountingConformance(
             durationMs: 10,
           }),
         );
-        await tx.signals.insert(fixtureSignal(tx, "first"));
+        await tx.signals.insert(fixtureSignal(tx, "first", "first"));
       });
       await f.metrics.transaction(b, async (tx) => {
         const metric = await seedMetricFixture(tx);
@@ -173,14 +173,17 @@ export function retentionAccountingConformance(
         other = await usage(f, b);
       await f.probes.transaction(a, async (tx) =>
         assert.equal(
-          await tx.signals.insert(fixtureSignal(tx, "first")),
+          await tx.signals.insert(fixtureSignal(tx, "first", "first")),
           "duplicate",
         ),
       );
       assert.equal(await usage(f, a), initial);
       await assert.rejects(
         f.probes.transaction(a, async (tx) => {
-          await tx.signals.insert(fixtureSignal(tx, "rollback"));
+          assert.equal(
+            await tx.signals.insert(fixtureSignal(tx, "rollback", "rollback")),
+            "inserted",
+          );
           throw new Error("rollback fixture");
         }),
         /rollback fixture/,
@@ -195,7 +198,7 @@ export function retentionAccountingConformance(
       );
       await f.probes.transaction(a, async (tx) =>
         assert.equal(
-          await tx.signals.insert(fixtureSignal(tx, "next")),
+          await tx.signals.insert(fixtureSignal(tx, "next", "next")),
           "inserted",
         ),
       );
@@ -225,7 +228,7 @@ export function retentionAccountingConformance(
       assert.equal(await usage(f, a), after);
       await f.probes.transaction(a, async (tx) =>
         assert.equal(
-          await tx.signals.insert(fixtureSignal(tx, "first")),
+          await tx.signals.insert(fixtureSignal(tx, "first", "first")),
           "duplicate",
         ),
       );

@@ -37,9 +37,3 @@ Execution bounds:
 | Consecutive failure/recovery threshold       | 1–10; critical probes fail on the first failed observation |
 
 Assertions compare expected status, literal text and bounded own-property JSON paths with equality or numeric bounds. No regular expressions, scripts or JSONPath evaluation run. Network failure, timeout or assertion failure is a failed observation. Denied destinations, secret errors, oversized responses, invalid configuration and cancellations are unknown observations. Unknown data resets consecutive counters and never clears an active failure. Recovery requires successful observations; an edit or silence cannot manufacture recovery. Stale versions and non-increasing timestamps do not change state.
-
-## Verification and remaining runtime work
-
-Unit tests use injected request/DNS functions and streams; they start no server and make no network requests. They cover pinned lookup, mixed-address rejection, revalidation after redirects, credential restrictions, size limits, truncation, DNS timeout/cancellation, assertions and state thresholds.
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test`. After host activation is implemented, an authorized deployment verification should also exercise actual DNS changes, TLS failures, a denied redirect, response truncation and an approved private destination against controlled test endpoints. These live network checks have not been run. PostgreSQL scheduling, concurrency, retained observations and restart recovery belong to the following implementation layers.

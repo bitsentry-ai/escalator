@@ -29,19 +29,3 @@ initial attempts per delivery. Each continuation is explicit; the attempts API
 also checks that the delivery belongs to the requested incident.
 No response exposes stored secret IDs, contact bindings, claim tokens, provider
 receipt IDs or acknowledgement grants. The incident UI follows in a later part.
-
-## Verification
-
-The same incident conformance suite is registered for memory, standalone
-PostgreSQL and Dashboard PostgreSQL. It checks idempotency, frozen policy,
-manual audit attribution, rollback including deadline jobs, roles, tenant scope,
-and safe paginated attempts. Database cases require the explicit disposable
-configuration documented in `configuration-adapters.md`; they never fall back
-to an application database URL. No database or server was started.
-
-In an authorized test environment, run the existing standalone server and
-Dashboard focused test commands after setting their documented test database
-variables. The fixtures apply migrations only inside generated disposable
-schemas and remove them afterward. Database behavior remains not runtime-verified
-without those configurations. Dashboard activation remains dependent on the
-separate secret-broker stack.

@@ -8,12 +8,15 @@ export function flatten(value, prefix = "") {
     return typeof child === "string" ? [[name, child]] : flatten(child, name);
   });
 }
-export function checkLocale(source, value) {
+export function checkLocale(source, value, { partial = false } = {}) {
   const expected = Object.fromEntries(flatten(source));
   const actual = Object.fromEntries(flatten(value));
   assert.deepEqual(
     Object.keys(actual).sort(),
-    Object.keys(expected).sort(),
+    (partial
+      ? Object.keys(expected).filter((key) => key in actual)
+      : Object.keys(expected)
+    ).sort(),
     "Missing or extra locale keys",
   );
   for (const [key, text] of Object.entries(actual)) {
@@ -43,6 +46,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       JSON.parse(
         readFileSync(new URL(`${locale}/escalator.json`, root), "utf8"),
       ),
+      // Regional English bundles override en-US through both hosts' fallback.
+      { partial: locale === "en-GB" || locale === "en-AU" },
     );
   }
   // Literal keys used by the shared screens must exist in the source locale.

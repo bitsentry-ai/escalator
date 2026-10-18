@@ -40,19 +40,10 @@ blocked by an over-budget deployment.
 
 This is an admission bound, not a measured support envelope or a guarantee about
 actual network/database performance. Runtime queue lag and missed observations
-still need health reporting and load validation. The plan's 100-probe reference
-workload remains not runtime-verified.
+need health reporting and load validation.
 
 The scheduler permits 1–32 workers for an explicitly dedicated single-kind job
 lane, with at most 64 job workers per scheduler. Other job lanes retain their own
 workers. Tests hold probe requests open and verify that paging deadlines still
 run. Outbox behavior is unchanged. Host/global organization capacity and actual
 runtime activation follow in subsequent work.
-
-## Verification
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` for
-roles, scope, concurrent edits, capacity, disable behavior, atomic audit rollback
-and scheduler isolation. Both host database suites register the additional shared
-capacity scenario; without explicit disposable database configuration it skips.
-No servers, live probes or database infrastructure were started.

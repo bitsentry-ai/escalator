@@ -42,13 +42,6 @@ choose an override actor. A stale or expired override must be evaluated again.
 Decision and audit insertion commit together. Failure to persist either rolls
 back the operation. No silent or offline fail-open mode is provided.
 
-## Verification
-
-Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/features test` for
-in-memory authorization, retry, expiry, stale evidence and audit rollback cases.
-Host-specific PostgreSQL procedures cover the persistence contract separately;
-no disposable database is configured in the implementation environment.
-
 ## Host routes and start enforcement
 
 Standalone exposes `POST /v1/deploys/preflight`; Dashboard exposes
