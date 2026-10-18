@@ -96,12 +96,15 @@ export async function postgresFixture(migrations: readonly Migration[]) {
       "escalator_service",
       "escalator_environment",
       "escalator_audit",
+      "escalator_signal_event",
     ]) {
       await admin.query(
         `GRANT SELECT, INSERT ON ${identifier(table)} TO ${identifier(current.role)}`,
       );
     }
     for (const table of [
+      "escalator_signal_source",
+      "escalator_signal_token",
       "escalator_schedule",
       "escalator_policy",
       "escalator_contact",
