@@ -88,6 +88,8 @@ export interface ModelGenerationRequest {
 }
 export interface ModelGenerationResponse {
   text: string;
+  /** Token-limited output remains partial; missing provider metadata stays explicit. */
+  completion: "stop" | "length" | "unknown";
   /** Unknown usage stays explicit; the caller must charge its reserved output ceiling. */
   usage: { outputTokens: number | null };
 }

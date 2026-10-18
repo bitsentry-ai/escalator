@@ -16,3 +16,13 @@ export {
   type ModelTransportFailure,
   type ModelHttpLimits,
 } from "./models/http.js";
+export {
+  modelProfileSchema,
+  type ModelProfile,
+  type ModelProfileReader,
+} from "./models/profiles.js";
+export {
+  ScopedModelResolver,
+  ModelExecutionError,
+  type ModelFailure,
+} from "./models/resolver.js";
