@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -21,7 +22,10 @@ export class PostgresDeploymentRuntimeRepository
 {
   private readonly foundation: PostgresFoundationRepository;
   private readonly deployments: PostgresDeploymentRepository;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly repositoryConnections = new RepositoryConnections(),
+  ) {
     this.foundation = new PostgresFoundationRepository(pool);
     this.deployments = new PostgresDeploymentRepository(pool);
   }
@@ -42,7 +46,7 @@ export class PostgresDeploymentRuntimeRepository
         );
         const paging = pagingTransaction(
           base,
-          postgresPagingStore(connection, scope),
+          postgresPagingStore(connection, scope, this.repositoryConnections),
           guard,
         );
         const coverage = coverageTransaction(

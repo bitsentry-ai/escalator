@@ -53,6 +53,7 @@ import { StandaloneInvestigationRuntime } from "./runtime.js";
             new Logger("EscalatorInvestigation").warn(
               "Investigation operation unavailable",
             ),
+          db.repositoryConnections,
         ),
     },
   ],

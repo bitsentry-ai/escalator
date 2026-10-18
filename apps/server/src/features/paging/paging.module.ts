@@ -67,7 +67,10 @@ import { standalonePagingRuntime } from "./runtime.js";
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new ConfigurationUseCases(
-          new PostgresConfigurationRepository(db.pool),
+          new PostgresConfigurationRepository(
+            db.pool,
+            db.repositoryConnections,
+          ),
           randomUUID,
         ),
     },
@@ -76,7 +79,10 @@ import { standalonePagingRuntime } from "./runtime.js";
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new IncidentUseCases(
-          new PostgresConfigurationRepository(db.pool),
+          new PostgresConfigurationRepository(
+            db.pool,
+            db.repositoryConnections,
+          ),
           randomUUID,
         ),
     },
@@ -85,7 +91,9 @@ import { standalonePagingRuntime } from "./runtime.js";
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new AcknowledgementHttp(
-          new PageAcknowledgements(new PostgresPagingRepository(db.pool)),
+          new PageAcknowledgements(
+            new PostgresPagingRepository(db.pool, db.repositoryConnections),
+          ),
           (scope) => scope === db.workspaceId,
         ),
     },
@@ -118,6 +126,7 @@ import { standalonePagingRuntime } from "./runtime.js";
           deployment,
           metrics,
           health,
+          db.repositoryConnections,
         ).runtime;
       },
     },

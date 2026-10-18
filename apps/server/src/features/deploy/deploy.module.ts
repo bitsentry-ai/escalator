@@ -43,7 +43,10 @@ import { DeploymentController } from "./deploy.controller.js";
       provide: PostgresDeploymentWatchRuntimeRepository,
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
-        new PostgresDeploymentWatchRuntimeRepository(db.pool),
+        new PostgresDeploymentWatchRuntimeRepository(
+          db.pool,
+          db.repositoryConnections,
+        ),
     },
     {
       provide: DeploymentQueries,

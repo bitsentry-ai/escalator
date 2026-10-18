@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -52,7 +53,10 @@ export class PostgresDeploymentWatchRuntimeRepository
 {
   private readonly foundation: PostgresFoundationRepository;
   private readonly deployments: PostgresDeploymentRepository;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly repositoryConnections = new RepositoryConnections(),
+  ) {
     this.foundation = new PostgresFoundationRepository(pool);
     this.deployments = new PostgresDeploymentRepository(pool);
   }
@@ -69,7 +73,7 @@ export class PostgresDeploymentWatchRuntimeRepository
       await db.query("SELECT set_config('app.deployment_token_hash','',true)");
       const paging = pagingTransaction(
         base,
-        postgresPagingStore(db, scope),
+        postgresPagingStore(db, scope, this.repositoryConnections),
         guard,
       );
       const configuration = configurationTransaction(
@@ -102,7 +106,7 @@ export class PostgresDeploymentWatchRuntimeRepository
           postgresDeploymentBaselineStore(db, scope),
           guard,
         ),
-        postgresDeploymentWatchStore(db, scope),
+        postgresDeploymentWatchStore(db, scope, this.repositoryConnections),
         guard,
       );
       // Baseline source locks precede timeout enqueue. Finish pins precede watch intents.

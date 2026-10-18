@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -24,7 +25,10 @@ import { postgresWatchCadenceStore } from "./postgres-watch-cadence.store.js";
 export class PostgresWatchCadenceRepository implements WatchCadenceRepository {
   private readonly foundation: PostgresFoundationRepository;
   private readonly deployments: PostgresDeploymentRepository;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly repositoryConnections = new RepositoryConnections(),
+  ) {
     this.foundation = new PostgresFoundationRepository(pool);
     this.deployments = new PostgresDeploymentRepository(pool);
   }
@@ -45,7 +49,7 @@ export class PostgresWatchCadenceRepository implements WatchCadenceRepository {
         );
         const paging = pagingTransaction(
           base,
-          postgresPagingStore(connection, scope),
+          postgresPagingStore(connection, scope, this.repositoryConnections),
           guard,
         );
         const deployments = deploymentTransaction(
@@ -59,7 +63,11 @@ export class PostgresWatchCadenceRepository implements WatchCadenceRepository {
             postgresDeploymentBaselineStore(connection, scope),
             guard,
           ),
-          postgresDeploymentWatchStore(connection, scope),
+          postgresDeploymentWatchStore(
+            connection,
+            scope,
+            this.repositoryConnections,
+          ),
           guard,
         );
         const probes = probeTransaction(

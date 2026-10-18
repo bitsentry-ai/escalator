@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -9,7 +10,10 @@ import { PostgresFoundationRepository } from "./foundation.repository.js";
 import { postgresInvestigationSettingsStore } from "./postgres-investigation-settings.store.js";
 export class PostgresInvestigationSettingsRepository implements InvestigationSettingsRepository {
   private readonly foundation: PostgresFoundationRepository;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly repositoryConnections = new RepositoryConnections(),
+  ) {
     this.foundation = new PostgresFoundationRepository(pool);
   }
   transaction<T>(
@@ -22,7 +26,11 @@ export class PostgresInvestigationSettingsRepository implements InvestigationSet
       return work(
         investigationSettingsTransaction(
           base,
-          postgresInvestigationSettingsStore(db, scope),
+          postgresInvestigationSettingsStore(
+            db,
+            scope,
+            this.repositoryConnections,
+          ),
           guard,
         ),
       );

@@ -1,3 +1,5 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
+import { captureRepositorySources } from "./postgres-repository-capture.js";
 import type { PoolClient } from "pg";
 import type {
   OperationalIncident,
@@ -15,6 +17,7 @@ export async function enqueueFirstPageInvestigation(
   db: PoolClient,
   workspaceId: WorkspaceId,
   incident: OperationalIncident,
+  repositoryConnections = new RepositoryConnections(),
 ): Promise<void> {
   if (incident.workspaceId !== workspaceId)
     throw new Error("Investigation scope mismatch");
@@ -58,14 +61,39 @@ export async function enqueueFirstPageInvestigation(
       incident.environmentId,
     ],
   );
+  const repositories = await captureRepositorySources(
+    db,
+    {
+      workspaceId,
+      serviceId: incident.serviceId,
+      environmentId: incident.environmentId,
+    },
+    settings.sources,
+    repositoryConnections,
+  );
+  const repositoryVersions = new Map(
+    repositories.sourceVersions.map((source) => [
+      source.sourceId,
+      source.revision,
+    ]),
+  );
   const configuration: InvestigationConfiguration = {
     profile: settings.profile,
-    secretIds:
-      settings.profile.secretId === null ? [] : [settings.profile.secretId],
+    secretIds: [
+      ...new Set([
+        ...(settings.profile.secretId === null
+          ? []
+          : [settings.profile.secretId]),
+        ...repositories.secretIds,
+      ]),
+    ],
     sourceVersions: versions.rows.map(({ kind, source_id, revision }) => ({
       kind,
       sourceId: source_id,
-      revision,
+      revision:
+        kind === "git_diff"
+          ? (repositoryVersions.get(source_id) ?? "missing")
+          : revision,
     })),
   };
   await PostgresInvestigationRepository.createWriter(

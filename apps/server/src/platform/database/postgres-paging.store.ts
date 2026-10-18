@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import { enqueueFirstPageInvestigation } from "./postgres-first-page-investigation.js";
 import type { PoolClient } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
@@ -60,6 +61,7 @@ const snake = (key: string) =>
 export function postgresPagingStore(
   connection: PoolClient,
   scope: WorkspaceId,
+  repositoryConnections = new RepositoryConnections(),
 ): PagingRecordStore {
   function parse<K extends PagingRecordKind>(
     kind: K,
@@ -74,7 +76,12 @@ export function postgresPagingStore(
   }
   return {
     enqueueInvestigation: (incident) =>
-      enqueueFirstPageInvestigation(connection, scope, incident),
+      enqueueFirstPageInvestigation(
+        connection,
+        scope,
+        incident,
+        repositoryConnections,
+      ),
     async get(kind, id, lock = false) {
       const result = await connection.query<{ data: unknown }>(
         `SELECT data FROM ${tables[kind].table} WHERE workspace_id=$1 AND id=$2${lock ? " FOR UPDATE" : ""}`,

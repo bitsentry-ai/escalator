@@ -27,7 +27,7 @@ import { ProviderIngestController } from "../../platform/http/ingest/provider.co
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new DetectionManagement(
-          new PostgresDetectionRepository(db.pool),
+          new PostgresDetectionRepository(db.pool, db.repositoryConnections),
           randomUUID,
         ),
     },

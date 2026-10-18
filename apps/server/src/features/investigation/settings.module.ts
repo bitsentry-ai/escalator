@@ -14,14 +14,20 @@ import { PostgresInvestigationSettingsRepository } from "../../platform/database
       provide: PostgresInvestigationSourceCatalog,
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
-        new PostgresInvestigationSourceCatalog(db.pool),
+        new PostgresInvestigationSourceCatalog(
+          db.pool,
+          db.repositoryConnections,
+        ),
     },
     {
       provide: InvestigationSettingsUseCases,
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
         new InvestigationSettingsUseCases(
-          new PostgresInvestigationSettingsRepository(db.pool),
+          new PostgresInvestigationSettingsRepository(
+            db.pool,
+            db.repositoryConnections,
+          ),
           randomUUID,
         ),
     },

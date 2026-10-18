@@ -1,3 +1,4 @@
+import { repositoryConnectionsFromJSON } from "./repository-connections.js";
 import "reflect-metadata";
 import { Injectable, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { Pool } from "pg";
@@ -6,6 +7,9 @@ import { workspaceIdSchema } from "@bitsentry-escalator/features/contracts";
 export class StandaloneDatabase implements OnApplicationShutdown {
   readonly workspaceId = workspaceIdSchema.parse(
     process.env.ESCALATOR_WORKSPACE_ID,
+  );
+  readonly repositoryConnections = repositoryConnectionsFromJSON(
+    process.env.ESCALATOR_REPOSITORIES,
   );
   readonly pool: Pool;
   constructor() {

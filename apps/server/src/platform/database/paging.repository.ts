@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
@@ -10,7 +11,10 @@ import { postgresPagingStore } from "./postgres-paging.store.js";
 
 export class PostgresPagingRepository implements PagingRepository {
   private readonly foundation: PostgresFoundationRepository;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly repositoryConnections = new RepositoryConnections(),
+  ) {
     this.foundation = new PostgresFoundationRepository(pool);
   }
   transaction<T>(
@@ -19,7 +23,11 @@ export class PostgresPagingRepository implements PagingRepository {
   ): Promise<T> {
     return this.foundation.withConnection(scope, (base, connection, guard) =>
       work(
-        pagingTransaction(base, postgresPagingStore(connection, scope), guard),
+        pagingTransaction(
+          base,
+          postgresPagingStore(connection, scope, this.repositoryConnections),
+          guard,
+        ),
       ),
     );
   }

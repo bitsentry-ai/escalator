@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import type { PoolClient } from "pg";
 import {
   deploymentWatchRecordSchema,
@@ -23,8 +24,9 @@ const data = (value: DeploymentWatchRecord) =>
 export function postgresDeploymentWatchStore(
   db: PoolClient,
   scope: WorkspaceId,
+  repositoryConnections = new RepositoryConnections(),
 ): DeploymentWatchStore {
-  const paging = postgresPagingStore(db, scope);
+  const paging = postgresPagingStore(db, scope, repositoryConnections);
   return {
     async get(targetId, deploymentId) {
       const result = await db.query<{ data: object }>(

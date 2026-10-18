@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import { randomUUID } from "node:crypto";
 import type {
   OnApplicationBootstrap,
@@ -31,6 +32,7 @@ export class StandaloneInvestigationRuntime
     keys: SecretKeyRing,
     private readonly deployment: StandaloneInvestigationDeployment,
     private readonly onError: () => void,
+    repositoryConnections = new RepositoryConnections(),
   ) {
     workspaceIdSchema.parse(workspaceId);
     if (!deployment.enabled) return;
@@ -49,7 +51,13 @@ export class StandaloneInvestigationRuntime
     const repository = new PostgresInvestigationRepository(pool, {
       authorizeRuntime: async (_db, scope, id) =>
         scope === workspaceId && id === runtimeId,
-      configuration: standaloneInvestigationConfiguration,
+      configuration: (db, scope, id) =>
+        standaloneInvestigationConfiguration(
+          db,
+          scope,
+          id,
+          repositoryConnections,
+        ),
     });
     this.consumer = new InvestigationConsumer(
       repository,

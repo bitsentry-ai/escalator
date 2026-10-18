@@ -1,3 +1,5 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
+import { readRepositoryBinding } from "../../../platform/database/postgres-repository-evidence.js";
 import type { PoolClient } from "pg";
 import type { InvestigationScope } from "@bitsentry-escalator/features/contracts";
 import type { InvestigationConfiguration } from "@bitsentry-escalator/features/investigation";
@@ -7,6 +9,7 @@ export async function standaloneInvestigationConfiguration(
   db: PoolClient,
   scope: InvestigationScope,
   profileId: string,
+  repositoryConnections = new RepositoryConnections(),
 ): Promise<InvestigationConfiguration | undefined> {
   const store = postgresInvestigationSettingsStore(db, scope.workspaceId);
   // Read locks protect metadata while remaining compatible with paging FK key-share locks.
@@ -24,6 +27,9 @@ export async function standaloneInvestigationConfiguration(
   const selected = await store.selected(scope);
   if (!selected?.enabled || selected.profile.id !== profileId) return undefined;
   const versions: InvestigationConfiguration["sourceVersions"] = [];
+  const secretIds = new Set<string>(
+    selected.profile.secretId ? [selected.profile.secretId] : [],
+  );
   const sorted = [...selected.sources].sort((a, b) =>
     `${a.kind}:${a.sourceId}` < `${b.kind}:${b.sourceId}` ? -1 : 1,
   );
@@ -34,7 +40,25 @@ export async function standaloneInvestigationConfiguration(
       metric: "escalator_metric_monitor",
       deployment: "escalator_deploy_target",
     } as const;
-    if (source.kind === "log" || source.kind === "git_diff") return undefined;
+    if (source.kind === "log") return undefined;
+    if (source.kind === "git_diff") {
+      const binding = await readRepositoryBinding(
+        db,
+        scope,
+        source.sourceId,
+        repositoryConnections,
+      );
+      // An unavailable binding matches capture's "missing" revision and approves no
+      // credential; the repository read then reports that source unavailable.
+      versions.push({
+        kind: source.kind,
+        sourceId: source.sourceId,
+        revision: binding?.revision ?? "missing",
+      });
+      if (binding && binding.connection.secretId !== null)
+        secretIds.add(binding.connection.secretId);
+      continue;
+    }
     let parent: string | undefined;
     if (source.kind === "probe" || source.kind === "metric") {
       const hint = await db.query<{ source_id: string }>(
@@ -104,7 +128,7 @@ export async function standaloneInvestigationConfiguration(
     return undefined;
   return {
     profile: current.profile,
-    secretIds: current.profile.secretId ? [current.profile.secretId] : [],
+    secretIds: [...secretIds],
     sourceVersions: versions,
   };
 }

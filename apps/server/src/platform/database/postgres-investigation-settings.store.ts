@@ -1,3 +1,5 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
+import { readRepositoryBinding } from "./postgres-repository-evidence.js";
 import type { PoolClient } from "pg";
 import {
   investigationSettingsSchema,
@@ -8,6 +10,7 @@ import type { InvestigationSettingsStore } from "@bitsentry-escalator/features/a
 export function postgresInvestigationSettingsStore(
   db: PoolClient,
   workspaceId: WorkspaceId,
+  repositoryConnections = new RepositoryConnections(),
 ): InvestigationSettingsStore {
   async function read(
     id: string | null,
@@ -71,7 +74,19 @@ export function postgresInvestigationSettingsStore(
           metric: "escalator_metric_monitor",
           deployment: "escalator_deploy_target",
         } as const;
-        if (source.kind === "log" || source.kind === "git_diff") return false;
+        if (source.kind === "log") return false;
+        if (source.kind === "git_diff") {
+          if (
+            !(await readRepositoryBinding(
+              db,
+              scope,
+              source.sourceId,
+              repositoryConnections,
+            ))
+          )
+            return false;
+          continue;
+        }
         if (source.kind === "probe" || source.kind === "metric") {
           const hint = await db.query<{ source_id: string }>(
             `SELECT source_id FROM ${tables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4`,

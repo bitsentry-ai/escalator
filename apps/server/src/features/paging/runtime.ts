@@ -1,3 +1,4 @@
+import { RepositoryConnections } from "@bitsentry-escalator/features/investigation";
 import {
   withDeploymentTimeoutHandlers,
   deploymentTimeoutLane,
@@ -55,8 +56,12 @@ export function standalonePagingRuntime(
   deployment = new ProbeDeployment(),
   metrics = new MetricDeployment(),
   health = new HealthDeployment(),
+  repositoryConnections = new RepositoryConnections(),
 ) {
-  const repository = new PostgresDetectionRepository(pool);
+  const repository = new PostgresDetectionRepository(
+    pool,
+    repositoryConnections,
+  );
   const secrets = new EncryptedSecretStore(
     keys,
     new PostgresSecretReader(pool),
@@ -81,7 +86,10 @@ export function standalonePagingRuntime(
       secrets,
     ),
   );
-  const deployments = new PostgresDeploymentWatchRuntimeRepository(pool);
+  const deployments = new PostgresDeploymentWatchRuntimeRepository(
+    pool,
+    repositoryConnections,
+  );
   const deploymentHandlers = withWatchCadenceHandlers(
     withDeploymentWatchHandlers(
       withDeploymentTimeoutHandlers(handlers, deployments),
