@@ -54,3 +54,31 @@ unit tests exercise both authenticated client adapters, unavailable proofs and
 an organization switch with a delayed response. Shared rendering tests cover
 missing watches, incomplete evidence, bounded rows, escaped override text and
 small nonzero error thresholds. Target and grant setup follows separately.
+
+## Target and grant setup
+
+Administrators can create targets, edit their policy and timeout, and inspect,
+issue or revoke scoped deployment grants from the same screen in both hosts.
+New targets start disabled. Service and environment cannot change after creation;
+edits carry the last observed revision so concurrent changes are rejected.
+Options and grant inventories load in pages, with explicit retry after errors.
+When Dashboard paging is unavailable, targets can be staged disabled or disabled
+and grants revoked; enabling targets and issuing writer grants remain blocked.
+
+The issuer shows a bearer token once, held only in component memory. Copy it into
+your deployment system's private secret storage before hiding it or navigating
+away. Inventory reads contain metadata only. A failed issuance response can mean
+that a grant was created: inspect the refreshed inventory and revoke unwanted
+grants before issuing another. The UI never automatically retries issuance.
+Revocation and target changes are still authorized and validated on the server.
+
+Additional operator verification, not executed here: in each running host, use an
+administrator and a viewer account; confirm only the administrator sees setup.
+Create a disabled target, enable it with a valid policy, issue a read grant and a
+writer grant mapped to an eligible responder, then follow the hook recipe.
+Verify a competing edit rejects the stale revision, a revoked grant cannot poll
+or write, and switching organizations removes a displayed token. In Dashboard,
+repeat with the broker unavailable: stage disabled targets and revoke grants,
+but do not enable a target or issue a writer grant. Confirm copy/hide on mobile.
+DOM unit tests cover issuance uncertainty, tenant switches and role loss; these
+are not a substitute for the running-host procedure.

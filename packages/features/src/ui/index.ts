@@ -47,3 +47,5 @@ export { RetentionScreen } from "./retention/RetentionScreen.js";
 export type { DeploymentsClient } from "./deployments-client.js";
 
 export { DeploymentsScreen } from "./deployments/DeploymentsScreen.js";
+
+export type { DeploymentSettingsClient } from "./deployment-settings-client.js";

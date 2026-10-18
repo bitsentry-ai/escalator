@@ -1,3 +1,5 @@
+import { TargetSetup } from "./TargetSetup.js";
+import type { DeploymentSettingsClient } from "../deployment-settings-client.js";
 import { styles } from "../incidents/styles.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
@@ -15,11 +17,17 @@ export function DeploymentsScreen({
   client,
   incidents,
   canResolve,
+  settings,
+  canManage = false,
+  pagingAvailable = false,
   t,
 }: {
   client: DeploymentsClient;
   incidents: IncidentsClient;
   canResolve: boolean;
+  settings?: DeploymentSettingsClient;
+  canManage?: boolean;
+  pagingAvailable?: boolean;
   t: Text;
 }) {
   const fetch = useCallback(
@@ -38,6 +46,15 @@ export function DeploymentsScreen({
   return (
     <section style={styles.card} aria-label={t("deployments.heading")}>
       <h1>{t("deployments.heading")}</h1>
+      {canManage && settings && (
+        <TargetSetup
+          client={settings}
+          target={selected}
+          canActivate={pagingAvailable}
+          onSaved={targets.refresh}
+          t={t}
+        />
+      )}
       <p>{t("deployments.guidance")}</p>
       <button
         style={styles.button}

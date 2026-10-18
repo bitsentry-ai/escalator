@@ -1,3 +1,4 @@
+import { deploymentSettingsClient } from "./deployment-settings-client.js";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { hasCapability } from "@bitsentry-escalator/features/contracts";
@@ -14,11 +15,15 @@ export function DeploymentsRoute({
 }) {
   const { t } = useTranslation("escalator");
   const deployments = useMemo(() => deploymentsClient(client), [client]);
+  const settings = useMemo(() => deploymentSettingsClient(client), [client]);
   const incidents = useMemo(() => incidentsClient(client), [client]);
   return (
     <DeploymentsScreen
       key={user.id}
       client={deployments}
+      settings={settings}
+      canManage={hasCapability(user.role, "service:manage")}
+      pagingAvailable={true}
       incidents={incidents}
       canResolve={hasCapability(user.role, "incident:resolve")}
       t={(key) => t(key)}
