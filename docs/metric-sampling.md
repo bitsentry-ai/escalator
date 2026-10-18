@@ -1,0 +1,13 @@
+# Durable metric sampling
+
+A monitor belongs to one service, environment and internal metrics source. Configuration edits use an expected version and preserve an immutable version snapshot. Its schedule references one absolute polling intent; configuration changes cancel obsolete work. The host adapters and administration routes are delivered in the following parts.
+
+Each live poll queries one completed interval on the configured UTC grid. It reads configuration and the persisted lease in a short transaction, releases the connection for provider I/O, then locks and rechecks configuration, source, schedule and lease before accepting the result. A disabled source or service produces unknown data without another provider request. A concurrent disable or expired lease cannot commit an obsolete result.
+
+The observation receipt, versioned floor evaluation, input receipt IDs, signal, next polling intent and audit entry commit together. A crash before queue settlement leaves a receipt that the replacement claim recognizes without another network request. Delayed polls skip obsolete schedule slots and collect the current interval; they do not fabricate missed observations or launch a catch-up burst. Only a committed poll enqueues its successor, so the durable runner never settles an exhausted `metrics.poll` job as failed: it re-arms the same job after the maximum retry backoff with a fresh attempt budget, and the monitor resumes once the fault clears.
+
+Monitor history records observed time separately from database receipt time. Window queries choose the latest visible receipt for each observed timestamp, using receipt time and ID as deterministic tie breakers. Older receipts remain immutable. A replay caller supplies its simulated visibility cutoff; arrivals after that time remain excluded. The recorded input IDs explain which samples produced an evaluation.
+
+Monitoring warms up from retained samples. A two-interval window needs two usable intervals; missing intervals, provider errors, invalid values, annotations or inadequate traffic cannot emit recovery. A current failed query stays insufficient even if an older receipt exists for its timestamp. Returned samples older than two configured steps are recorded as stale instead of producing a verdict. Query/configuration versions never mix in the same live window.
+
+The unit conformance suite is reusable by both database adapters. In-memory scenarios cover restart after commit, expired claims, configuration changes during a query, skipped slots, provider failure and rollback when audit persistence fails. PostgreSQL adapters, migrations and opt-in database procedures are the next integration work; no database, service or external provider was started for these checks.

@@ -41,6 +41,7 @@ export function retryDelay(
 const selfReschedulingJobKinds: ReadonlySet<string> = new Set([
   "probe.execute",
   "heartbeat.deadline",
+  "metrics.poll",
 ]);
 export class DurableWorkRunner {
   constructor(

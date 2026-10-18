@@ -104,3 +104,8 @@ export * from "./probes/heartbeat-handlers.js";
 export * from "../adapters/metrics/normalize.js";
 export * from "../adapters/metrics/reader.js";
 export * from "../domain/rules/sustained-floor.js";
+
+export * from "./metrics/ports.js";
+export * from "./metrics/schedule.js";
+export * from "./metrics/transaction.js";
+export * from "./metrics/jobs.js";
