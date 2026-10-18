@@ -81,10 +81,11 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "react": "^19.0.0",
-    "@types/react": "^19.0.0"
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "zod": "4.3.6"
   }
 }
