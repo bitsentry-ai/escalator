@@ -1,7 +1,10 @@
+import { readNativeEvidence } from "./postgres-native-evidence.js";
 import { investigationTransaction } from "./investigation-transaction.js";
 import type { Pool, PoolClient } from "pg";
 import {
   investigationScopeSchema,
+  evidenceQuerySchema,
+  type EvidenceQuery,
   investigationReportSchema,
   investigationEvidenceSchema,
   opaqueIdSchema,
@@ -325,6 +328,67 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
         return undefined;
       return (await this.fence(db, this.claimValue(key.workspaceId, row)))
         ?.claim;
+    });
+  }
+  /** Internal runner access. A profile is returned only under the same live claim fence. */
+  async readProfile(input: InvestigationClaim) {
+    const claim = investigationClaimSchema.parse(input);
+    return this.scoped(claim.scope.workspaceId, async (db) => {
+      const value = await this.fence(db, claim);
+      if (
+        !value ||
+        !(await this.locked(db, claim.scope.workspaceId, claim.id))?.live
+      )
+        return undefined;
+      return this.captured(claim.scope.workspaceId, value.row).configuration
+        .profile;
+    });
+  }
+  /** No arbitrary source/window reads: use the immutable query captured with the claim. */
+  async readNativeEvidence(
+    input: InvestigationClaim,
+    queryInput: EvidenceQuery,
+    maxBytes: number,
+  ) {
+    const claim = investigationClaimSchema.parse(input);
+    const query = evidenceQuerySchema.parse(queryInput);
+    if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 262144)
+      throw new RangeError("Invalid evidence byte limit");
+    const denied = () => ({
+      status: "unavailable" as const,
+      unavailable: { query, reason: "not_authorized" as const },
+    });
+    return this.scoped(claim.scope.workspaceId, async (db) => {
+      const value = await this.fence(db, claim);
+      if (
+        !value ||
+        !value.claim.sources.some(
+          (source) =>
+            source.kind === query.kind &&
+            source.sourceId === query.sourceId &&
+            source.limit === query.limit &&
+            source.window.from === query.window.from &&
+            source.window.to === query.window.to,
+        )
+      )
+        return denied();
+      const clock = await db.query<{ now: Date }>(
+        "SELECT clock_timestamp() AS now",
+        [],
+      );
+      const result = await readNativeEvidence(
+        db,
+        value.claim.scope,
+        query,
+        clock.rows[0].now.toISOString(),
+        maxBytes,
+      );
+      // A bounded query can still outlive its lease. Do not release its result after expiry/revocation.
+      if (!(await this.fence(db, claim))) return denied();
+      // Check database time after authorization queries as well as after the evidence read.
+      return (await this.locked(db, claim.scope.workspaceId, claim.id))?.live
+        ? result
+        : denied();
     });
   }
   async heartbeat(input: InvestigationClaim, leaseMs: number) {

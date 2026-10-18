@@ -1,3 +1,4 @@
+import { readNativeEvidence } from "../../src/platform/database/postgres-native-evidence.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -6,6 +7,9 @@ import {
   workspaceIdSchema,
   investigationSettingsSchema,
   signalSourceSchema,
+  signalEventSchema,
+  investigationScopeSchema,
+  evidenceQuerySchema,
 } from "@bitsentry-escalator/features/contracts";
 import { openPageInTransaction } from "@bitsentry-escalator/features/application";
 import { seedPagingFixture } from "@escalator-test/paging";
@@ -169,6 +173,79 @@ test(
       await f.paging.transaction(f.workspaceId, async (tx) =>
         assert.equal(await tx.incidents.get("rollback"), undefined),
       );
+    } finally {
+      await f.database.dispose();
+    }
+  },
+);
+
+test(
+  "native alert SQL preserves receipts, omits attributes and scopes source reads",
+  { skip },
+  async () => {
+    const f = await fixture(true);
+    try {
+      await f.foundation.withConnection(f.workspaceId, async (base, native) => {
+        const db = native;
+        const event = signalEventSchema.parse({
+          id: "signal",
+          workspaceId: f.workspaceId,
+          version: 1,
+          serviceId: "api",
+          environmentId: "prod",
+          sourceId: "source",
+          eventId: "provider-event",
+          fingerprint: "group",
+          observedAt: base.now,
+          receivedAt: base.now,
+          status: "active",
+          severity: "critical",
+          title: "Errors",
+          evidence: {
+            summary: "authorization: Bearer private-value",
+            attributes: [{ name: "private", value: "must-not-leak" }],
+          },
+        });
+        await postgresSignalStore(native, f.workspaceId).insertSignal(event);
+        const scope = investigationScopeSchema.parse({
+          workspaceId: f.workspaceId,
+          serviceId: "api",
+          environmentId: "prod",
+          incidentId: "incident",
+        });
+        const query = evidenceQuerySchema.parse({
+          kind: "alert",
+          sourceId: "source",
+          window: { from: base.now, to: base.now },
+          limit: 1,
+        });
+        const result = await readNativeEvidence(
+          db,
+          scope,
+          query,
+          base.now,
+          8192,
+        );
+        assert.equal(result.status, "available");
+        if (result.status !== "available") return;
+        assert.equal(result.items[0].reference.receivedAt, event.receivedAt);
+        assert.doesNotMatch(
+          result.items[0].text,
+          /private-value|must-not-leak/,
+        );
+        assert.equal(
+          (
+            await readNativeEvidence(
+              db,
+              investigationScopeSchema.parse({ ...scope, serviceId: "other" }),
+              query,
+              base.now,
+              8192,
+            )
+          ).status,
+          "unavailable",
+        );
+      });
     } finally {
       await f.database.dispose();
     }

@@ -83,3 +83,9 @@ export * from "./orchestration/capture.js";
 export * from "./models/credential-projection.js";
 
 export { firstPageInvestigation } from "./orchestration/first-page.js";
+
+export {
+  normalizeNativeEvidence,
+  nativeEvidenceRowSchema,
+  type NativeEvidenceRow,
+} from "./evidence/native.js";

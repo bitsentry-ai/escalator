@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import test from "node:test";
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
@@ -21,7 +22,9 @@ import {
 } from "../../src/platform/database/postgres-investigation.repository.js";
 import { readMigrations } from "../../src/platform/database/migrate.js";
 import { postgresFixture, testDatabaseConfigured } from "./postgres-fixture.js";
-async function create(): Promise<InvestigationPersistenceFixture> {
+async function create(): Promise<
+  InvestigationPersistenceFixture & { expireDuringAuthorization(): void }
+> {
   const database = await postgresFixture(
     await readMigrations(resolve("migrations")),
   );
@@ -74,19 +77,27 @@ async function create(): Promise<InvestigationPersistenceFixture> {
       JSON.stringify(sample.result.evidence),
       "utf8",
     );
+    let expireDuringAuthorization = false;
     const revoked = new Set<string>();
     const policy: InvestigationDatabasePolicy = {
       authorizeRuntime: async (_db, workspaceId, runtimeId) =>
         workspaceId === scope &&
         ["runtime_a", "runtime_b"].includes(runtimeId) &&
         !revoked.has(runtimeId),
-      configuration: async (_db, binding, id) =>
-        binding.workspaceId === scope &&
-        binding.serviceId === "api" &&
-        binding.environmentId === "prod" &&
-        id === intent.profileId
+      configuration: async (_db, binding, id) => {
+        if (expireDuringAuthorization) {
+          await _db.query(
+            "UPDATE escalator_job SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE workspace_id=$1 AND id=$2",
+            [scope, intent.id],
+          );
+        }
+        return binding.workspaceId === scope &&
+          binding.serviceId === "api" &&
+          binding.environmentId === "prod" &&
+          id === intent.profileId
           ? configuration
-          : undefined,
+          : undefined;
+      },
     };
     const reopen = () =>
       new PostgresInvestigationRepository(database.app, policy);
@@ -115,6 +126,9 @@ async function create(): Promise<InvestigationPersistenceFixture> {
       }
     };
     return {
+      expireDuringAuthorization() {
+        expireDuringAuthorization = true;
+      },
       maxAttempts: 3,
       async changeConfiguration(kind) {
         if (kind === "profile") configuration.profile.revision++;
@@ -192,4 +206,41 @@ investigationPersistenceConformance(
           },
       run,
     ),
+);
+
+test(
+  "live investigation profile and native reads reject expired and widened claims",
+  { skip: !configured },
+  async () => {
+    const f = await create();
+    try {
+      await f.writer.enqueue(f.intent);
+      const claim = await f.repository.claim({
+        workspaceId: f.intent.scope.workspaceId,
+        runtimeId: "runtime_a",
+        claimToken: "read_fence",
+        leaseMs: 30000,
+      });
+      assert.ok(claim);
+      const repository = f.repository as PostgresInvestigationRepository;
+      assert.equal((await repository.readProfile(claim))?.id, claim.profileId);
+      const query = { ...claim.sources[0], sourceId: "unselected" };
+      const denied = await repository.readNativeEvidence(claim, query, 8192);
+      assert.equal(denied.status, "unavailable");
+      if (denied.status === "unavailable")
+        assert.equal(denied.unavailable.reason, "not_authorized");
+      f.expireDuringAuthorization();
+      assert.equal(await repository.readProfile(claim), undefined);
+      const expired = await repository.readNativeEvidence(
+        claim,
+        claim.sources[0],
+        8192,
+      );
+      assert.equal(expired.status, "unavailable");
+      if (expired.status === "unavailable")
+        assert.equal(expired.unavailable.reason, "not_authorized");
+    } finally {
+      await f.dispose();
+    }
+  },
 );
