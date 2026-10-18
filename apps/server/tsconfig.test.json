@@ -39,6 +39,9 @@
       ],
       "@escalator-test/metrics": [
         "../../packages/features/test/conformance/metrics.ts"
+      ],
+      "@escalator-test/health": [
+        "../../packages/features/test/conformance/health.ts"
       ]
     }
   },
