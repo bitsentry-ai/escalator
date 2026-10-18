@@ -203,3 +203,5 @@ export * from "./investigation-settings/management.js";
 export * from "./investigation-settings/source-options.js";
 
 export * from "./investigation-report/reader.js";
+export { evaluateRuleWindow } from "../domain/rules/evaluate.js";
+export { advanceRuleDecision } from "../domain/rules/advance.js";
