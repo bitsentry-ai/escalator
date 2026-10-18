@@ -1,3 +1,7 @@
+import {
+  compareUtcTimestamps,
+  hasSubmillisecondTime,
+} from "./timestamps.js";
 import { z } from "zod";
 import { opaqueIdSchema } from "./identity.js";
 import { utcTimestampSchema } from "./entities.js";
@@ -50,27 +54,33 @@ export const ruleReplaySnapshotSchema = z
     if (
       end < start ||
       end - start > 31 * 86400000 ||
-      end > Date.parse(snapshot.snapshotAt)
+      compareUtcTimestamps(snapshot.lastDecisionAt, snapshot.snapshotAt) > 0
     )
       context.addIssue({
         code: "custom",
         message: "Replay requires a past range of at most 31 days",
       });
     const step = snapshot.version.definition.stepSeconds * 1000;
-    if (start % step !== 0 || end % step !== 0)
+    if (
+      hasSubmillisecondTime(snapshot.firstDecisionAt) ||
+      hasSubmillisecondTime(snapshot.lastDecisionAt) ||
+      start % step !== 0 ||
+      end % step !== 0
+    )
       context.addIssue({
         code: "custom",
         message: "Replay decisions must be step aligned",
       });
-    const captured = Date.parse(snapshot.snapshotAt);
     if (
       snapshot.samples.some(
         (row) =>
-          row.receivedAt !== null && Date.parse(row.receivedAt) > captured,
+          row.receivedAt !== null &&
+          compareUtcTimestamps(row.receivedAt, snapshot.snapshotAt) > 0,
       ) ||
       [...snapshot.policies, ...snapshot.coverage].some(
         (row) =>
-          row.recordedAt !== null && Date.parse(row.recordedAt) > captured,
+          row.recordedAt !== null &&
+          compareUtcTimestamps(row.recordedAt, snapshot.snapshotAt) > 0,
       )
     )
       context.addIssue({

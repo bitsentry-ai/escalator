@@ -1,4 +1,8 @@
 import {
+  compareUtcTimestamps,
+  hasSubmillisecondTime,
+} from "../../contracts/timestamps.js";
+import {
   ruleReplaySnapshotSchema,
   ruleReplayCursorSchema,
   ruleReplayBudgetSchema,
@@ -13,16 +17,17 @@ import { ruleSampleTime, ruleWindowBounds } from "../../domain/rules/time.js";
 
 type Interval = { startAt: string; endAt: string; recordedAt: string | null };
 function intervals<T extends Interval>(input: readonly T[]): T[] {
-  const rows = [...input].sort(
-    (a, b) => Date.parse(a.startAt) - Date.parse(b.startAt),
+  const rows = [...input].sort((a, b) =>
+    compareUtcTimestamps(a.startAt, b.startAt),
   );
-  let end = -Infinity;
+  let end: string | null = null;
   for (const row of rows) {
-    const start = Date.parse(row.startAt),
-      next = Date.parse(row.endAt);
-    if (start < end || next <= start)
+    if (
+      (end !== null && compareUtcTimestamps(row.startAt, end) < 0) ||
+      compareUtcTimestamps(row.endAt, row.startAt) <= 0
+    )
       throw new Error("Replay intervals overlap or are empty");
-    end = next;
+    end = row.endAt;
   }
   return rows;
 }
@@ -34,14 +39,18 @@ function visibleInterval<T extends Interval>(
     high = rows.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (Date.parse(rows[middle]!.startAt) <= at) low = middle + 1;
+    if (
+      compareUtcTimestamps(rows[middle]!.startAt, new Date(at).toISOString()) <=
+      0
+    )
+      low = middle + 1;
     else high = middle;
   }
   const row = rows[low - 1];
   return row &&
-    at < Date.parse(row.endAt) &&
+    compareUtcTimestamps(new Date(at).toISOString(), row.endAt) < 0 &&
     row.recordedAt !== null &&
-    Date.parse(row.recordedAt) <= at
+    compareUtcTimestamps(row.recordedAt, new Date(at).toISOString()) <= 0
     ? row
     : null;
 }
@@ -74,7 +83,9 @@ function validateScope(
       cursor.state.cooldownUntil,
     ].some(
       (value) =>
-        value !== null && Date.parse(value) % (rule.stepSeconds * 1000) !== 0,
+        value !== null &&
+        (hasSubmillisecondTime(value) ||
+          Date.parse(value) % (rule.stepSeconds * 1000) !== 0),
     )
   )
     throw new Error("Replay cursor is not step aligned");

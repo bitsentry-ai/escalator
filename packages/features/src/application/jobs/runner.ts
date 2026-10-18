@@ -42,6 +42,7 @@ const selfReschedulingJobKinds: ReadonlySet<string> = new Set([
   "probe.execute",
   "heartbeat.deadline",
   "metrics.poll",
+  "rules.evaluate",
 ]);
 export class DurableWorkRunner {
   constructor(

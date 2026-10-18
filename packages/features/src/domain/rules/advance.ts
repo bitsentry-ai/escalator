@@ -1,3 +1,4 @@
+import { hasSubmillisecondTime } from "../../contracts/timestamps.js";
 import {
   detectionRuleVersionSchema,
   ruleEvaluationStateSchema,
@@ -43,7 +44,10 @@ export function advanceRuleDecision(
     typeof input.maintenance !== "boolean"
   )
     throw new Error("Rule decision requires explicit effective policy");
-  if (at % (rule.stepSeconds * 1000) !== 0)
+  if (
+    hasSubmillisecondTime(window.decisionAt) ||
+    at % (rule.stepSeconds * 1000) !== 0
+  )
     throw new Error("Rule decision is not step aligned");
   const previous =
     previousInput === null
@@ -59,7 +63,9 @@ export function advanceRuleDecision(
       previous.cooldownUntil,
     ].some(
       (value) =>
-        value !== null && Date.parse(value) % (rule.stepSeconds * 1000) !== 0,
+        value !== null &&
+        (hasSubmillisecondTime(value) ||
+          Date.parse(value) % (rule.stepSeconds * 1000) !== 0),
     )
   )
     throw new Error("Stored rule state is not step aligned");

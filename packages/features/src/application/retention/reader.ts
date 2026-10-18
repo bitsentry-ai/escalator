@@ -1,3 +1,4 @@
+import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import {
   hasCapability,
   type Actor,
@@ -80,7 +81,7 @@ export class ReplayCoverageReader {
       data.kind !== query.kind
     )
       throw new PersistenceError("scope_violation");
-    if (Date.parse(query.visibleAt) > Date.parse(data.snapshotAt))
+    if (compareUtcTimestamps(query.visibleAt, data.snapshotAt) > 0)
       throw new RangeError("Future evidence cutoff");
     const common = {
       workspaceId: actor.workspaceId,

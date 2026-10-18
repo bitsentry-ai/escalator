@@ -1,3 +1,4 @@
+import { ceilTimestampMilliseconds } from "../../contracts/timestamps.js";
 import type { DetectionRule, RuleSample } from "../../contracts/rules.js";
 
 /** Inputs have already passed the rule/sample schemas. Periodic retained slots
@@ -10,9 +11,9 @@ export function ruleSampleTime(
   sample: RuleSample,
 ): number {
   if (sample.kind === "signal" || sample.slotAt == null)
-    return Date.parse(sample.observedAt);
+    return ceilTimestampMilliseconds(sample.observedAt);
   const step = rule.stepSeconds * 1000;
-  return Math.ceil(Date.parse(sample.slotAt) / step) * step;
+  return Math.ceil(ceilTimestampMilliseconds(sample.slotAt) / step) * step;
 }
 
 export function ruleWindowBounds(rule: DetectionRule, decisionAt: string) {

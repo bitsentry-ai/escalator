@@ -1,3 +1,4 @@
+import { hasSubmillisecondTime } from "../../contracts/timestamps.js";
 import {
   detectionRuleSchema,
   ruleWindowSchema,
@@ -34,7 +35,10 @@ export function evaluateRuleWindow(
   if (!parsedRule.success || !parsedWindow.success) return verdict;
   const rule = parsedRule.data,
     window = parsedWindow.data;
-  if (Date.parse(window.decisionAt) % (rule.stepSeconds * 1000) !== 0)
+  if (
+    hasSubmillisecondTime(window.decisionAt) ||
+    Date.parse(window.decisionAt) % (rule.stepSeconds * 1000) !== 0
+  )
     return unknown("unaligned_window");
   if (!window.complete) return unknown("incomplete_read");
   if (window.coverage !== "complete")

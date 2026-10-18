@@ -1,3 +1,4 @@
+import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
 import type { WorkspaceId } from "../../src/contracts/index.js";
 import type {
   AlertGroup,
@@ -36,6 +37,16 @@ export class MemoryDetectionRepository implements DetectionRepository {
   transaction<T>(
     scope: WorkspaceId,
     work: (tx: DetectionTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withExtensions(scope, (tx) => work(tx));
+  }
+  withExtensions<T>(
+    scope: WorkspaceId,
+    work: (
+      tx: DetectionTransaction,
+      extensions: Record<string, unknown>,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.configuration.withExtensions(
       scope,
@@ -126,6 +137,8 @@ export class MemoryDetectionRepository implements DetectionRepository {
             store,
             guard,
           ),
+          extensions,
+          guard,
         );
       },
     );

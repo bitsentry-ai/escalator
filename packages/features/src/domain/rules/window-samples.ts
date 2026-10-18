@@ -1,3 +1,4 @@
+import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import type {
   DetectionRule,
   RuleSample,
@@ -32,7 +33,7 @@ export function selectRuleSamples(
     retrospectiveCount: 0,
     reason: null,
   };
-  const { start, end, visibleAt } = ruleWindowBounds(rule, window.decisionAt);
+  const { start, end } = ruleWindowBounds(rule, window.decisionAt);
   const ids = new Set<string>(),
     slots = new Set<number>();
   for (const sample of window.samples) {
@@ -40,7 +41,6 @@ export function selectRuleSamples(
       result.reason = "scope_mismatch";
       return result;
     }
-    const observed = Date.parse(sample.observedAt);
     const slot = ruleSampleTime(rule, sample);
     if (slot <= start || slot > end) continue;
     if (sample.kind !== "signal" && sample.slotAt === null) {
@@ -51,15 +51,15 @@ export function selectRuleSamples(
       result.retrospectiveCount++;
       continue;
     }
-    if (Date.parse(sample.receivedAt) > visibleAt) {
+    if (compareUtcTimestamps(sample.receivedAt, window.decisionAt) > 0) {
       result.lateCount++;
       continue;
     }
     if (
       sample.kind !== "signal" &&
       typeof sample.slotAt === "string" &&
-      (Date.parse(sample.slotAt) > observed ||
-        observed > Date.parse(sample.receivedAt))
+      (compareUtcTimestamps(sample.slotAt, sample.observedAt) > 0 ||
+        compareUtcTimestamps(sample.observedAt, sample.receivedAt) > 0)
     ) {
       result.reason = "invalid_input";
       return result;
@@ -79,7 +79,7 @@ export function selectRuleSamples(
   }
   result.samples.sort(
     (a, b) =>
-      Date.parse(a.observedAt) - Date.parse(b.observedAt) ||
+      compareUtcTimestamps(a.observedAt, b.observedAt) ||
       (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
   return result;

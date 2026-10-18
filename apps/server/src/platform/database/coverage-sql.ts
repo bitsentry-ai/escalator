@@ -1,7 +1,7 @@
 import type { ReplayCoverageQuery } from "@bitsentry-escalator/features/contracts";
 // SQL identifiers/expressions below are a closed host-owned mapping. Caller values are bound.
 const timestamp = (expression: string) =>
-  `to_char(${expression} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+  `to_char(${expression} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const projection = {
   signal: {
     table: "escalator_signal_source",

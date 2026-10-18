@@ -1,3 +1,4 @@
+import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import {
   periodicCoverageInputSchema,
   eventCoverageInputSchema,
@@ -107,7 +108,7 @@ function computePeriodicCoverage(
     cursor = to;
     if (
       segment.recordedAt === null ||
-      Date.parse(segment.recordedAt) > visible
+      compareUtcTimestamps(segment.recordedAt, input.visibleAt) > 0
     ) {
       gap(from, to, "configuration_unavailable");
       continue;
@@ -127,12 +128,12 @@ function computePeriodicCoverage(
         .filter(
           (row) =>
             row.receivedAt !== null &&
-            Date.parse(row.receivedAt) <= visible &&
-            Date.parse(row.observedAt) <= visible,
+            compareUtcTimestamps(row.receivedAt, input.visibleAt) <= 0 &&
+            compareUtcTimestamps(row.observedAt, input.visibleAt) <= 0,
         )
         .sort(
           (a, b) =>
-            Date.parse(b.receivedAt!) - Date.parse(a.receivedAt!) ||
+            compareUtcTimestamps(b.receivedAt!, a.receivedAt!) ||
             (b.id > a.id ? 1 : b.id < a.id ? -1 : 0),
         );
       if (known[0]?.usable) {
@@ -184,11 +185,14 @@ export function eventCoverage(raw: EventCoverageInput): EventCoverageReport {
   for (const event of input.events) {
     if (ids.has(event.id)) throw new RangeError("Duplicate event identity");
     ids.add(event.id);
-    const observed = Date.parse(event.observedAt);
-    if (observed < start || observed >= end)
+    if (
+      compareUtcTimestamps(event.observedAt, input.startAt) < 0 ||
+      compareUtcTimestamps(event.observedAt, input.endAt) >= 0
+    )
       throw new RangeError("Event outside requested window");
     if (event.receivedAt === null) retrospectiveCount++;
-    else if (Date.parse(event.receivedAt) > visible) lateCount++;
+    else if (compareUtcTimestamps(event.receivedAt, input.visibleAt) > 0)
+      lateCount++;
     else visibleCount++;
   }
   return {
