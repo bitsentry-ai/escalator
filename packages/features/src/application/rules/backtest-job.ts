@@ -1,5 +1,5 @@
 import { compareUtcTimestamps } from "../../contracts/timestamps.js";
-import { createHash } from "node:crypto";
+import { ruleReviewedLabelHash } from "./review-evidence.js";
 import {
   ruleBacktestJobSchema,
   ruleBacktestRecordSchema,
@@ -94,22 +94,7 @@ export class RuleBacktestExecution {
       )
         throw new Error("Retrospective label in report input");
       const report = summarizeRuleBacktest(stored.snapshot, decisions, labels);
-      const labelHash = createHash("sha256")
-        .update(
-          JSON.stringify(
-            [...labels]
-              .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-              .map((l) => ({
-                id: l.id,
-                revision: l.revision,
-                reviewedAt: l.reviewedAt,
-                outcome: l.outcome,
-                startedAt: l.startedAt,
-                endedAt: l.endedAt,
-              })),
-          ),
-        )
-        .digest("hex");
+      const labelHash = ruleReviewedLabelHash(labels);
       const now = await tx.replay.currentTime();
       await tx.reports.insert(
         ruleBacktestRecordSchema.parse({
