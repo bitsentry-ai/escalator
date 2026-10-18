@@ -45,6 +45,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       ),
     );
   }
+  // Literal keys used by the shared screens must exist in the source locale.
+  const keys = new Set(flatten(source).map(([key]) => key));
+  const ui = new URL("../packages/features/src/ui/", import.meta.url);
+  for (const file of readdirSync(ui, { recursive: true }))
+    if (/\.tsx?$/.test(file))
+      for (const [, key] of readFileSync(new URL(file, ui), "utf8").matchAll(
+        /\bt\(\s*"([^"]+)"\s*[,)]/g,
+      ))
+        assert.ok(keys.has(key), `Missing translation key: ${key} (${file})`);
   assert.deepEqual(
     readdirSync(root, { withFileTypes: true })
       .filter((e) => e.isDirectory())

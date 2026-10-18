@@ -4,7 +4,7 @@ import type { LocalAuthClient, LocalUser } from "../auth/auth-client.js";
 import { ServicesRoute } from "./services/ServicesRoute.js";
 import { IncidentsRoute } from "./incidents/IncidentsRoute.js";
 import { OnCallRoute } from "./oncall/OnCallRoute.js";
-import { ContactsRoute } from "./settings/ContactsRoute.js";
+import { SettingsRoute } from "./settings/SettingsRoute.js";
 export function EscalatorShell({
   client,
   user,
@@ -41,13 +41,13 @@ export function EscalatorShell({
           aria-pressed={view === "contacts"}
           onClick={() => setView("contacts")}
         >
-          {t("settings.contacts")}
+          {t("settings.heading")}
         </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
       ) : view === "contacts" ? (
-        <ContactsRoute client={client} user={user} />
+        <SettingsRoute client={client} user={user} />
       ) : view === "oncall" ? (
         <OnCallRoute client={client} user={user} />
       ) : (

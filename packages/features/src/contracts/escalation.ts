@@ -87,3 +87,12 @@ export type EscalationDecision =
       nextDueAt: string | null;
       exhausted: boolean;
     };
+
+/** One default ladder shared by policy creation and the configuration UI. */
+export function defaultEscalationSteps(): EscalationPolicy["steps"] {
+  return [0, 2, 7, 12, 17].map((minute, index) => ({
+    id: `step-${index}`,
+    offsetMs: minute * 60_000,
+    target: index < 3 ? "primary" : index === 3 ? "peer" : "fallback",
+  }));
+}

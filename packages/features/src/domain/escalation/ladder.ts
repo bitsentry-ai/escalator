@@ -1,3 +1,4 @@
+import { defaultEscalationSteps } from "../../contracts/escalation.js";
 import {
   escalationPolicySchema,
   utcTimestampSchema,
@@ -22,15 +23,7 @@ export function snapshotPolicy(value: unknown): PolicySnapshot {
 export function defaultEscalationPolicy(
   input: Omit<EscalationPolicy, "steps">,
 ): PolicySnapshot {
-  const minutes = [0, 2, 7, 12, 17];
-  return snapshotPolicy({
-    ...input,
-    steps: minutes.map((minute, index) => ({
-      id: `step-${index}`,
-      offsetMs: minute * 60_000,
-      target: index < 3 ? "primary" : index === 3 ? "peer" : "fallback",
-    })),
-  });
+  return snapshotPolicy({ ...input, steps: defaultEscalationSteps() });
 }
 function timestamp(value: string): number {
   return Date.parse(utcTimestampSchema.parse(value));

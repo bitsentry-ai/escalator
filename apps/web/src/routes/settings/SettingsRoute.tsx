@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { hasCapability } from "@bitsentry-escalator/features/contracts";
-import { ContactsScreen } from "@bitsentry-escalator/features/ui";
+import { SettingsScreen } from "@bitsentry-escalator/features/ui";
 import type { LocalAuthClient, LocalUser } from "../../auth/auth-client.js";
 import { settingsClient } from "./settings-client.js";
-export function ContactsRoute({
+export function SettingsRoute({
   client,
   user,
 }: {
@@ -14,7 +14,7 @@ export function ContactsRoute({
   const { t } = useTranslation("escalator");
   const settings = useMemo(() => settingsClient(client), [client]);
   return (
-    <ContactsScreen
+    <SettingsScreen
       key={user.id}
       client={settings}
       canManage={hasCapability(user.role, "schedule:manage")}

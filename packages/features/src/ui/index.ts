@@ -20,3 +20,4 @@ export type {
   PagingSettingsClient,
   ContactSettingsClient,
 } from "./settings-client.js";
+export { SettingsScreen } from "./settings/SettingsScreen.js";
