@@ -144,6 +144,11 @@ export interface InvestigationIntentWriter {
    */
   enqueue(intent: InvestigationIntent): Promise<"inserted" | "duplicate">;
 }
+export interface InvestigationRunResult {
+  report: InvestigationReport;
+  /** Redacted snapshots that produced the report; persist atomically with its references. */
+  evidence: InvestigationEvidence[];
+}
 export interface InvestigationRepository {
   /** Commit a short transaction before network I/O. Host authenticates runtime/workspace.
    * Refuse stale runtime bindings. No cross-workspace discovery.
@@ -159,16 +164,22 @@ export interface InvestigationRepository {
     claim: InvestigationClaim,
     leaseMs: number,
   ): Promise<{ leaseExpiresAt: string } | undefined>;
-  /** Report and terminal state commit atomically. Scope/id must match the claim.
+  /** Report, redacted evidence snapshots and terminal state commit atomically.
+   * Every reference must match a supplied snapshot. Scope/id must match the claim.
    * An expired claim cannot publish even before it has been reclaimed.
    */
   publish(
     claim: InvestigationClaim,
-    report: InvestigationReport,
+    result: InvestigationRunResult,
   ): Promise<boolean>;
   /** Human reads remain workspace-scoped and authorized by the host. */
   get(
     scope: InvestigationScope,
     id: string,
   ): Promise<InvestigationReport | undefined>;
+  /** Read only persisted redacted snapshots; apply the same human scope authorization. */
+  getEvidence(
+    scope: InvestigationScope,
+    id: string,
+  ): Promise<InvestigationEvidence[]>;
 }

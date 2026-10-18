@@ -55,3 +55,12 @@ export {
   WazuhEvidenceError,
   type WazuhEvidenceBinding,
 } from "./evidence/wazuh.js";
+export {
+  InvestigationBudget,
+  InvestigationBudgetError,
+  systemInvestigationClock,
+} from "./orchestration/budget.js";
+export {
+  runInvestigation,
+  type InvestigationDependencies,
+} from "./orchestration/run.js";

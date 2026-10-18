@@ -1,3 +1,4 @@
+import { redactEvidence } from "../evidence/redaction.js";
 import { generateText } from "ai";
 import { z } from "zod";
 import type {
@@ -97,7 +98,13 @@ export class ScopedModelResolver implements ModelResolver {
             { requestBytes: 1048576, responseBytes: 1048576 },
           );
           if (captured.secretId === null)
-            return this.generate(captured, parsed.data, active, null, fetch);
+            return this.generateRedacted(
+              captured,
+              parsed.data,
+              active,
+              null,
+              fetch,
+            );
           return this.secrets.withSecret(
             {
               ...this.authorization,
@@ -114,7 +121,13 @@ export class ScopedModelResolver implements ModelResolver {
               );
               if (/[^\x21-\x7e]/.test(key))
                 throw new ModelExecutionError("model_unavailable");
-              return this.generate(captured, parsed.data, active, key, fetch);
+              return this.generateRedacted(
+                captured,
+                parsed.data,
+                active,
+                key,
+                fetch,
+              );
             },
           );
         }),
@@ -140,6 +153,23 @@ export class ScopedModelResolver implements ModelResolver {
     )
       throw new ModelExecutionError("profile_unavailable");
     return profile.data;
+  }
+  private async generateRedacted(
+    profile: ModelProfile,
+    request: ModelGenerationRequest,
+    context: OperationContext,
+    key: string | null,
+    fetch: typeof globalThis.fetch,
+  ): Promise<ModelGenerationResponse> {
+    const response = await this.generate(profile, request, context, key, fetch);
+    context.signal.throwIfAborted();
+    if (Buffer.byteLength(response.text, "utf8") > 262144)
+      throw new ModelExecutionError("invalid_response");
+    // Mask echoed credentials while the host's secret callback is still active.
+    const redacted = redactEvidence(response.text, key === null ? [] : [key]);
+    if (redacted.truncated) throw new ModelExecutionError("invalid_response");
+    context.signal.throwIfAborted();
+    return { ...response, text: redacted.text };
   }
   private async generate(
     profile: ModelProfile,

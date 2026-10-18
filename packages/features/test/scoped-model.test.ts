@@ -512,3 +512,39 @@ test("token-limit completion stays explicit for partial workflow outcomes", asyn
     "length",
   );
 });
+
+test("model output masks echoed credentials before leaving the secret callback", async () => {
+  const p = profile();
+  p.secretId = "secret_ref";
+  const f = fixture(p);
+  f.state.reply = async () =>
+    Response.json({
+      response: JSON.stringify({
+        summary: "echo ephemeral-test-key",
+        findings: [],
+      }),
+      done: true,
+      done_reason: "stop",
+      eval_count: 7,
+    });
+  const model = await f.resolver.resolve(p.scope, p.id, context());
+  const response = await model.generate(input, context());
+  assert.doesNotMatch(response.text, /ephemeral-test-key/i);
+  assert.match(response.text, /REDACTED/);
+  assert.equal(response.completion, "stop");
+  assert.equal(response.usage.outputTokens, 7);
+  assert.equal(f.state.activeSecret, false);
+  assert.ok(f.secretBytes.every((value) => value === 0));
+});
+
+test("oversized model output fails closed without returning truncated text", async () => {
+  const f = fixture();
+  f.state.reply = async () =>
+    Response.json({ response: "x".repeat(262145), done: true });
+  const p = profile();
+  const model = await f.resolver.resolve(p.scope, p.id, context());
+  await assert.rejects(
+    model.generate(input, context()),
+    reason("invalid_response"),
+  );
+});
