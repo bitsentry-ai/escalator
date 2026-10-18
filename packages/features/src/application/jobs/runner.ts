@@ -34,6 +34,12 @@ export function retryDelay(
     throw new Error("Invalid jitter source");
   return Math.max(1, Math.floor(ceiling / 2 + (sample * ceiling) / 2));
 }
+/** Each link of these chains enqueues its successor only when it commits. Terminal
+ * failure re-arms the same link (fencing identity unchanged) after the maximum backoff
+ * with a fresh attempt budget instead of silently ending the chain. */
+const selfReschedulingJobKinds: ReadonlySet<string> = new Set([
+  "probe.execute",
+]);
 export class DurableWorkRunner {
   constructor(
     private readonly store: DurableWorkStore,
@@ -75,11 +81,9 @@ export class DurableWorkRunner {
     });
     if (!lease) return "idle";
     if (lease.attempt > this.options.maxAttempts) {
-      return (await this.store.settle(lease, {
-        state: "failed",
-        outcome: "unknown",
-      }))
-        ? "failed"
+      const exhausted = this.exhausted(lease, "unknown");
+      return (await this.store.settle(lease, exhausted))
+        ? exhausted.state
         : "stale";
     }
     // The adapter has committed before any handler (including network I/O) starts.
@@ -100,7 +104,7 @@ export class DurableWorkRunner {
       // A failed/aborted external call may already have reached its provider.
       result =
         lease.attempt >= this.options.maxAttempts
-          ? { state: "failed", outcome: "unknown" }
+          ? this.exhausted(lease, "unknown")
           : {
               state: "retry",
               delayMs: retryDelay(lease.attempt, this.options),
@@ -111,7 +115,7 @@ export class DurableWorkRunner {
     }
     if (result.state === "stale") return "stale";
     if (result.state === "retry" && lease.attempt >= this.options.maxAttempts)
-      result = { state: "failed", outcome: result.outcome };
+      result = this.exhausted(lease, result.outcome);
     // The side effect may have happened; never let a missing outcome force redelivery.
     if (
       queue === "outbox" &&
@@ -120,5 +124,13 @@ export class DurableWorkRunner {
     )
       result = { ...result, outcome: "unknown" };
     return (await this.store.settle(lease, result)) ? result.state : "stale";
+  }
+  private exhausted(
+    lease: WorkLease,
+    outcome: "unknown" | "rejected" | undefined,
+  ): WorkResult {
+    return lease.queue === "job" && selfReschedulingJobKinds.has(lease.kind)
+      ? { state: "wait", delayMs: this.options.retryMaxMs }
+      : { state: "failed", outcome };
   }
 }

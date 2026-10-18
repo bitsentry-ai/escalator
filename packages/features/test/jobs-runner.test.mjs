@@ -84,6 +84,28 @@ test("last allowed attempt fails without another retry", async () => {
   assert.equal(await f.runner.runOne("org_fixture", "outbox"), "failed");
   assert.deepEqual(f.calls[1][2], { state: "failed", outcome: "unknown" });
 });
+test("self-rescheduling jobs re-arm instead of failing after exhausted attempts", async () => {
+  const handler = async () => {
+    throw new Error("failed");
+  };
+  for (const attempt of [3, 4]) {
+    const claimed = { ...lease, queue: "job", kind: "probe.execute", attempt };
+    const calls = [];
+    const runner = new DurableWorkRunner(
+      {
+        claim: async () => claimed,
+        settle: async (_lease, result) => {
+          calls.push(result);
+          return true;
+        },
+      },
+      { job: new Map([["probe.execute", handler]]), outbox: new Map() },
+      options,
+    );
+    assert.equal(await runner.runOne("org_fixture", "job"), "wait");
+    assert.deepEqual(calls, [{ state: "wait", delayMs: 60000 }]);
+  }
+});
 test("timeout aborts the attempt and late handler completion does not settle twice", async () => {
   let finish;
   let signal;
