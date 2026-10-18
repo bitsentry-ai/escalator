@@ -31,8 +31,9 @@ replay. All of these dependencies remain inside the standalone workspace.
 ## Delivery status
 
 Dependency support, persistence, login/MFA orchestration and operator commands
-are implemented. Public login, session and TOTP routes are not active yet. The
-following part adds CSRF checks, HTTP middleware registration and standalone screens.
+are implemented. The app factory now registers PostgreSQL sessions, CSRF checks
+and tRPC authentication procedures. Standalone screens follow in the next part.
+No live HTTP service or database-backed authentication flow has been run.
 Encrypted TOTP material must participate in the existing key-rotation procedure.
 PostgreSQL conformance will remain explicitly not runtime-verified until a
 separate disposable test database is provided; tests never use the application's
@@ -55,8 +56,8 @@ work. The encrypted-secret schema separates `authentication` and `provider`
 purposes. Provider redemption explicitly accepts only `provider` secrets, while
 key rotation covers both purposes.
 
-This foundation is not yet registered as active authentication middleware or
-public login routes. The subsequent flow and shell parts perform that wiring.
+Authentication middleware and public tRPC login routes are registered by the
+app factory. The following shell part supplies the user-facing screens.
 Run `pnpm --filter @bitsentry-escalator/server test` from this workspace for
 library/validation tests and opt-in PostgreSQL scenarios. Database scenarios
 require both dedicated test variables described in the README; without them,
@@ -111,3 +112,29 @@ explicit disposable database variables configured, the same suite additionally
 checks MFA encryption, concurrent recovery-code consumption, expired enrollment,
 disabling/re-enabling MFA and one-use operator recovery. Those PostgreSQL scenarios
 remain not runtime-verified; the operator CLI was not executed against a database.
+
+## HTTP session configuration
+
+App construction requires `ESCALATOR_PUBLIC_URL` (an HTTPS origin without a path),
+`ESCALATOR_WORKSPACE_ID`, `ESCALATOR_DATABASE_URL`, and the mounted key file above.
+Loopback HTTP origins are allowed for local use. `ESCALATOR_TRUST_PROXY_HOPS`
+defaults to zero; set it to the exact number of trusted reverse proxies only
+when direct access to the app is restricted to that proxy chain. Incorrect proxy
+trust can make forwarded client addresses or HTTPS assertions untrustworthy.
+
+The `/trpc` middleware uses PostgreSQL sessions, HttpOnly/SameSite=Strict cookies,
+Secure cookies with a `__Host-` name on HTTPS, and a 64-KiB request-body cap.
+Anonymous `auth.session` requests have a separate persistent IP rate limit.
+The session query returns a CSRF token; every mutation requires both the exact
+configured `Origin` and that token in `x-escalator-csrf`. Cross-site fetches and
+mismatched origins are rejected. Login and MFA changes regenerate and persist the
+session before returning success; the client must use the newly returned CSRF
+token. Expired/revoked account versions return an anonymous session. Responses
+are non-cacheable and omit password hashes, secret IDs and internal error stacks.
+
+Cookie signing keys use Node's HKDF-SHA256 with explicit session purpose and
+workspace separation from the mounted encryption keys. New cookies use the
+active key; retained keys verify older cookies. Retain old keys for at least the
+eight-hour session lifetime after rotation, in addition to the ciphertext/backup
+requirements. Removing an old key sooner may sign out existing users. Neither
+master keys nor derived cookie keys enter PostgreSQL.

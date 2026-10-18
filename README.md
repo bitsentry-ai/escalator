@@ -12,7 +12,9 @@ pnpm run lint
 
 Requires Node 22.12+ and pnpm 10.32.1. No root checkout, Desktop CE,
 WorkOS, Encore, database, or server process is required for these checks.
-The server exports an app factory; operational behavior starts in Phase 1.
+The server exports an app factory with local authentication; see
+[authentication configuration and operator procedures](docs/authentication.md).
+Importing the factory never starts a listener.
 The package exports compiled CommonJS and ESM only. React is a peer dependency.
 
 ## Mounted secret keys
@@ -76,9 +78,10 @@ bounded use and best-effort cleanup, not a claim of physical memory erasure.
    run requires another run; do not remove old keys. Each successful rewrite is
    audited as the local key-rotation operator, with no credential values.
 
-4. Only after all rows have been rewritten and all instances use the new key may
-   old keys leave the live key file. Retain them in protected historical backups
-   for as long as any retained database backup references them.
+4. Only after all rows have been rewritten, all instances use the new key, and
+   eight hours have elapsed since the signing-key switch may old keys leave the
+   live key file without invalidating older session cookies. Retain them in
+   protected historical backups for as long as any database backup references them.
 5. Restore a database together with its matching key set. Verify secret access
    and pending paging state in an isolated environment before accepting traffic.
    Never substitute a freshly generated key for a lost historical key.

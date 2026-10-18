@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  hkdfSync,
+} from "node:crypto";
 import {
   closeSync,
   constants,
@@ -41,7 +46,7 @@ function decode(value: unknown, length?: number): Buffer {
   }
   return decoded;
 }
-/** Keys stay in this process; callers receive neither key material nor the key map. */
+/** Master keys stay private; callers receive envelopes or purpose-derived cookie keys. */
 export class SecretKeyRing {
   private constructor(
     private readonly keys: Map<string, Buffer>,
@@ -98,6 +103,24 @@ export class SecretKeyRing {
       bytes?.fill(0);
       if (descriptor !== undefined) closeSync(descriptor);
     }
+  }
+  /** Purpose-separated cookie keys; retain historical keys for existing signed sessions. */
+  sessionSigningKeys(workspaceId: string): string[] {
+    if (!workspaceId) throw new Error("Session workspace is required");
+    const order = [this.activeKeyId, ...this.keys.keys()].filter(
+      (id, index, ids) => ids.indexOf(id) === index,
+    );
+    return order.map((id) =>
+      Buffer.from(
+        hkdfSync(
+          "sha256",
+          this.keys.get(id)!,
+          Buffer.from(workspaceId),
+          Buffer.from("bitsentry-escalator/session-signing/v1"),
+          32,
+        ),
+      ).toString("base64url"),
+    );
   }
   private aad(identity: SecretIdentity, keyId: string): Buffer {
     if (!identity.workspaceId || !identity.id)

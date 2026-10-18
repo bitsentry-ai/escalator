@@ -1,6 +1,7 @@
-import { initTRPC } from "@trpc/server";
+import { t } from "./context.js";
+import { authRouter } from "../auth/auth.router.js";
 import { getEscalatorPackageInfo } from "@bitsentry-escalator/features/application";
-const t = initTRPC.create();
 export const appRouter = t.router({
+  auth: authRouter,
   packageInfo: t.procedure.query(() => getEscalatorPackageInfo()),
 });

@@ -61,6 +61,18 @@ export class LocalAuthService {
       await passwords.create(issueToken().value),
     );
   }
+  async initializeSession(ip: string): Promise<void> {
+    if (
+      !ip ||
+      ip.length > 128 ||
+      !(await this.accounts.takeRateSlot(
+        tokenDigest(`session-ip:${ip}`),
+        60,
+        300,
+      ))
+    )
+      throw new AuthenticationError();
+  }
   private async limit(ip: string, subject: string): Promise<void> {
     if (!ip || ip.length > 128) throw new AuthenticationError();
     if (!(await this.accounts.takeRateSlot(tokenDigest(`ip:${ip}`), 30, 300)))

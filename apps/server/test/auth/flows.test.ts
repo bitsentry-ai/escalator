@@ -216,3 +216,16 @@ test("operator recovery hashes both credentials and leaves session creation to f
   );
   assert.ok(!f.calls.some((c) => c.startsWith("authenticate")));
 });
+
+test("anonymous session initialization has its own persistent IP limit", async () => {
+  const f = fixture();
+  await f.service.initializeSession("local");
+  assert.deepEqual(f.calls, [`rate:${tokenDigest("session-ip:local")}:60`]);
+  f.accounts.takeRateSlot = async () => false;
+  await assert.rejects(f.service.initializeSession("local"), {
+    code: "authentication_failed",
+  });
+  await assert.rejects(f.service.initializeSession(""), {
+    code: "authentication_failed",
+  });
+});
