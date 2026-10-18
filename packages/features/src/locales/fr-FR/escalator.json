@@ -237,11 +237,17 @@
       "url": "URL du webhook",
       "bearerToken": "Jeton Bearer (facultatif)",
       "serverUrl": "URL du serveur",
-      "topic": "Sujet"
+      "topic": "Sujet",
+      "host": "Hôte SMTP (TLS, port 465)",
+      "username": "Nom d’utilisateur",
+      "password": "Mot de passe",
+      "from": "Adresse de l’expéditeur",
+      "to": "Adresse du destinataire"
     },
     "heading": "Paramètres d’alerte",
     "view": "Consulter",
-    "close": "Fermer"
+    "close": "Fermer",
+    "emailChannel": "E-mail"
   },
   "policy": {
     "heading": "Politiques d’escalade",

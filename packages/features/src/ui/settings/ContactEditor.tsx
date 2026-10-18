@@ -124,7 +124,8 @@ export function ContactEditor({
                   channel === "webhook" ||
                   channel === "ntfy" ||
                   channel === "slack" ||
-                  channel === "discord"
+                  channel === "discord" ||
+                  channel === "email"
                 )
                   setDraft({ ...draft, channel });
               }}
@@ -134,9 +135,17 @@ export function ContactEditor({
               <option value="ntfy">ntfy</option>
               <option value="slack">Slack</option>
               <option value="discord">Discord</option>
-              {!["pushover", "webhook", "ntfy", "slack", "discord"].includes(
-                draft.channel,
-              ) && <option value={draft.channel}>{draft.channel}</option>}
+              <option value="email">{t("settings.emailChannel")}</option>
+              {![
+                "pushover",
+                "webhook",
+                "ntfy",
+                "slack",
+                "discord",
+                "email",
+              ].includes(draft.channel) && (
+                <option value={draft.channel}>{draft.channel}</option>
+              )}
             </select>
           </label>
           <label style={styles.label}>

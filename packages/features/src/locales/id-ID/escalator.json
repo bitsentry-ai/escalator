@@ -237,11 +237,17 @@
       "url": "URL webhook",
       "bearerToken": "Token Bearer (opsional)",
       "serverUrl": "URL server",
-      "topic": "Topik"
+      "topic": "Topik",
+      "host": "Host SMTP (TLS port 465)",
+      "username": "Nama pengguna",
+      "password": "Kata sandi",
+      "from": "Email pengirim",
+      "to": "Email penerima"
     },
     "heading": "Pengaturan panggilan",
     "view": "Lihat",
-    "close": "Tutup"
+    "close": "Tutup",
+    "emailChannel": "Email"
   },
   "policy": {
     "heading": "Kebijakan eskalasi",

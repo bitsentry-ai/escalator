@@ -47,3 +47,5 @@ export * from "./sustained-floor.js";
 export * from "./metric-records.js";
 
 export * from "./metric-inputs.js";
+
+export * from "./email-credentials.js";

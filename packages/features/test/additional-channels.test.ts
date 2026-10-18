@@ -326,6 +326,6 @@ test("both-host channel factory selects the additional adapters without decrypti
       receiptId: null,
     });
     assert.equal(calls, 1);
-    assert.equal(channels.forDelivery("email", 120), undefined);
+    assert.ok(channels.forDelivery("email", 120));
   }
 });

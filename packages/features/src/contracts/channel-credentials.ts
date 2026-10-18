@@ -1,3 +1,4 @@
+import { emailCredentialsSchema } from "./email-credentials.js";
 import { z } from "zod";
 
 function endpoint(value: string, kind: "ntfy" | "slack" | "discord") {
@@ -85,6 +86,11 @@ export const webhookCredentialsSchema = z.strictObject({
 });
 
 export const createChannelSecretSchema = z.discriminatedUnion("channel", [
+  z.strictObject({
+    name: z.string().trim().min(1).max(120),
+    channel: z.literal("email"),
+    credentials: emailCredentialsSchema,
+  }),
   z.strictObject({
     name: z.string().trim().min(1).max(120),
     channel: z.literal("ntfy"),

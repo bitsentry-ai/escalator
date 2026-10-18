@@ -237,11 +237,17 @@
       "url": "Webhook URL",
       "bearerToken": "Bearer token (optional)",
       "serverUrl": "Server URL",
-      "topic": "Topic"
+      "topic": "Topic",
+      "host": "SMTP host (TLS port 465)",
+      "username": "Username",
+      "password": "Password",
+      "from": "Sender email",
+      "to": "Recipient email"
     },
     "heading": "Paging settings",
     "view": "View",
-    "close": "Close"
+    "close": "Close",
+    "emailChannel": "Email"
   },
   "policy": {
     "heading": "Escalation policies",

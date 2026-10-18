@@ -237,11 +237,17 @@
       "url": "Webhook URL",
       "bearerToken": "Bearer 令牌（可选）",
       "serverUrl": "服务器 URL",
-      "topic": "主题"
+      "topic": "主题",
+      "host": "SMTP 主机（TLS 端口 465）",
+      "username": "用户名",
+      "password": "密码",
+      "from": "发件人邮箱",
+      "to": "收件人邮箱"
     },
     "heading": "呼叫设置",
     "view": "查看",
-    "close": "关闭"
+    "close": "关闭",
+    "emailChannel": "电子邮件"
   },
   "policy": {
     "heading": "升级策略",

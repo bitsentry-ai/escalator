@@ -7,3 +7,9 @@ export * from "../adapters/channels/factory.js";
 export * from "../adapters/channels/ntfy.js";
 export * from "../adapters/channels/slack.js";
 export * from "../adapters/channels/discord.js";
+
+export {
+  EmailChannel,
+  type EmailTransport,
+} from "../adapters/channels/email.js";
+export { PublicSmtpTransport } from "../adapters/channels/smtp-transport.js";

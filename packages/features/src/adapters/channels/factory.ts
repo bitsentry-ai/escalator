@@ -1,3 +1,5 @@
+import { EmailChannel, type EmailTransport } from "./email.js";
+import { PublicSmtpTransport } from "./smtp-transport.js";
 import { NtfyChannel } from "./ntfy.js";
 import { SlackChannel } from "./slack.js";
 import { DiscordChannel } from "./discord.js";
@@ -10,7 +12,9 @@ import { WebhookChannel } from "./webhook.js";
 export function createPagingChannels(
   secrets: SecretStore,
   http: ChannelHttpTransport,
+  smtp: EmailTransport = new PublicSmtpTransport(),
 ) {
+  const email = new EmailChannel(secrets, smtp);
   const webhook = new WebhookChannel(secrets, http);
   const ntfy = new NtfyChannel(secrets, http),
     slack = new SlackChannel(secrets, http),
@@ -30,6 +34,8 @@ export function createPagingChannels(
             retrySeconds: 30,
             expireSeconds,
           });
+        case "email":
+          return email;
         case "webhook":
           return webhook;
         case "ntfy":

@@ -12,7 +12,7 @@ export function CredentialForm({
   t: (key: string) => string;
 }) {
   const [channel, setChannel] = useState<
-    "pushover" | "webhook" | "ntfy" | "slack" | "discord"
+    "pushover" | "webhook" | "ntfy" | "slack" | "discord" | "email"
   >("pushover");
   const [name, setName] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -40,21 +40,30 @@ export function CredentialForm({
     setError(false);
     try {
       const credentials =
-        channel === "pushover"
+        channel === "email"
           ? {
-              token: fields.token ?? "",
-              user: fields.user ?? "",
-              ...(fields.device ? { device: fields.device } : {}),
+              host: fields.host ?? "",
+              port: 465,
+              username: fields.username ?? "",
+              password: fields.password ?? "",
+              from: fields.from ?? "",
+              to: fields.to ?? "",
             }
-          : channel === "slack" || channel === "discord"
-            ? { url: fields.url ?? "" }
-            : {
-                url: fields.url ?? "",
-                ...(channel === "ntfy" ? { topic: fields.topic ?? "" } : {}),
-                ...(fields.bearerToken
-                  ? { bearerToken: fields.bearerToken }
-                  : {}),
-              };
+          : channel === "pushover"
+            ? {
+                token: fields.token ?? "",
+                user: fields.user ?? "",
+                ...(fields.device ? { device: fields.device } : {}),
+              }
+            : channel === "slack" || channel === "discord"
+              ? { url: fields.url ?? "" }
+              : {
+                  url: fields.url ?? "",
+                  ...(channel === "ntfy" ? { topic: fields.topic ?? "" } : {}),
+                  ...(fields.bearerToken
+                    ? { bearerToken: fields.bearerToken }
+                    : {}),
+                };
       const result = await client.createSecret(
         createChannelSecretSchema.parse({ channel, name, credentials }),
       );
@@ -106,7 +115,8 @@ export function CredentialForm({
                 selected === "webhook" ||
                 selected === "ntfy" ||
                 selected === "slack" ||
-                selected === "discord"
+                selected === "discord" ||
+                selected === "email"
               )
                 setChannel(selected);
               setFields({});
@@ -118,15 +128,18 @@ export function CredentialForm({
             <option value="ntfy">ntfy</option>
             <option value="slack">Slack</option>
             <option value="discord">Discord</option>
+            <option value="email">{t("settings.emailChannel")}</option>
           </select>
         </label>
-        {(channel === "pushover"
-          ? ["token", "user", "device"]
-          : channel === "ntfy"
-            ? ["url", "topic", "bearerToken"]
-            : channel === "webhook"
-              ? ["url", "bearerToken"]
-              : ["url"]
+        {(channel === "email"
+          ? ["host", "username", "password", "from", "to"]
+          : channel === "pushover"
+            ? ["token", "user", "device"]
+            : channel === "ntfy"
+              ? ["url", "topic", "bearerToken"]
+              : channel === "webhook"
+                ? ["url", "bearerToken"]
+                : ["url"]
         ).map((field) => (
           <label key={field} style={styles.label}>
             {t(
@@ -137,7 +150,10 @@ export function CredentialForm({
               type="password"
               autoComplete="off"
               spellCheck={false}
-              required={["token", "user", "url", "topic"].includes(field)}
+              required={
+                channel === "email" ||
+                ["token", "user", "url", "topic"].includes(field)
+              }
               maxLength={4096}
               value={fields[field] ?? ""}
               onChange={(event) =>
