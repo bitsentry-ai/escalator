@@ -34,3 +34,4 @@ export * from "./provider-source-inputs.js";
 
 export * from "./alerts.js";
 export * from "./detection-inputs.js";
+export * from "./probes.js";
