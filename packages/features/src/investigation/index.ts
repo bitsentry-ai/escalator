@@ -94,3 +94,14 @@ export {
   InvestigationConsumer,
   type InvestigationConsumerOptions,
 } from "./orchestration/consumer.js";
+
+export {
+  repositoryComparisonSchema,
+  normalizeGithubDiff,
+  type RepositoryComparison,
+} from "./evidence/github-diff.js";
+export {
+  GithubDiffHttp,
+  GithubDiffError,
+  type GithubDiffFailure,
+} from "./evidence/github-http.js";
