@@ -89,3 +89,6 @@ export * from "./investigation-source-options.js";
 export * from "./investigation-report.js";
 export * from "./rules.js";
 export * from "./rule-state.js";
+
+export * from "./rule-replay.js";
+export * from "./rule-label.js";
