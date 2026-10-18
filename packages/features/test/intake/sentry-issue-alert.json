@@ -1,0 +1,12 @@
+{
+  "action": "triggered",
+  "data": {
+    "event": {
+      "event_id": "e4874d664c3540c1a32eab185f12c5ab",
+      "issue_id": "1117540176",
+      "project": 1,
+      "datetime": "2019-08-19T21:06:17.677000Z",
+      "level": "error"
+    }
+  }
+}
