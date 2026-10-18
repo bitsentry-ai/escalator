@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { OperationalPage, WorkspaceId } from "../../contracts/index.js";
-import { escalationSteps } from "../../domain/escalation/ladder.js";
-import type { PagingRepository, PagingTransaction } from "./persistence.js";
+import { cancelPageWork } from "./cancel.js";
+import type { PagingRepository } from "./persistence.js";
 import { pagingWorkId } from "./work-ids.js";
 
 export type AcknowledgementResult =
@@ -27,46 +27,6 @@ function result(page: OperationalPage): AcknowledgementResult {
     pageId: page.id,
     ownerId: page.acknowledgedBy,
   };
-}
-/** Caller holds the page lock; dispatch takes the same lock before creating effects. */
-export async function cancelPageWork(
-  tx: PagingTransaction,
-  page: OperationalPage,
-): Promise<void> {
-  await tx.work.cancel(
-    "job",
-    escalationSteps(page.policy, page.createdAt).map((step) =>
-      pagingWorkId(tx.workspaceId, "step", page.id, step.id),
-    ),
-  );
-  let after: string | undefined;
-  do {
-    const batch = await tx.deliveries.forPage(page.id, { limit: 100, after });
-    await tx.work.cancel(
-      "outbox",
-      batch.items.map((delivery) =>
-        pagingWorkId(tx.workspaceId, "send", delivery.id),
-      ),
-    );
-    await tx.work.cancel(
-      "job",
-      batch.items.map((delivery) =>
-        pagingWorkId(tx.workspaceId, "receipt", delivery.id),
-      ),
-    );
-    for (const delivery of batch.items) {
-      if (delivery.channel !== "pushover") continue;
-      const id = pagingWorkId(tx.workspaceId, "cancel", delivery.id);
-      await tx.work.enqueue("job", {
-        id,
-        kind: "paging.cancel",
-        idempotencyKey: id,
-        payload: { pageId: page.id, deliveryId: delivery.id },
-        dueAt: tx.now,
-      });
-    }
-    after = batch.next ?? undefined;
-  } while (after);
 }
 
 export class PageAcknowledgements {
