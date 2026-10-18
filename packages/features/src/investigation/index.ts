@@ -42,3 +42,16 @@ export {
   getWazuhHttpFacts,
   HTTP_EVIDENCE_GUIDANCE,
 } from "./evidence/wazuh-http-facts.js";
+export { ValidatedEvidenceReader } from "./evidence/validated-reader.js";
+export {
+  redactEvidence,
+  redactEvidenceText,
+  type RedactedEvidenceText,
+} from "./evidence/redaction.js";
+export {
+  wazuhEvidenceBindingSchema,
+  prepareWazuhEvidence,
+  normalizeWazuhEvidence,
+  WazuhEvidenceError,
+  type WazuhEvidenceBinding,
+} from "./evidence/wazuh.js";
