@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
-import type { OperationalPage, WorkspaceId } from "../../contracts/index.js";
+import type {
+  OperationalPage,
+  WorkspaceId,
+  ResponderId,
+} from "../../contracts/index.js";
 import { cancelPageWork } from "./cancel.js";
-import type { PagingRepository } from "./persistence.js";
+import type { AuditActor } from "../ports/audit.js";
+import type { PagingRepository, PagingTransaction } from "./persistence.js";
 import { pagingWorkId } from "./work-ids.js";
 
 export type AcknowledgementResult =
@@ -64,32 +69,45 @@ export class PageAcknowledgements {
       // Recheck against live database time after any page-lock wait.
       const grant = await tx.grants.findValid(digest);
       if (!page || !grant) return { state: "invalid" };
-      if (page.acknowledgedBy || page.state === "resolved") return result(page);
-      const responder = await tx.responders.get(grant.recipientId);
-      if (!responder?.enabled) return { state: "invalid" };
-      const updated: OperationalPage = {
-        ...page,
-        state: "acknowledged",
-        revision: page.revision + 1,
-        acknowledgedBy: grant.recipientId,
-        acknowledgedAt: new Date(
-          Math.max(Date.parse(tx.now), Date.parse(page.createdAt)),
-        ).toISOString(),
-      };
-      if (!(await tx.pages.replace(updated, page.revision)))
-        throw new Error("Locked page revision changed");
-      await cancelPageWork(tx, updated);
-      await tx.audit.append({
-        id: pagingWorkId(scope, "ack-audit", page.id),
-        workspaceId: scope,
-        actor: { kind: "recipient-token", responderId: grant.recipientId },
-        action: "page.acknowledged",
-        subjectType: "page",
-        subjectId: page.id,
-        recordedAt: updated.acknowledgedAt!,
-        metadata: {},
+      return acknowledgePageInTransaction(tx, page, grant.recipientId, {
+        kind: "recipient-token",
+        responderId: grant.recipientId,
       });
-      return result(updated);
     });
   }
+}
+
+/** Internal trusted proof paths only. Caller must hold the page lock. */
+export async function acknowledgePageInTransaction(
+  tx: PagingTransaction,
+  page: OperationalPage,
+  recipientId: ResponderId,
+  actor: AuditActor,
+): Promise<AcknowledgementResult> {
+  if (page.acknowledgedBy || page.state === "resolved") return result(page);
+  const responder = await tx.responders.get(recipientId);
+  if (!responder?.enabled) return { state: "invalid" };
+  const updated: OperationalPage = {
+    ...page,
+    state: "acknowledged",
+    revision: page.revision + 1,
+    acknowledgedBy: recipientId,
+    acknowledgedAt: new Date(
+      Math.max(Date.parse(tx.now), Date.parse(page.createdAt)),
+    ).toISOString(),
+  };
+  if (!(await tx.pages.replace(updated, page.revision)))
+    throw new Error("Locked page revision changed");
+  await cancelPageWork(tx, updated);
+  await tx.audit.append({
+    id: pagingWorkId(tx.workspaceId, "ack-audit", page.id),
+    workspaceId: tx.workspaceId,
+    actor,
+    action: "page.acknowledged",
+    subjectType: "page",
+    subjectId: page.id,
+    recordedAt: updated.acknowledgedAt!,
+    metadata: {},
+  });
+  return result(updated);
 }

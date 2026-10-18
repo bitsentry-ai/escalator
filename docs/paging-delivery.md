@@ -29,13 +29,13 @@ If recovery already marked the old attempt unknown, that result remains immutabl
 a separate audit event retains safe late evidence without changing its retry.
 
 Each accepted Pushover response creates its own durable receipt polling intent,
-including late evidence after recovery, with an absolute expiry bound.
+including late evidence after recovery, bounded by its acknowledgement grant expiry.
 Acknowledgement cancels polling across every attempt of the delivery. A new job-only `wait` result allows a successful pending poll to
 reschedule without consuming the consecutive failure budget. Both PostgreSQL
 adapters reset that budget under the same token/expiry fence. Outbox work cannot
-use `wait`. Receipt reconciliation and provider-cancellation handlers, production
-routing persistence and host registration follow in subsequent parts; this part
-does not activate sends in either host.
+use `wait`. Receipt reconciliation and cancellation are implemented in
+[paging-provider-jobs.md](paging-provider-jobs.md). Production routing persistence
+and host registration follow in subsequent parts; sends are not activated yet.
 
 ## Verification and runtime gaps
 

@@ -10,6 +10,7 @@ import { pagingWorkId } from "./work-ids.js";
 export async function cancelDeliveryWork(
   tx: PagingTransaction,
   deliveries: readonly RecipientDelivery[],
+  cancelReceipts = true,
 ): Promise<void> {
   if (
     deliveries.length > 100 ||
@@ -20,36 +21,45 @@ export async function cancelDeliveryWork(
     "outbox",
     deliveries.map((entry) => pagingWorkId(tx.workspaceId, "send", entry.id)),
   );
-  await tx.work.cancel(
-    "job",
-    deliveries.map((entry) =>
-      pagingWorkId(tx.workspaceId, "receipt", entry.id),
-    ),
-  );
+  if (cancelReceipts) {
+    await tx.work.cancel(
+      "job",
+      deliveries.map((entry) =>
+        pagingWorkId(tx.workspaceId, "receipt", entry.id),
+      ),
+    );
+  }
   for (const delivery of deliveries) {
-    // Every accepted attempt has its own receipt, including a late response
-    // from an attempt recovery had already marked unknown.
-    let after: string | undefined;
-    do {
-      const batch = await tx.attempts.forDelivery(delivery.id, {
-        limit: 100,
-        after,
-      });
-      await tx.work.cancel(
-        "job",
-        batch.items.map((attempt) =>
-          pagingWorkId(tx.workspaceId, "receipt", delivery.id, attempt.id),
-        ),
-      );
-      after = batch.next ?? undefined;
-    } while (after);
+    if (cancelReceipts) {
+      // Every accepted attempt has its own receipt, including a late response
+      // from an attempt recovery had already marked unknown.
+      let after: string | undefined;
+      do {
+        const batch = await tx.attempts.forDelivery(delivery.id, {
+          limit: 100,
+          after,
+        });
+        await tx.work.cancel(
+          "job",
+          batch.items.map((attempt) =>
+            pagingWorkId(tx.workspaceId, "receipt", delivery.id, attempt.id),
+          ),
+        );
+        after = batch.next ?? undefined;
+      } while (after);
+    }
     if (delivery.channel !== "pushover") continue;
     const id = pagingWorkId(tx.workspaceId, "cancel", delivery.id);
     await tx.work.enqueue("job", {
       id,
       kind: "paging.cancel",
       idempotencyKey: id,
-      payload: { pageId: delivery.pageId, deliveryId: delivery.id },
+      payload: {
+        pageId: delivery.pageId,
+        deliveryId: delivery.id,
+        secretId: delivery.secretId,
+        approvedSecretIds: delivery.secretId ? [delivery.secretId] : [],
+      },
       dueAt: tx.now,
     });
   }

@@ -35,3 +35,4 @@ export * from "./paging/routing.js";
 export * from "./paging/advance.js";
 export * from "./paging/cancel.js";
 export * from "./paging/send.js";
+export * from "./paging/provider-jobs.js";

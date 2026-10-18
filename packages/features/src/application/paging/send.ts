@@ -119,7 +119,12 @@ export class PageDelivery {
         throw new Error("Invalid delivery claim");
       const delivery = await tx.deliveries.get(payload.deliveryId);
       const step = delivery && (await tx.steps.get(delivery.stepId));
-      if (!delivery || !step || delivery.pageId !== page.id)
+      if (
+        !delivery ||
+        !step ||
+        delivery.pageId !== page.id ||
+        delivery.secretId !== payload.secretId
+      )
         throw new Error("Invalid delivery reference");
       const steps = escalationSteps(page.policy, page.createdAt);
       const index = steps.findIndex((entry) => entry.id === step.logicalStepId);
@@ -131,7 +136,7 @@ export class PageDelivery {
         page.state === "resolved" ||
         (nextAt && Date.parse(nextAt) <= Date.parse(tx.now))
       ) {
-        await cancelDeliveryWork(tx, [delivery]);
+        await cancelDeliveryWork(tx, [delivery], false);
         return { state: "stale" };
       }
       const attempts: DeliveryAttempt[] = [];
@@ -271,9 +276,10 @@ export class PageDelivery {
         (entry) => entry.id === step?.logicalStepId,
       );
       const next = steps[index + 1]?.dueAt;
+      const pageClosed =
+        page.state === "acknowledged" || page.state === "resolved";
       const closed =
-        page.state === "acknowledged" ||
-        page.state === "resolved" ||
+        pageClosed ||
         (next !== undefined && Date.parse(next) <= Date.parse(tx.now));
       if (closed && prepared.delivery.channel === "pushover") {
         const id = pagingWorkId(
@@ -290,13 +296,15 @@ export class PageDelivery {
             pageId: page.id,
             deliveryId: prepared.delivery.id,
             attemptId: prepared.attempt.id,
+            secretId: prepared.secretId,
+            approvedSecretIds: [prepared.secretId],
           },
           dueAt: tx.now,
         });
       }
       if (
         finished.outcome === "accepted" &&
-        !closed &&
+        !pageClosed &&
         prepared.delivery.channel === "pushover" &&
         finished.providerReceiptId
       ) {
@@ -318,7 +326,7 @@ export class PageDelivery {
             secretId: prepared.secretId,
             approvedSecretIds: [prepared.secretId],
             pollUntil: new Date(
-              Date.parse(tx.now) + prepared.expireSeconds * 1000 + 10_000,
+              Date.parse(prepared.attempt.startedAt) + this.ackTtlMs,
             ).toISOString(),
           },
           dueAt: new Date(Date.parse(tx.now) + 5000).toISOString(),

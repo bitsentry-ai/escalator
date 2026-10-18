@@ -88,6 +88,7 @@ export class PageAdvancement {
           await cancelDeliveryWork(
             tx,
             batch.items.filter((entry) => earlier.has(entry.stepId)),
+            false,
           );
           cursor = batch.next ?? undefined;
         } while (cursor);
@@ -148,6 +149,7 @@ export class PageAdvancement {
             stepId,
             recipientId: route.responderId,
             contactId: route.contact.id,
+            secretId: route.contact.secretId,
             channel: route.contact.channel,
             createdAt: tx.now,
           });

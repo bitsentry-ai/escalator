@@ -669,6 +669,7 @@ async function seed(tx: PagingTransaction): Promise<void> {
       stepId: "step",
       recipientId: "primary",
       contactId: "contact",
+      secretId: "secret",
       channel: "pushover",
       createdAt: tx.now,
     }),

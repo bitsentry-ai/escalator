@@ -91,13 +91,15 @@ export const pageStepSchema = z
     "Invalid step recipients",
   );
 
-/** Channel selection is frozen, but destinations and secrets are resolved by opaque contact ID. */
+/** Contact, channel and opaque secret reference are frozen; credentials stay in the host store. */
 export const recipientDeliverySchema = z.strictObject({
   ...scoped,
   pageId: opaqueIdSchema,
   stepId: opaqueIdSchema,
   recipientId: responderIdSchema,
   contactId: opaqueIdSchema,
+  /** Frozen opaque credential reference; null reads pre-activation records safely. */
+  secretId: opaqueIdSchema.nullable().default(null),
   channel: z.enum(["pushover", "webhook", "ntfy", "slack", "discord", "email"]),
   createdAt: utcTimestampSchema,
 });
