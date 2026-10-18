@@ -12,3 +12,6 @@ export * from "./ack/AcknowledgementScreen.js";
 
 export type { IncidentsClient } from "./incidents-client.js";
 export { IncidentsScreen } from "./incidents/IncidentsScreen.js";
+
+export type { OnCallClient } from "./oncall-client.js";
+export { OnCallScreen } from "./oncall/OnCallScreen.js";

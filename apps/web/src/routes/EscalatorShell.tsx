@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { LocalAuthClient, LocalUser } from "../auth/auth-client.js";
 import { ServicesRoute } from "./services/ServicesRoute.js";
 import { IncidentsRoute } from "./incidents/IncidentsRoute.js";
+import { OnCallRoute } from "./oncall/OnCallRoute.js";
 export function EscalatorShell({
   client,
   user,
@@ -11,7 +12,9 @@ export function EscalatorShell({
   user: LocalUser;
 }) {
   const { t } = useTranslation("escalator");
-  const [view, setView] = useState<"services" | "incidents">("services");
+  const [view, setView] = useState<"services" | "incidents" | "oncall">(
+    "services",
+  );
   return (
     <>
       <nav aria-label={t("title")}>
@@ -27,9 +30,17 @@ export function EscalatorShell({
         >
           {t("incidents.heading")}
         </button>
+        <button
+          aria-pressed={view === "oncall"}
+          onClick={() => setView("oncall")}
+        >
+          {t("oncall.heading")}
+        </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
+      ) : view === "oncall" ? (
+        <OnCallRoute client={client} user={user} />
       ) : (
         <IncidentsRoute client={client} user={user} />
       )}
