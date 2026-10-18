@@ -1,7 +1,11 @@
+import { DeploymentWatchController } from "./watch.controller.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import {
   DeploymentManagement,
+  DeploymentWatchReader,
+  DeploymentWatchHttp,
+  type DeploymentWatchTransaction,
   DeploymentPreflight,
   type CoverageTransaction,
   DeploymentAccess,
@@ -12,29 +16,45 @@ import {
   DatabaseModule,
   StandaloneDatabase,
 } from "../../platform/database/database.module.js";
-import { PostgresDeploymentRuntimeRepository } from "../../platform/database/deployment-runtime.repository.js";
+import { PostgresDeploymentWatchRuntimeRepository } from "../../platform/database/deployment-watch-runtime.repository.js";
 import { DeploymentController } from "./deploy.controller.js";
 @Module({
   imports: [DatabaseModule],
-  controllers: [DeploymentController],
+  controllers: [DeploymentController, DeploymentWatchController],
   providers: [
     {
-      provide: PostgresDeploymentRuntimeRepository,
+      provide: DeploymentWatchHttp,
+      inject: [PostgresDeploymentWatchRuntimeRepository, StandaloneDatabase],
+      useFactory: (
+        repo: PostgresDeploymentWatchRuntimeRepository,
+        db: StandaloneDatabase,
+      ) =>
+        new DeploymentWatchHttp(
+          new DeploymentWatchReader(
+            new DeploymentAccess<DeploymentWatchTransaction>(
+              repo,
+              (scope) => scope === db.workspaceId,
+            ),
+          ),
+        ),
+    },
+    {
+      provide: PostgresDeploymentWatchRuntimeRepository,
       inject: [StandaloneDatabase],
       useFactory: (db: StandaloneDatabase) =>
-        new PostgresDeploymentRuntimeRepository(db.pool),
+        new PostgresDeploymentWatchRuntimeRepository(db.pool),
     },
     {
       provide: DeploymentManagement,
-      inject: [PostgresDeploymentRuntimeRepository],
-      useFactory: (repo: PostgresDeploymentRuntimeRepository) =>
+      inject: [PostgresDeploymentWatchRuntimeRepository],
+      useFactory: (repo: PostgresDeploymentWatchRuntimeRepository) =>
         new DeploymentManagement(repo, randomUUID),
     },
     {
       provide: DeploymentPreflight,
-      inject: [PostgresDeploymentRuntimeRepository, StandaloneDatabase],
+      inject: [PostgresDeploymentWatchRuntimeRepository, StandaloneDatabase],
       useFactory: (
-        repo: PostgresDeploymentRuntimeRepository,
+        repo: PostgresDeploymentWatchRuntimeRepository,
         db: StandaloneDatabase,
       ) =>
         new DeploymentPreflight(
@@ -46,12 +66,12 @@ import { DeploymentController } from "./deploy.controller.js";
     {
       provide: DeploymentHttp,
       inject: [
-        PostgresDeploymentRuntimeRepository,
+        PostgresDeploymentWatchRuntimeRepository,
         StandaloneDatabase,
         DeploymentPreflight,
       ],
       useFactory: (
-        repo: PostgresDeploymentRuntimeRepository,
+        repo: PostgresDeploymentWatchRuntimeRepository,
         db: StandaloneDatabase,
         preflight: DeploymentPreflight,
       ) => {

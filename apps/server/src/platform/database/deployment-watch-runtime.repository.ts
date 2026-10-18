@@ -42,8 +42,7 @@ type Transaction = CoverageTransaction &
   StuckDeploymentTransaction &
   WatchRuntimeTransaction &
   WatchCadenceTransaction;
-/** Conformance composition, not registered yet. Activation must register ALL watch
- * and cadence handlers before any accepted finish can enqueue their work. */
+/** One transaction for lifecycle, watch evidence and cadence ownership. */
 export class PostgresDeploymentWatchRuntimeRepository
   implements
     CoverageRepository,

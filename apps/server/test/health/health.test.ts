@@ -193,8 +193,8 @@ test("watchdog configuration requires a registered handler and fits the existing
   });
   const metrics = new MetricDeployment({
     destinations,
-    // Eight reserved lanes include the deployment timeout worker; 32 + 24 + 8 = 64.
-    limits: { maxActive: 100, maxConfigured: 500, concurrency: 24 },
+    // Ten reserved lanes include timeout, watch and cadence workers; 32 + 22 + 10 = 64.
+    limits: { maxActive: 100, maxConfigured: 500, concurrency: 22 },
   });
   assert.throws(
     () =>
@@ -208,7 +208,7 @@ test("watchdog configuration requires a registered handler and fits the existing
         probes,
         new MetricDeployment({
           destinations,
-          limits: { maxActive: 100, maxConfigured: 500, concurrency: 25 },
+          limits: { maxActive: 100, maxConfigured: 500, concurrency: 23 },
         }),
       ),
     /scheduler limit/,
@@ -224,6 +224,21 @@ test("watchdog configuration requires a registered handler and fits the existing
     metrics,
   );
   await baseline.runtime.onModuleDestroy();
+  const withWatchdog = standalonePagingRuntime(
+    pool,
+    scope,
+    keys,
+    "https://example.test",
+    () => {},
+    retentionFixture(),
+    probes,
+    new MetricDeployment({
+      destinations,
+      limits: { maxActive: 100, maxConfigured: 500, concurrency: 21 },
+    }),
+    health,
+  );
+  await withWatchdog.runtime.onModuleDestroy();
   assert.throws(
     () =>
       standalonePagingRuntime(

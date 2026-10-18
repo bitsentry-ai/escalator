@@ -1,0 +1,37 @@
+import {
+  deploymentWatchViewSchema,
+  opaqueIdSchema,
+  type DeploymentWatchView,
+} from "../../contracts/index.js";
+import { PersistenceError } from "../ports/persistence.js";
+import { DeploymentAccess } from "./access.js";
+import type { DeploymentWatchTransaction } from "./watch-persistence.js";
+
+export class DeploymentWatchReader {
+  constructor(
+    private readonly access: DeploymentAccess<DeploymentWatchTransaction>,
+  ) {}
+  read(token: string, id: string): Promise<DeploymentWatchView> {
+    opaqueIdSchema.parse(id);
+    return this.access.run(token, "deployment:read", async ({ tx, target }) => {
+      const entry = await tx.deployments.get(target.id, id);
+      if (!entry) throw new PersistenceError("not_found");
+      const deployment = entry.deployment;
+      if (
+        entry.targetId !== target.id ||
+        deployment.id !== id ||
+        deployment.workspaceId !== tx.workspaceId ||
+        deployment.serviceId !== target.serviceId ||
+        deployment.environmentId !== target.environmentId
+      )
+        throw new PersistenceError("scope_violation");
+      return deploymentWatchViewSchema.parse({
+        targetId: target.id,
+        deployment,
+        watch: (await tx.watches.get(target.id, id)) ?? null,
+        baselineAvailable:
+          (await tx.baselines.get(target.id, id)) !== undefined,
+      });
+    });
+  }
+}

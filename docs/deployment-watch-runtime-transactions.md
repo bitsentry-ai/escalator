@@ -1,6 +1,6 @@
 # Deployment watch runtime transactions
 
-Both hosts now have an unregistered runtime repository that composes deployment coverage, baseline capture, finish watches, timeout jobs, probe cadence and incident correlation on one physical transaction. Runtime registration follows separately so a live finish cannot queue a kind that the running scheduler does not handle.
+Both hosts use a runtime repository that composes deployment coverage, baseline capture, finish watches, timeout jobs, probe cadence and incident correlation on one physical transaction. See [activation and upgrade procedure](deployment-watch-activation.md) for handler registration, worker limits and runtime verification gaps.
 
 Start captures the baseline and its pins before enqueueing the timeout. The first accepted finish creates its watch, pins, evaluation job and cadence coordinator together. Rolling back the finish removes all of those effects. Probe changes, receipts and restoration work use the same transaction protocol. Deployment and signal token interfaces remain separate.
 
