@@ -14,7 +14,7 @@ import { ruleHistorySql } from "./rule-history-sql.js";
  * configuration. It locks source/service/binding/policy before the runtime row.
  */
 export interface PostgresRulePolicyStore {
-  lock(row: RuleLiveRecord): Promise<void>;
+  lock(row: Pick<RuleLiveRecord, "version">): Promise<void>;
   at: RuleLiveRecordStore["policy"];
 }
 export function postgresRuleLiveStore(

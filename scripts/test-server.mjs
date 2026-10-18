@@ -29,6 +29,9 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/rule-catalog": path.resolve(
+      "../../packages/features/test/conformance/rule-catalog.ts",
+    ),
     "@escalator-test/rule-labels": path.resolve(
       "../../packages/features/test/conformance/rule-labels.ts",
     ),

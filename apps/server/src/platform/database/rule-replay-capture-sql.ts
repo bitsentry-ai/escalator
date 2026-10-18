@@ -7,13 +7,19 @@ const tables = {
   metric: "escalator_metric_monitor",
   signal: "escalator_signal_source",
 } as const;
+function measurementHash(kind: RuleHistoryQuery["kind"]) {
+  const fields = kind === "signal" ? [] : watchMeasurementFields[kind];
+  const projection = fields.map((f) => `'${f}',t.data->'${f}'`).join(",");
+  return `encode(sha256(convert_to(jsonb_build_object(${projection})::text,'UTF8')),'hex')`;
+}
+export function ruleMeasurementHashSql(kind: RuleHistoryQuery["kind"]) {
+  return `SELECT ${measurementHash(kind)} AS hash FROM ${tables[kind]} t WHERE t.workspace_id=$1 AND t.id=$2 AND t.service_id=$3 AND t.environment_id=$4`;
+}
 /** One database snapshot for evidence and policy. Parameters match history SQL,
  * followed by the last simulated decision; no provider query text is executed. */
 export function ruleReplayCaptureSql(kind: RuleHistoryQuery["kind"]) {
   const baselines = ruleBaselineSql(kind);
-  const fields = kind === "signal" ? [] : watchMeasurementFields[kind];
-  const projection = fields.map((f) => `'${f}',t.data->'${f}'`).join(",");
-  const hash = `encode(sha256(convert_to(jsonb_build_object(${projection})::text,'UTF8')),'hex')`;
+  const hash = measurementHash(kind);
   const scope =
     "workspace_id=$1 AND service_id=$3 AND (environment_id=$4 OR environment_id IS NULL)";
   return `WITH history AS (${ruleHistorySql(kind)}), ${baselines.ctes}, prior AS (

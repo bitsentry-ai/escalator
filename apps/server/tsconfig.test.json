@@ -84,6 +84,9 @@
       ],
       "@escalator-test/rule-label-seed": [
         "../../packages/features/test/fixtures/rule-label-seed.ts"
+      ],
+      "@escalator-test/rule-catalog": [
+        "../../packages/features/test/conformance/rule-catalog.ts"
       ]
     }
   },

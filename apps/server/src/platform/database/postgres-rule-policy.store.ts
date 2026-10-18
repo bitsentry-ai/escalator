@@ -21,9 +21,10 @@ const tables = {
 export function postgresRulePolicyStore(
   db: PoolClient,
   scope: WorkspaceId,
+  exclusiveScope = false,
 ): PostgresRulePolicyStore {
   return {
-    async lock(row: RuleLiveRecord) {
+    async lock(row: Pick<RuleLiveRecord, "version">) {
       const rule = row.version.definition;
       if (rule.workspaceId !== scope)
         throw new PersistenceError("scope_violation");
@@ -40,13 +41,16 @@ export function postgresRulePolicyStore(
       );
       if (source.rows.length !== 1) throw new PersistenceError("not_found");
       const stream = await db.query<{ source_id: string }>(
-        sql + " FOR SHARE",
+        sql + (exclusiveScope ? " FOR UPDATE" : " FOR SHARE"),
         args,
       );
       if (stream.rows[0]?.source_id !== sourceId)
         throw new Error("Rule stream binding changed while locking");
+      // The exclusive review lock also blocks an absent binding's FK insertion;
+      // locking only an existing binding row would not protect that predicate.
       const service = await db.query(
-        "SELECT id FROM escalator_service WHERE workspace_id=$1 AND id=$2 FOR SHARE",
+        "SELECT id FROM escalator_service WHERE workspace_id=$1 AND id=$2" +
+          (exclusiveScope ? " FOR UPDATE" : " FOR SHARE"),
         [scope, rule.serviceId],
       );
       if (service.rows.length !== 1) throw new PersistenceError("not_found");

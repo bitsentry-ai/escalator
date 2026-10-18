@@ -235,6 +235,47 @@ export async function postgresFixture(
         );
     };
     await grantLabels(migrations);
+    const grantRules = async (list: readonly Migration[]) => {
+      const has = (name: string) => list.some((item) => item.name === name);
+      const grant = async (privileges: string, tables: string) => {
+        await admin.query(
+          `GRANT ${privileges} ON ${tables} TO ${identifier(current.role)}`,
+        );
+      };
+      if (has("0024_rule_runtime.sql")) {
+        await grant(
+          "SELECT,INSERT",
+          "escalator_rule_version,escalator_rule_decision",
+        );
+        await grant("SELECT,INSERT,UPDATE", "escalator_rule_runtime");
+      }
+      if (has("0025_rule_policy_history.sql")) {
+        await grant("SELECT,INSERT", "escalator_rule_policy_fact");
+        await grant(
+          "USAGE,SELECT",
+          "SEQUENCE escalator_rule_policy_fact_id_seq",
+        );
+        // Locking SELECTs require UPDATE on at least one selected table column.
+        await grant("UPDATE(id)", "escalator_service");
+      }
+      if (has("0026_rule_replay.sql")) {
+        await grant(
+          "SELECT,INSERT",
+          "escalator_rule_replay_snapshot,escalator_rule_replay_chunk",
+        );
+        await grant("SELECT,INSERT,UPDATE", "escalator_rule_replay_run");
+      }
+      if (has("0027_rule_backtest.sql"))
+        await grant("SELECT,INSERT", "escalator_rule_backtest");
+      if (has("0029_rule_proposals.sql"))
+        await grant("SELECT,INSERT,UPDATE", "escalator_rule_proposal");
+      if (has("0031_rule_catalog.sql")) {
+        await grant("SELECT,INSERT,UPDATE", "escalator_rule_catalog");
+        await grant("SELECT,INSERT,UPDATE,DELETE", "escalator_rule_review");
+        await grant("SELECT,INSERT", "escalator_rule_activation");
+      }
+    };
+    await grantRules(migrations);
     // Ensure both URLs reach this exact schema, not separate servers with equal database names.
     const grantRecording = async (list: readonly Migration[]) => {
       if (!list.some((item) => item.name === "0011_replay_recording.sql"))
@@ -298,6 +339,7 @@ export async function postgresFixture(
         await grantInvestigations(next);
         await grantInvestigationSettings(next);
         await grantLabels(next);
+        await grantRules(next);
         await grantRecording(next);
         await grantAccounting(next);
         await grantMaintenance(next);

@@ -273,3 +273,5 @@ export * from "./rules/catalog.js";
 export * from "./rules/review-evidence.js";
 export * from "./rules/catalog-transaction.js";
 export * from "./rules/catalog-storage.js";
+
+export * from "./rules/catalog-provenance.js";
