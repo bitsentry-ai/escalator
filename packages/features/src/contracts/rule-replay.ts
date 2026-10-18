@@ -1,3 +1,4 @@
+import { ruleEvaluationSealSchema } from "./rule-evaluation.js";
 import { ruleBaselineCaptureSchema } from "./rule-comparison.js";
 import {
   ruleHistorySnapshotSchema,
@@ -34,6 +35,7 @@ const interval = {
  */
 export const ruleReplaySnapshotSchema = z
   .strictObject({
+    evaluation: ruleEvaluationSealSchema.optional(),
     retained: ruleRetainedEvidenceSchema.optional(),
     snapshotId: opaqueIdSchema,
     snapshotAt: utcTimestampSchema,
@@ -61,6 +63,25 @@ export const ruleReplaySnapshotSchema = z
       .max(10000),
   })
   .superRefine((snapshot, context) => {
+    if (
+      snapshot.evaluation &&
+      (snapshot.evaluation.sourceSnapshotId === snapshot.snapshotId ||
+        compareUtcTimestamps(
+          snapshot.evaluation.firstDecisionAt,
+          snapshot.firstDecisionAt,
+        ) !== 0 ||
+        compareUtcTimestamps(
+          snapshot.evaluation.lastDecisionAt,
+          snapshot.lastDecisionAt,
+        ) !== 0 ||
+        Date.parse(snapshot.firstDecisionAt) -
+          Date.parse(snapshot.evaluation.trainingCutoffAt) <
+          172800000)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Held-out provenance mismatch",
+      });
     if (snapshot.retained) {
       const { history, policyFacts, policyComplete } = snapshot.retained;
       const rule = snapshot.version.definition;

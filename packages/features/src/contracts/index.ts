@@ -108,3 +108,5 @@ export * from "./backtest-record.js";
 export * from "./rule-comparison.js";
 
 export * from "./rule-tuning.js";
+
+export * from "./rule-evaluation.js";

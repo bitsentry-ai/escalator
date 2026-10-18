@@ -1,3 +1,4 @@
+import { ruleEvaluationSealSchema } from "./rule-evaluation.js";
 import { ruleComparisonSchema } from "./rule-comparison.js";
 import { z } from "zod";
 import { detectionRuleVersionSchema } from "./rule-state.js";
@@ -39,6 +40,7 @@ export const ruleBacktestReportSchema = z
   .strictObject({
     version: z.literal(1),
     evaluatorVersion: z.literal(1),
+    evaluation: ruleEvaluationSealSchema.optional(),
     matchingPolicy: z.literal("unique-overlap-v1"),
     comparison: ruleComparisonSchema.nullable().default(null),
     snapshotId: opaqueIdSchema,
@@ -119,6 +121,22 @@ export const ruleBacktestReportSchema = z
       })
     )
       c.addIssue({ code: "custom", message: "Comparison scope mismatch" });
+    if (
+      r.evaluation &&
+      (r.evaluation.sourceSnapshotId === r.snapshotId ||
+        compareUtcTimestamps(
+          r.evaluation.firstDecisionAt,
+          r.range.firstDecisionAt,
+        ) !== 0 ||
+        compareUtcTimestamps(
+          r.evaluation.lastDecisionAt,
+          r.range.lastDecisionAt,
+        ) !== 0)
+    )
+      c.addIssue({
+        code: "custom",
+        message: "Report evaluation range mismatch",
+      });
     const cover = r.coverage,
       n = r.truePositives + r.falsePositives;
     if (

@@ -241,3 +241,7 @@ export * from "./rules/backtest-transaction.js";
 export * from "./rules/compare.js";
 
 export * from "./rules/tuning.js";
+
+export * from "./rules/held-out.js";
+
+export * from "./rules/propose.js";
