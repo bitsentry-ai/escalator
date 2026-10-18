@@ -164,3 +164,5 @@ export * from "./deploy/commands.js";
 export * from "./deploy/preflight.js";
 
 export * from "./deploy/stuck.js";
+
+export * from "./deploy/watch.js";

@@ -14,9 +14,33 @@ const iso = (at: number) => new Date(at).toISOString();
  * visibleAt is a snapshot cutoff, not a substitute for per-decision replay filtering.
  * Hosts derive segments from immutable configuration history, not today's schedule.
  */
+export interface PeriodicCoverageSelection {
+  report: PeriodicCoverageReport;
+  samples: {
+    id: string;
+    version: number;
+    slotAt: string;
+    stepSeconds: number;
+  }[];
+}
 export function periodicCoverage(
   raw: PeriodicCoverageInput,
 ): PeriodicCoverageReport {
+  return computePeriodicCoverage(raw, false).report;
+}
+/** The health evaluator must use these exact receipts, never a separately selected
+ * earlier usable value when the newest available receipt says the slot is unusable.
+ */
+export function selectPeriodicCoverage(
+  raw: PeriodicCoverageInput,
+): PeriodicCoverageSelection {
+  return computePeriodicCoverage(raw, true);
+}
+function computePeriodicCoverage(
+  raw: PeriodicCoverageInput,
+  collect: boolean,
+): PeriodicCoverageSelection {
+  const selected: PeriodicCoverageSelection["samples"] = [];
   const input = periodicCoverageInputSchema.parse(raw);
   const start = Date.parse(input.startAt),
     end = Date.parse(input.endAt);
@@ -34,11 +58,14 @@ export function periodicCoverage(
   if (!input.complete) {
     gap(start, end, "query_truncated");
     return {
-      coverageVersion: 1,
-      expectedSlots: 0,
-      availableSlots: 0,
-      gaps,
-      queryComplete: false,
+      report: {
+        coverageVersion: 1,
+        expectedSlots: 0,
+        availableSlots: 0,
+        gaps,
+        queryComplete: false,
+      },
+      samples: selected,
     };
   }
   const samples = new Map<string, CoverageSample[]>();
@@ -98,6 +125,13 @@ export function periodicCoverage(
         );
       if (known[0]?.usable) {
         availableSlots++;
+        if (collect)
+          selected.push({
+            id: known[0].id,
+            version: segment.version,
+            slotAt: iso(slot),
+            stepSeconds: segment.stepSeconds,
+          });
         continue;
       }
       const reason: CoverageReason = known.length
@@ -112,11 +146,14 @@ export function periodicCoverage(
   }
   gap(cursor, end, "configuration_unknown");
   return {
-    coverageVersion: 1,
-    expectedSlots,
-    availableSlots,
-    gaps,
-    queryComplete: true,
+    report: {
+      coverageVersion: 1,
+      expectedSlots,
+      availableSlots,
+      gaps,
+      queryComplete: true,
+    },
+    samples: selected,
   };
 }
 
