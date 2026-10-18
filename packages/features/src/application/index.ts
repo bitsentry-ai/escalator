@@ -188,3 +188,5 @@ export * from "./deploy/cadence-persistence.js";
 
 export * from "./deploy/cadence-coordinator.js";
 export * from "./deploy/cadence-jobs.js";
+
+export * from "./deploy/watch-overlap.js";

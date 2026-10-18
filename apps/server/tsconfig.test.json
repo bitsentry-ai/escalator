@@ -66,6 +66,9 @@
       ],
       "@escalator-test/stuck": [
         "../../packages/features/test/conformance/stuck.ts"
+      ],
+      "@escalator-test/watch-runtime": [
+        "../../packages/features/test/conformance/watch-runtime.ts"
       ]
     }
   },
