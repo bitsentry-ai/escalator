@@ -61,3 +61,5 @@ export * from "./replay-reader.js";
 export * from "./deploy.js";
 
 export * from "./deploy-storage.js";
+
+export * from "./deploy-management.js";

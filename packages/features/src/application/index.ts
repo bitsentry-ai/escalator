@@ -150,3 +150,7 @@ export * from "../domain/deploy/lifecycle.js";
 
 export * from "./deploy/ports.js";
 export * from "./deploy/transaction.js";
+
+export * from "./deploy/access.js";
+export * from "./deploy/management.js";
+export * from "./deploy/commands.js";
