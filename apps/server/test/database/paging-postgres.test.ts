@@ -1,3 +1,5 @@
+import { pagingFailureScenarios } from "@escalator-test/paging-scenarios";
+import { PostgresWorkStore } from "../../src/platform/jobs/postgres-work.store.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
@@ -88,4 +90,20 @@ test(
       await fixture.dispose();
     }
   },
+);
+
+// Same scenarios as Dashboard; each repository instance reads committed state.
+pagingFailureScenarios(
+  "standalone PostgreSQL paging failures",
+  async () => {
+    const fixture = await create();
+    const reopen = () => new PostgresPagingRepository(fixture.app);
+    return {
+      repository: reopen(),
+      work: new PostgresWorkStore(fixture.app),
+      reopen,
+      dispose: () => fixture.dispose(),
+    };
+  },
+  options,
 );

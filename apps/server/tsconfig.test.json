@@ -21,6 +21,9 @@
       ],
       "@escalator-test/incidents": [
         "../../packages/features/test/conformance/incidents.ts"
+      ],
+      "@escalator-test/paging-scenarios": [
+        "../../packages/features/test/scenarios/paging/scenarios.ts"
       ]
     }
   },

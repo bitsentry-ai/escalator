@@ -29,6 +29,10 @@ await build({
   format: "cjs",
   packages: "external",
   alias: {
+    "@escalator-test/paging-scenarios": path.resolve(
+      server,
+      "../../packages/features/test/scenarios/paging/scenarios.ts",
+    ),
     "@escalator-test/incidents": path.resolve(
       server,
       "../../packages/features/test/conformance/incidents.ts",
