@@ -1,3 +1,4 @@
+import { pushoverCredentialsSchema as credentials } from "../../contracts/channel-credentials.js";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type {
@@ -17,14 +18,6 @@ import {
   decodeChannelSecret,
 } from "./validation.js";
 const key = z.string().regex(/^[A-Za-z0-9]{30}$/);
-const credentials = z.strictObject({
-  token: key,
-  user: key,
-  device: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{1,25}$/)
-    .optional(),
-});
 const response = z.object({ status: z.literal(1), receipt: key });
 const receipt = z.object({
   status: z.literal(1),

@@ -1,3 +1,4 @@
+import type { PostgresSecretWriter } from "../secrets/postgres-secret.writer.js";
 import { initTRPC } from "@trpc/server";
 import type { Request, Response } from "express";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
@@ -8,6 +9,7 @@ import type {
   ServiceUseCases,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
+  secretWriter: PostgresSecretWriter;
   services: ServiceUseCases;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;

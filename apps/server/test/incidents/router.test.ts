@@ -1,3 +1,4 @@
+import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -37,6 +38,7 @@ test("standalone incident routes require current identity, reject injected scope
     res: {} as Response,
     services: {} as ServiceUseCases,
     incidents,
+    secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     workspaceId: workspaceIdSchema.parse("local"),
     auth: {

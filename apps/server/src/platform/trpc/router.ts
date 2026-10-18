@@ -1,3 +1,4 @@
+import { channelSecretsRouter } from "../../features/configuration/channel-secrets.router.js";
 import { configurationRouter } from "../../features/configuration/configuration.router.js";
 import { incidentsRouter } from "../../features/incidents/incidents.router.js";
 import { t } from "./context.js";
@@ -9,5 +10,6 @@ export const appRouter = t.router({
   services: servicesRouter,
   incidents: incidentsRouter,
   configuration: configurationRouter,
+  channelSecrets: channelSecretsRouter,
   packageInfo: t.procedure.query(() => getEscalatorPackageInfo()),
 });

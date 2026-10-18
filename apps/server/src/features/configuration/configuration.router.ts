@@ -1,5 +1,6 @@
 import {
   configurationPageSchema,
+  storedPreviewQuerySchema,
   configurationIdSchema,
   writeScheduleSchema,
   writePolicySchema,
@@ -10,6 +11,9 @@ import {
 import { t } from "../../platform/trpc/context.js";
 import { authenticated } from "../../platform/trpc/authenticated.js";
 export const configurationRouter = t.router({
+  previews: authenticated
+    .input(storedPreviewQuerySchema)
+    .query(({ ctx, input }) => ctx.configuration.previews(ctx.actor, input)),
   coverage: authenticated
     .input(previewScheduleInputSchema)
     .query(({ ctx, input }) => ctx.configuration.coverage(ctx.actor, input)),

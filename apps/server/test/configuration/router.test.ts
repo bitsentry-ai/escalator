@@ -1,3 +1,4 @@
+import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -19,6 +20,12 @@ test("standalone configuration routes use current identity and reject injected s
   const actors: Actor[] = [];
   let failure: string | undefined;
   const configuration = {
+    previews: async (actor: Actor, input: unknown) => {
+      assert.equal(actor.workspaceId, "local");
+      assert.equal(actor.responderId, "owner");
+      assert.deepEqual(input, { scheduleId: "schedule", limit: 2 });
+      return { items: [], next: null };
+    },
     writeSchedule: async (actor: Actor) => {
       actors.push(actor);
       if (failure) throw Object.assign(new Error(), { code: failure });
@@ -31,11 +38,16 @@ test("standalone configuration routes use current identity and reject injected s
     services: {} as ServiceUseCases,
     incidents: {} as IncidentUseCases,
     configuration,
+    secretWriter: {} as PostgresSecretWriter,
     workspaceId: workspaceIdSchema.parse("local"),
     auth: {
       current: async () => ({ id: "owner", role: "administrator" }),
     } as unknown as LocalAuthService,
   });
+  assert.deepEqual(
+    await caller.previews({ scheduleId: "schedule", limit: 2 }),
+    { items: [], next: null },
+  );
   const input = {
     id: "schedule",
     serviceId: "api",

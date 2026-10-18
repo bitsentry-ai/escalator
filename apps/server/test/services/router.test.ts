@@ -1,3 +1,4 @@
+import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -41,6 +42,7 @@ function fixture() {
     res: {} as Response,
     auth: auth as unknown as LocalAuthService,
     incidents: {} as IncidentUseCases,
+    secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     services: services as unknown as ServiceUseCases,
     workspaceId: workspaceIdSchema.parse("local"),

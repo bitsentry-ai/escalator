@@ -1,3 +1,4 @@
+import { PostgresSecretWriter } from "./platform/secrets/postgres-secret.writer.js";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -40,6 +41,7 @@ export async function createApp() {
     const incidents = app.get(IncidentUseCases);
     const configuration = app.get(ConfigurationUseCases);
     const keys = app.get(SecretKeyRing);
+    const secretWriter = new PostgresSecretWriter(db.pool, keys);
     (app.getHttpAdapter().getInstance() as Express).set(
       "trust proxy",
       proxyHops,
@@ -67,6 +69,7 @@ export async function createApp() {
           services,
           incidents,
           configuration,
+          secretWriter,
           workspaceId: db.workspaceId,
         }),
       }),

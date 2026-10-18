@@ -1,3 +1,4 @@
+import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -76,6 +77,7 @@ function fixture() {
   };
   const context = {
     incidents: {} as IncidentUseCases,
+    secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     services: {} as ServiceUseCases,
     req,

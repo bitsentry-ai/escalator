@@ -1,0 +1,11 @@
+# Channel credential settings
+
+Standalone administrators create Pushover or webhook credentials through the authenticated `channelSecrets.create` procedure. The existing server key ring encrypts the value with AES-256-GCM and the existing writer commits its audit record with the ciphertext. The response contains only the opaque ID and display name. `channelSecrets.list` returns bounded metadata for enabled provider credentials; it excludes authentication secrets and encrypted envelopes. There is no credential readback API.
+
+Both hosts expose saved schedule previews for policy selection, scoped to the authenticated workspace and requested schedule. A preview belongs to a persisted schedule revision. Policy activation still validates that revision; listing or saving a preview never activates a policy.
+
+Dashboard activation depends on integrating the separate `secret-store/*` stack. Supply the optional `channelSecretOptions` callback to `dashboardPagingBinding` together with the existing metadata authorization and execution-secret authorization adapters. The callback receives a trusted Escalator actor and a bounded query. It must authorize both the WorkOS organization and that actor before selecting metadata, exclude revoked or temporary credentials, and return opaque IDs plus display names only. Credentials must contain the same channel-specific JSON fields used by the shared Pushover and webhook schemas.
+
+The broker stack's existing `CredentialsService.list(userId)` is a personal-owner list. It must not be treated as organization ownership or exposed directly as the Escalator picker. Resolve the organization's permitted credential bindings explicitly. The response schema rejects unexpected fields, but the integration is responsible for ownership, revocation and cursor semantics. Without that integration, Dashboard returns `available: false` and no selectable credentials; it does not create a second secret store or fall back to global credentials.
+
+Unit tests cover authorization, scoped pagination, metadata-only responses and plaintext-buffer clearing. PostgreSQL execution remains not runtime-verified until the documented disposable test database configuration is supplied. No production database is an acceptable test fallback.

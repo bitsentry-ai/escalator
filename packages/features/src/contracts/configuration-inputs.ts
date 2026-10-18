@@ -53,3 +53,8 @@ export type WriteAvailabilityInput = z.input<typeof writeAvailabilitySchema>;
 export type WritePolicyInput = z.input<typeof writePolicySchema>;
 export type ConfigurationPageInput = z.input<typeof configurationPageSchema>;
 export type PreviewScheduleInput = z.input<typeof previewScheduleInputSchema>;
+
+export const storedPreviewQuerySchema = configurationPageSchema.extend({
+  scheduleId: scheduleIdSchema,
+});
+export type StoredPreviewQuery = z.input<typeof storedPreviewQuerySchema>;

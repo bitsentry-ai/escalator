@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   hasCapability,
+  storedPreviewQuerySchema,
+  type StoredPreviewQuery,
   writeScheduleSchema,
   writeContactSchema,
   writePolicySchema,
@@ -97,6 +99,15 @@ export class ConfigurationUseCases {
       );
       if (!value) throw new PersistenceError("not_found");
       return value;
+    });
+  }
+  async previews(actor: Actor, input: StoredPreviewQuery) {
+    authorize(actor, "schedule:read");
+    const { scheduleId, ...query } = storedPreviewQuerySchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      if (!(await tx.configuration.schedules.get(scheduleId)))
+        throw new PersistenceError("not_found");
+      return tx.configuration.previews.forSchedule(scheduleId, query);
     });
   }
   async responders(actor: Actor, input: ConfigurationPageInput = {}) {

@@ -22,3 +22,5 @@ export * from "./acknowledgement.js";
 export * from "./incidents.js";
 
 export * from "./configuration-inputs.js";
+
+export * from "./channel-credentials.js";

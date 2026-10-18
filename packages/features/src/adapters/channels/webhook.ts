@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { webhookCredentialsSchema as credentials } from "../../contracts/channel-credentials.js";
 import type {
   SecretStore,
   SecretUse,
@@ -13,31 +13,6 @@ import {
   channelNotificationSchema,
   decodeChannelSecret,
 } from "./validation.js";
-const credentials = z.strictObject({
-  url: z
-    .string()
-    .url()
-    .max(2048)
-    .refine((value) => {
-      try {
-        const url = new URL(value);
-        return (
-          url.protocol === "https:" &&
-          !url.username &&
-          !url.password &&
-          !url.hash
-        );
-      } catch {
-        return false;
-      }
-    }),
-  bearerToken: z
-    .string()
-    .min(1)
-    .max(4096)
-    .regex(/^[\x21-\x7e]+$/)
-    .optional(),
-});
 /** The injected transport is responsible for validated, pinned egress, never raw fetch. */
 export class WebhookChannel implements NotificationChannel {
   constructor(

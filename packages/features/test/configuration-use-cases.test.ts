@@ -221,3 +221,44 @@ test("malformed policy rules return a validation error before persistence", asyn
   );
   assert.equal((await app.list(actor, "policies")).items.length, 0);
 });
+
+test("saved preview selection is bounded and cannot cross schedule or workspace scope", async () => {
+  const { actor, app } = await fixture();
+  await app.writeSchedule(actor, schedule);
+  await app.writeSchedule(actor, { ...schedule, id: "other" });
+  const range = {
+    startsAt: "2026-09-20T00:00:00.000Z",
+    endsAt: "2026-09-21T00:00:00.000Z",
+  };
+  const first = await app.preview(actor, { ...range, scheduleId: "schedule" });
+  const second = await app.preview(actor, { ...range, scheduleId: "schedule" });
+  await app.preview(actor, { ...range, scheduleId: "other" });
+  const page = await app.previews(
+    { ...actor, role: "viewer" },
+    { scheduleId: "schedule", limit: 1 },
+  );
+  assert.deepEqual(
+    page.items.map((row) => row.id),
+    [first.id],
+  );
+  const next = await app.previews(actor, {
+    scheduleId: "schedule",
+    limit: 1,
+    after: page.next!,
+  });
+  assert.deepEqual(
+    next.items.map((row) => row.id),
+    [second.id],
+  );
+  assert.equal(next.next, null);
+  await assert.rejects(
+    app.previews(
+      { ...actor, workspaceId: workspaceIdSchema.parse("foreign") },
+      { scheduleId: "schedule" },
+    ),
+    { code: "not_found" },
+  );
+  await assert.rejects(
+    app.previews(actor, { scheduleId: "schedule", limit: 51 }),
+  );
+});

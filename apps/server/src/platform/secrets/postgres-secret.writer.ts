@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import {
   hasCapability,
+  configurationPageSchema,
+  type ConfigurationPageInput,
   type Actor,
   type WorkspaceId,
 } from "@bitsentry-escalator/features/contracts";
@@ -93,6 +95,23 @@ export class PostgresSecretWriter {
     } finally {
       owned.fill(0);
     }
+  }
+  async list(actor: Actor, input: ConfigurationPageInput) {
+    const { limit = 25, after } = configurationPageSchema.parse(input);
+    return this.transaction(actor, async (client) => {
+      const result = await client.query<{ id: string; name: string }>(
+        `SELECT id,name FROM escalator_secret
+         WHERE workspace_id=$1 AND purpose='provider' AND disabled_at IS NULL
+           AND ($2::text IS NULL OR id>$2)
+         ORDER BY id LIMIT $3`,
+        [actor.workspaceId, after ?? null, limit + 1],
+      );
+      const items = result.rows.slice(0, limit);
+      return {
+        items,
+        next: result.rows.length > limit ? items.at(-1)!.id : null,
+      };
+    });
   }
   async disable(actor: Actor, id: string): Promise<boolean> {
     return this.transaction(actor, async (client) => {
