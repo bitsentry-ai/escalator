@@ -27,6 +27,9 @@
       ],
       "@escalator-test/signals": [
         "../../packages/features/test/conformance/signals.ts"
+      ],
+      "@escalator-test/detection": [
+        "../../packages/features/test/conformance/detection.ts"
       ]
     }
   },
