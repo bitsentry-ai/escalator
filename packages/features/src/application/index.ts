@@ -146,3 +146,4 @@ export * from "./retention/retired-work.js";
 export * from "./retention/runtime.js";
 
 export * from "./retention/management.js";
+export * from "../domain/deploy/lifecycle.js";
