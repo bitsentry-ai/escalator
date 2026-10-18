@@ -389,6 +389,59 @@ test("runtime validation rejects an active episode without its page link", async
     false,
   );
 });
+
+test("durable live evaluation and bounded replay produce identical episode decisions", async () => {
+  const f = await fixture("active");
+  const samples: import("../src/contracts/index.js").RuleSample[] = [];
+  const original = f.repository.history;
+  f.repository.history = async (scope, query) => {
+    const history = await original(scope, query);
+    samples.push(...history.receipts.map((receipt) => receipt.sample));
+    return history;
+  };
+  for (const minute of [3, 4, 5, 6]) {
+    f.setMinute(minute + 0.25);
+    f.setHealthy(minute >= 5);
+    await f.run();
+  }
+  const { replayRuleWindows } =
+    await import("../src/application/rules/replay.js");
+  const replay = replayRuleWindows(
+    {
+      snapshotId: "same-retained-fixture",
+      snapshotAt: at(7),
+      version: f.initial.version,
+      firstDecisionAt: at(3),
+      lastDecisionAt: at(6),
+      complete: true,
+      samples,
+      coverage: [
+        { startAt: at(3), endAt: at(7), recordedAt: at(0), state: "complete" },
+      ],
+      policies: [
+        {
+          startAt: at(3),
+          endAt: at(7),
+          recordedAt: at(0),
+          enabled: true,
+          maintenance: false,
+        },
+      ],
+    },
+    null,
+    { maxDecisions: 10, maxSampleVisits: 100 },
+  );
+  assert.equal(replay.status, "complete");
+  assert.deepEqual(
+    replay.decisions,
+    (await f.repository.decisions(f.scope)).map((row) => row.transition),
+  );
+  assert.deepEqual(
+    replay.decisions.map((row) => row.action),
+    ["opened", "none", "recovered", "none"],
+  );
+});
+
 test("an evaluation that fails on every attempt stays pending and resumes the rule", async () => {
   const f = await fixture();
   const runner = new DurableWorkRunner(
