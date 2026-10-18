@@ -16,22 +16,30 @@ export function deploymentTokenDigest(token: string): string | undefined {
     return undefined;
   return createHash("sha256").update(token).digest("hex");
 }
-export interface AuthorizedDeployment {
-  tx: DeploymentTransaction;
+export interface AuthorizedDeployment<
+  Tx extends DeploymentTransaction = DeploymentTransaction,
+> {
+  tx: Tx;
   target: DeploymentTarget;
   grant: DeploymentToken;
   now: string;
 }
+export interface DeploymentAccessRepository<Tx extends DeploymentTransaction> {
+  findTokenContext: DeploymentRepository["findTokenContext"];
+  transaction<T>(scope: WorkspaceId, run: (tx: Tx) => Promise<T>): Promise<T>;
+}
 /** No request-body scope. Authenticate again under the target lock before every read/replay/write. */
-export class DeploymentAccess {
+export class DeploymentAccess<
+  Tx extends DeploymentTransaction = DeploymentTransaction,
+> {
   constructor(
-    private readonly repository: DeploymentRepository,
+    private readonly repository: DeploymentAccessRepository<Tx>,
     private readonly allowed: (scope: WorkspaceId) => boolean,
   ) {}
   async run<T>(
     token: string,
     capability: DeploymentToken["capabilities"][number],
-    work: (context: AuthorizedDeployment) => Promise<T>,
+    work: (context: AuthorizedDeployment<Tx>) => Promise<T>,
   ): Promise<T> {
     const hash = deploymentTokenDigest(token);
     if (!hash) throw new DeploymentAccessError();

@@ -159,3 +159,5 @@ export * from "./deploy/transaction.js";
 export * from "./deploy/access.js";
 export * from "./deploy/management.js";
 export * from "./deploy/commands.js";
+
+export * from "./deploy/preflight.js";
