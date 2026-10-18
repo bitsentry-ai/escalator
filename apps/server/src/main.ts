@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import session from "express-session";
 import type { Express } from "express";
 import { AppModule } from "./app.module.js";
+import { PostgresInvestigationSourceCatalog } from "./platform/database/investigation-source-catalog.repository.js";
 import { appRouter } from "./platform/trpc/router.js";
 import { LocalAuthService } from "./platform/auth/auth.service.js";
 import { StandaloneDatabase } from "./platform/database/database.module.js";
@@ -16,6 +17,7 @@ import {
   sessionOptions,
 } from "./platform/auth/session-security.js";
 import {
+  InvestigationSettingsUseCases,
   ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
@@ -64,6 +66,10 @@ export async function createApp() {
     app.use("/v1/ingest", signalBodyParser());
     const incidents = app.get(IncidentUseCases);
     const configuration = app.get(ConfigurationUseCases);
+    const investigationSettings = app.get(InvestigationSettingsUseCases);
+    const investigationSourceCatalog = app.get(
+      PostgresInvestigationSourceCatalog,
+    );
     const keys = app.get(SecretKeyRing);
     const secretWriter = new PostgresSecretWriter(db.pool, keys);
     (app.getHttpAdapter().getInstance() as Express).set(
@@ -102,6 +108,8 @@ export async function createApp() {
           deploymentPreflight,
           incidents,
           configuration,
+          investigationSettings,
+          investigationSourceCatalog,
           secretWriter,
           workspaceId: db.workspaceId,
         }),

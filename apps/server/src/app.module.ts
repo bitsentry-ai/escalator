@@ -1,3 +1,4 @@
+import { InvestigationSettingsModule } from "./features/investigation/settings.module.js";
 import { DeploymentsModule } from "./features/deploy/deploy.module.js";
 import { RetentionModule } from "./features/retention/retention.module.js";
 import { HeartbeatsModule } from "./features/heartbeats/heartbeats.module.js";
@@ -23,6 +24,7 @@ import { ServicesModule } from "./features/services/services.module.js";
     RetentionModule,
     HeartbeatsModule,
     DeploymentsModule,
+    InvestigationSettingsModule,
   ],
 })
 export class AppModule {}

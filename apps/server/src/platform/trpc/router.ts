@@ -13,7 +13,9 @@ import { t } from "./context.js";
 import { authRouter } from "../auth/auth.router.js";
 import { getEscalatorPackageInfo } from "@bitsentry-escalator/features/application";
 import { servicesRouter } from "../../features/services/services.router.js";
+import { investigationSettingsRouter } from "../../features/investigation/settings.router.js";
 export const appRouter = t.router({
+  investigationSettings: investigationSettingsRouter,
   auth: authRouter,
   services: servicesRouter,
   signals: signalsRouter,

@@ -4,6 +4,8 @@ import type { Request, Response } from "express";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import type { LocalAuthService } from "../auth/auth.service.js";
 import type {
+  InvestigationSettingsUseCases,
+  InvestigationSourceCatalog,
   ConfigurationUseCases,
   IncidentUseCases,
   ServiceUseCases,
@@ -31,6 +33,8 @@ export interface AppContext {
   deploymentPreflight: DeploymentPreflight;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;
+  investigationSettings: InvestigationSettingsUseCases;
+  investigationSourceCatalog: InvestigationSourceCatalog;
   req: Request;
   res: Response;
   auth: LocalAuthService;
