@@ -48,49 +48,7 @@ export function pagingConformance(
       const other = workspaceIdSchema.parse(`paging_${randomUUID()}`);
       try {
         for (const workspaceId of [scope, other])
-          await fixture.repository.transaction(workspaceId, async (tx) => {
-            const dates = { createdAt: tx.now, updatedAt: tx.now };
-            await tx.workspace.insert({
-              id: workspaceId,
-              name: "Paging",
-              ...dates,
-            });
-            await tx.services.insert(
-              serviceSchema.parse({
-                id: "api",
-                workspaceId,
-                name: "API",
-                key: "api",
-                owningTeam: "Operations",
-                enabled: true,
-                ...dates,
-              }),
-            );
-            await tx.environments.insert(
-              environmentSchema.parse({
-                id: "prod",
-                workspaceId,
-                name: "Production",
-                key: "prod",
-                isProduction: true,
-                ...dates,
-              }),
-            );
-            for (const id of ["primary", "peer"])
-              await tx.responders.insert(
-                responderSchema.parse({
-                  id,
-                  workspaceId,
-                  hostUserId: id,
-                  displayName: id,
-                  timeZone: "UTC",
-                  role: "responder",
-                  enabled: true,
-                  ...dates,
-                }),
-              );
-            await seed(tx);
-          });
+          await fixture.repository.transaction(workspaceId, seedPagingFixture);
         await run(fixture.repository, scope, other);
       } finally {
         await fixture.dispose();
@@ -484,4 +442,50 @@ async function seed(tx: PagingTransaction): Promise<void> {
       expiresAt: new Date(Date.parse(tx.now) + 600_000).toISOString(),
     }),
   );
+}
+
+/** Populates one scoped graph for conformance and direct host RLS checks. */
+export async function seedPagingFixture(tx: PagingTransaction): Promise<void> {
+  const workspaceId = tx.workspaceId;
+  const dates = { createdAt: tx.now, updatedAt: tx.now };
+  await tx.workspace.insert({
+    id: workspaceId,
+    name: "Paging",
+    ...dates,
+  });
+  await tx.services.insert(
+    serviceSchema.parse({
+      id: "api",
+      workspaceId,
+      name: "API",
+      key: "api",
+      owningTeam: "Operations",
+      enabled: true,
+      ...dates,
+    }),
+  );
+  await tx.environments.insert(
+    environmentSchema.parse({
+      id: "prod",
+      workspaceId,
+      name: "Production",
+      key: "prod",
+      isProduction: true,
+      ...dates,
+    }),
+  );
+  for (const id of ["primary", "peer"])
+    await tx.responders.insert(
+      responderSchema.parse({
+        id,
+        workspaceId,
+        hostUserId: id,
+        displayName: id,
+        timeZone: "UTC",
+        role: "responder",
+        enabled: true,
+        ...dates,
+      }),
+    );
+  await seed(tx);
 }

@@ -1,5 +1,5 @@
 import { postgresWorkWriter } from "../jobs/postgres-work.writer.js";
-import type { Pool, QueryResultRow } from "pg";
+import type { Pool, PoolClient, QueryResultRow } from "pg";
 import {
   workspaceIdSchema,
   workspaceSchema,
@@ -67,6 +67,16 @@ export class PostgresFoundationRepository implements FoundationRepository {
   async transaction<T>(
     scope: WorkspaceId,
     work: (tx: FoundationTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withConnection(scope, (tx) => work(tx));
+  }
+  async withConnection<T>(
+    scope: WorkspaceId,
+    work: (
+      tx: FoundationTransaction,
+      connection: PoolClient,
+      guard: TransactionGuard,
+    ) => Promise<T>,
   ): Promise<T> {
     workspaceIdSchema.parse(scope);
     const connection = await this.pool.connect();
@@ -211,7 +221,11 @@ export class PostgresFoundationRepository implements FoundationRepository {
           },
         },
       };
-      const result = await work(protectFoundationTransaction(raw, guard));
+      const result = await work(
+        protectFoundationTransaction(raw, guard),
+        connection,
+        guard,
+      );
       guard.assertCommittable();
       guard.close();
       await connection.query("COMMIT");

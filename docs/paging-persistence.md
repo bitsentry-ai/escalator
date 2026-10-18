@@ -1,7 +1,8 @@
 # Paging persistence contract
 
 T2.3 is split across the contract/conformance part and the following host adapters.
-This part does not activate page creation or delivery in either host.
+The standalone adapter is implemented; the Dashboard adapter follows in the
+next part. Persistence alone does not activate page creation or delivery.
 
 A paging transaction includes foundation entities, the audit log and the durable
 outbox. Adapters must use one physical transaction and the existing transaction
@@ -39,7 +40,30 @@ foundation, paging and outbox writes. Run the memory suite with:
 pnpm --dir apps/escalator --filter @bitsentry-escalator/features test
 ```
 
-PostgreSQL adapter registration, migrations and opt-in test commands follow in
-the next parts. No test database is configured here; PostgreSQL lock/RLS/runtime
-behavior is not verified by the memory fixture. Never run these checks against
-an application database or start infrastructure implicitly.
+The standalone adapter uses `0004_paging.sql`, with scoped composite foreign
+keys and natural uniqueness constraints. Indexed relational columns are checked
+against their validated JSON DTO fields; DTO workspace IDs are reconstructed
+from the trusted transaction scope. Every new table enables and forces RLS.
+Page and attempt mutations lock their own records using `FOR UPDATE`.
+The shared application assembler validates references and lifecycle transitions;
+the host storage adapter handles SQL only.
+
+To run the identical suite against an **existing disposable PostgreSQL database**:
+
+1. Configure `ESCALATOR_TEST_MIGRATION_DATABASE_URL` and
+   `ESCALATOR_TEST_DATABASE_URL` with the two roles described in the workspace
+   README. Do not use an application database or an application URL fallback.
+2. Run `pnpm --dir apps/escalator run build` from the monorepo root (or `pnpm run
+build` from the standalone workspace).
+3. Run `pnpm --dir apps/escalator --filter @bitsentry-escalator/server test`.
+   Check that the nine `standalone PostgreSQL paging` scenarios execute rather
+   than skip. Fixtures create random test schemas, apply all migrations twice
+   to check journal stability, restrict the application role, and remove the
+   schemas after the suite. Existing application schemas are not migration targets.
+4. Review the concurrent acknowledgement, late-attempt result and rollback
+   results before enabling any paging routes. Run the separate RLS scenario too.
+
+No test database is configured in the implementation environment. The database
+scenarios are delivered but explicitly skipped: PostgreSQL locking, constraints
+and RLS are **not runtime-verified**. The memory fixture cannot prove these
+properties. No infrastructure is started by the tests; never start it implicitly.
