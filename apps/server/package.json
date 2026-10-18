@@ -17,11 +17,17 @@
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
     "@trpc/server": "^11.0.0",
+    "argon2": "0.45.1",
+    "express-session": "1.19.0",
+    "otplib": "13.5.0",
+    "pg": "8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "pg": "8.18.0"
+    "zod": "4.3.6"
   },
   "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/express-session": "1.19.0",
     "@types/pg": "8.15.6"
   }
 }
