@@ -145,7 +145,8 @@ export function withRuleProposals<
           if (
             claim.proposalId !== hint.proposalId ||
             claim.runtimeId !== hint.runtimeId ||
-            claim.token !== hint.token
+            claim.token !== hint.token ||
+            claim.attempt !== hint.attempt
           )
             throw new PersistenceError("scope_violation");
           return claim;

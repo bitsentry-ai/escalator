@@ -251,3 +251,7 @@ export * from "./rules/proposal-jobs.js";
 export * from "./rules/proposal-ports.js";
 export * from "./rules/proposal-generation.js";
 export * from "./rules/proposal-transaction.js";
+
+export * from "./rules/proposal-storage.js";
+
+export * from "./rules/proposal-claim-transition.js";

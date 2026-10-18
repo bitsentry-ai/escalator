@@ -353,3 +353,18 @@ test("optional fixed fields cannot be introduced in a worker result", async () =
   await assert.rejects(f.useCase.complete(claim, candidate), /fixed field/);
   assert.equal((await f.inspect()).scheduled.length, 0);
 });
+
+test("a storage adapter cannot substitute a different generation attempt", async () => {
+  const f = await setup(),
+    row = await f.useCase.request(f.actor, f.request),
+    claim = await f.claim(row);
+  // This fixture deliberately returns its persisted claim even for a mismatched hint.
+  await assert.rejects(
+    f.useCase.complete({ ...claim, attempt: 2 }, f.candidate(row)),
+  );
+  const state = await f.inspect();
+  assert.equal(state.rows[0]?.status, "generating");
+  assert.equal(state.rows[0]?.generation, null);
+  assert.deepEqual(state.scheduled, []);
+  assert.equal(state.claim?.attempt, 1);
+});

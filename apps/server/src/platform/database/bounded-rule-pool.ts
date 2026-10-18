@@ -8,6 +8,7 @@ export async function withBoundedRulePool<T>(
   work: (bounded: Pool) => Promise<T>,
   timeoutMs = 10000,
   monotonicNow: () => number = () => performance.now(),
+  assertLeaseLive: () => void = () => {},
 ): Promise<T> {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 10 || timeoutMs > 10000)
     throw new Error("Invalid rule transaction deadline");
@@ -25,6 +26,13 @@ export async function withBoundedRulePool<T>(
   // Timers cannot run while JavaScript is busy. Check elapsed time at every SQL
   // boundary as well, so a delayed timeout callback cannot permit a late COMMIT.
   const assertDeadline = () => {
+    try {
+      assertLeaseLive();
+    } catch (error) {
+      expired = true;
+      release(true);
+      throw error;
+    }
     if (expired || monotonicNow() >= expiresAt) {
       expired = true;
       release(true);

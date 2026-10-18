@@ -163,3 +163,26 @@ test("callback completion checks elapsed time without relying on a timer turn", 
     /deadline/,
   );
 });
+
+test("an expired proposal lease destroys the connection before COMMIT", async () => {
+  const f = fixture();
+  let live = true;
+  await assert.rejects(
+    withBoundedRulePool(
+      f.pool,
+      (pool) =>
+        new PostgresFoundationRepository(pool).transaction(scope, async () => {
+          live = false;
+          return 42;
+        }),
+      10000,
+      () => 0,
+      () => {
+        if (!live) throw new Error("Proposal lease expired");
+      },
+    ),
+    /Proposal lease expired/,
+  );
+  assert.equal(f.statements.includes("COMMIT"), false);
+  assert.deepEqual(f.released, [true]);
+});
