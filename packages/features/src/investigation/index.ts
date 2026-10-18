@@ -64,3 +64,16 @@ export {
   runInvestigation,
   type InvestigationDependencies,
 } from "./orchestration/run.js";
+export {
+  investigationClaimSchema,
+  validateInvestigationResult,
+  validateInvestigationTrace,
+  InvalidInvestigationResult,
+} from "./orchestration/claims.js";
+export {
+  executeInvestigationClaim,
+  defaultInvestigationLeaseOptions,
+  type InvestigationLeaseOptions,
+  type InvestigationExecution,
+  type InvestigationExecutionOutcome,
+} from "./orchestration/lease-runner.js";

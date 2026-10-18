@@ -1,10 +1,6 @@
+import { investigationClaimSchema } from "./claims.js";
 import { z } from "zod";
 import {
-  opaqueIdSchema,
-  utcTimestampSchema,
-  investigationScopeSchema,
-  investigationLimitsSchema,
-  evidenceQuerySchema,
   modelDestinationSchema,
   investigationFindingSchema,
   investigationReportSchema,
@@ -29,17 +25,6 @@ import {
   InvestigationBudgetError,
   systemInvestigationClock,
 } from "./budget.js";
-const claimSchema = z.strictObject({
-  id: opaqueIdSchema,
-  scope: investigationScopeSchema,
-  runtimeId: opaqueIdSchema,
-  claimToken: opaqueIdSchema,
-  leaseExpiresAt: utcTimestampSchema,
-  attempt: z.number().int().min(1),
-  profileId: opaqueIdSchema,
-  limits: investigationLimitsSchema,
-  sources: z.array(evidenceQuerySchema).max(32),
-});
 const diagnosisSchema = z.strictObject({
   summary: z.string().trim().min(1).max(8000),
   findings: z.array(investigationFindingSchema).max(20),
@@ -62,7 +47,7 @@ export async function runInvestigation(
   dependencies: InvestigationDependencies,
   signal: AbortSignal,
 ): Promise<InvestigationRunResult> {
-  const claim = claimSchema.parse(input);
+  const claim = investigationClaimSchema.parse(input);
   const clock = dependencies.clock ?? systemInvestigationClock;
   const startedAt = clock.now().toISOString();
   const controller = new AbortController();
