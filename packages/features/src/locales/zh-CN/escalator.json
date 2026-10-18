@@ -51,6 +51,7 @@
     "loading": "正在加载服务…",
     "empty": "尚无服务。",
     "more": "加载更多",
-    "retry": "重试"
+    "retry": "重试",
+    "unavailable": "此组织尚未启用 Escalator。"
   }
 }

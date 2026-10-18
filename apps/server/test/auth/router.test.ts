@@ -7,6 +7,7 @@ import { authRouter } from "../../src/platform/auth/auth.router.js";
 import { appRouter } from "../../src/platform/trpc/router.js";
 import type { LocalAuthService } from "../../src/platform/auth/auth.service.js";
 import { AuthenticationError } from "../../src/platform/auth/credentials.js";
+import type { ServiceUseCases } from "@bitsentry-escalator/features/application";
 function fixture() {
   const calls: string[] = [];
   const proof = { accountId: "owner", authVersion: 2 };
@@ -70,6 +71,7 @@ function fixture() {
     },
   };
   const context = {
+    services: {} as ServiceUseCases,
     req,
     res: {} as Response,
     auth: auth as unknown as LocalAuthService,

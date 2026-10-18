@@ -51,6 +51,7 @@
     "loading": "Memuat layanan…",
     "empty": "Belum ada layanan.",
     "more": "Muat lebih banyak",
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "unavailable": "Escalator belum diaktifkan untuk organisasi ini."
   }
 }

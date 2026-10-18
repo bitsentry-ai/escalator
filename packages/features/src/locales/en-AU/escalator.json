@@ -51,6 +51,7 @@
     "loading": "Loading services…",
     "empty": "No services yet.",
     "more": "Load more",
-    "retry": "Try again"
+    "retry": "Try again",
+    "unavailable": "Escalator is not enabled for this organisation."
   }
 }
