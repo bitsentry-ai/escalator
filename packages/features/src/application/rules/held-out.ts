@@ -33,7 +33,7 @@ export function deriveHeldOutReplay(
     original = s.version.definition;
   if (hash(s) !== source.inputHash)
     throw new Error("Source snapshot integrity mismatch");
-  if (s.evaluation || !s.retained)
+  if (s.evaluation || s.candidateEvaluation || !s.retained)
     throw new Error(
       "Held-out evaluation requires an original retained capture",
     );

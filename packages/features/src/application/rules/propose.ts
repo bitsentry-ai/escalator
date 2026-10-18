@@ -1,3 +1,4 @@
+import type { RuleCandidateResult } from "../../contracts/rule-proposal.js";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { opaqueIdSchema } from "../../contracts/identity.js";
@@ -55,7 +56,7 @@ export async function generateRuleCandidate(
   },
   models: ModelResolver,
   signal: AbortSignal,
-) {
+): Promise<RuleCandidateResult> {
   const started = performance.now(),
     duration = 30000;
   if (signal.aborted) throw new Error("Rule proposal cancelled or timed out");
@@ -67,6 +68,7 @@ export async function generateRuleCandidate(
     throw new Error("Candidate requires a new rule ID");
   if (
     s.evaluation ||
+    s.candidateEvaluation ||
     createHash("sha256").update(JSON.stringify(s)).digest("hex") !==
       source.inputHash
   )

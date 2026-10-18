@@ -110,3 +110,5 @@ export * from "./rule-comparison.js";
 export * from "./rule-tuning.js";
 
 export * from "./rule-evaluation.js";
+
+export * from "./rule-proposal.js";

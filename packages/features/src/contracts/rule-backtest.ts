@@ -1,3 +1,4 @@
+import { ruleCandidateEvaluationSchema } from "./rule-proposal.js";
 import { ruleEvaluationSealSchema } from "./rule-evaluation.js";
 import { ruleComparisonSchema } from "./rule-comparison.js";
 import { z } from "zod";
@@ -41,6 +42,7 @@ export const ruleBacktestReportSchema = z
     version: z.literal(1),
     evaluatorVersion: z.literal(1),
     evaluation: ruleEvaluationSealSchema.optional(),
+    candidateEvaluation: ruleCandidateEvaluationSchema.optional(),
     matchingPolicy: z.literal("unique-overlap-v1"),
     comparison: ruleComparisonSchema.nullable().default(null),
     snapshotId: opaqueIdSchema,
@@ -97,6 +99,24 @@ export const ruleBacktestReportSchema = z
     labelCoverage: fraction.nullable(),
   })
   .superRefine((r, c) => {
+    if (
+      r.candidateEvaluation &&
+      (r.evaluation ||
+        r.candidateEvaluation.sourceSnapshotId === r.snapshotId ||
+        compareUtcTimestamps(
+          r.candidateEvaluation.firstDecisionAt,
+          r.range.firstDecisionAt,
+        ) !== 0 ||
+        compareUtcTimestamps(
+          r.candidateEvaluation.lastDecisionAt,
+          r.range.lastDecisionAt,
+        ) !== 0)
+    )
+      c.addIssue({
+        code: "custom",
+        message: "Candidate evaluation binding mismatch",
+      });
+
     if (
       r.comparison &&
       (r.comparison.candidatePredictedOpenings !== r.episodes.length ||

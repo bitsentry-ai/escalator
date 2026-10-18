@@ -1,3 +1,4 @@
+import { ruleCandidateEvaluationSchema } from "./rule-proposal.js";
 import { ruleEvaluationSealSchema } from "./rule-evaluation.js";
 import { ruleBaselineCaptureSchema } from "./rule-comparison.js";
 import {
@@ -36,6 +37,7 @@ const interval = {
 export const ruleReplaySnapshotSchema = z
   .strictObject({
     evaluation: ruleEvaluationSealSchema.optional(),
+    candidateEvaluation: ruleCandidateEvaluationSchema.optional(),
     retained: ruleRetainedEvidenceSchema.optional(),
     snapshotId: opaqueIdSchema,
     snapshotAt: utcTimestampSchema,
@@ -63,6 +65,24 @@ export const ruleReplaySnapshotSchema = z
       .max(10000),
   })
   .superRefine((snapshot, context) => {
+    if (
+      snapshot.candidateEvaluation &&
+      (snapshot.evaluation ||
+        snapshot.candidateEvaluation.sourceSnapshotId === snapshot.snapshotId ||
+        compareUtcTimestamps(
+          snapshot.candidateEvaluation.firstDecisionAt,
+          snapshot.firstDecisionAt,
+        ) !== 0 ||
+        compareUtcTimestamps(
+          snapshot.candidateEvaluation.lastDecisionAt,
+          snapshot.lastDecisionAt,
+        ) !== 0)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Candidate evaluation binding mismatch",
+      });
+
     if (
       snapshot.evaluation &&
       (snapshot.evaluation.sourceSnapshotId === snapshot.snapshotId ||

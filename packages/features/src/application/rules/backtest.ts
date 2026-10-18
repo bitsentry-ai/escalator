@@ -202,6 +202,9 @@ export function summarizeRuleBacktest(
     version: 1,
     evaluatorVersion: 1,
     ...(snapshot.evaluation ? { evaluation: snapshot.evaluation } : {}),
+    ...(snapshot.candidateEvaluation
+      ? { candidateEvaluation: snapshot.candidateEvaluation }
+      : {}),
     matchingPolicy: "unique-overlap-v1",
     snapshotId: snapshot.snapshotId,
     rule: snapshot.version,
