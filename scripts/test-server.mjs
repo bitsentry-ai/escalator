@@ -33,6 +33,10 @@ await build({
       process.cwd(),
       "../../packages/features/test/conformance/replay-recording.ts",
     ),
+    "@escalator-test/replay-coverage": path.resolve(
+      process.cwd(),
+      "../../packages/features/test/conformance/replay-coverage.ts",
+    ),
     "@escalator-test/health": path.resolve(
       server,
       "../../packages/features/test/conformance/health.ts",

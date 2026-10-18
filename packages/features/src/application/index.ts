@@ -129,3 +129,4 @@ export { encodeMonitoringSecret } from "./secrets/monitoring-secret.js";
 export * from "./retention/policy.js";
 export * from "./retention/coverage.js";
 export * from "./retention/prune.js";
+export * from "./retention/reader.js";

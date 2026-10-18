@@ -45,6 +45,9 @@
       ],
       "@escalator-test/replay-recording": [
         "../../packages/features/test/conformance/replay-recording.ts"
+      ],
+      "@escalator-test/replay-coverage": [
+        "../../packages/features/test/conformance/replay-coverage.ts"
       ]
     }
   },

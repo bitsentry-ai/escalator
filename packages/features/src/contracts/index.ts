@@ -57,3 +57,4 @@ export * from "./monitoring-credentials.js";
 
 export * from "./retention.js";
 export * from "./replay-coverage.js";
+export * from "./replay-reader.js";
