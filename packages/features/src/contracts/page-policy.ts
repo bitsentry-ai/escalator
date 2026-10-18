@@ -43,7 +43,16 @@ export const deploymentPagePolicySchema = z
         });
     }
   });
+/** Accepted deployment watches retain the service's schedule ladder and its provenance. */
+export const deploymentWatchPagePolicySchema =
+  escalationPolicySchema.safeExtend({
+    watch: z.strictObject({
+      deploymentId: opaqueIdSchema,
+      targetId: opaqueIdSchema,
+    }),
+  });
 export const pagePolicySchema = z.union([
+  deploymentWatchPagePolicySchema,
   escalationPolicySchema,
   deploymentPagePolicySchema,
 ]);

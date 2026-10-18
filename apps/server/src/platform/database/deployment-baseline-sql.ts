@@ -1,20 +1,23 @@
+import { deploymentWatchReceiptGraceSeconds } from "@bitsentry-escalator/features/contracts";
 import { watchMeasurementFields } from "@bitsentry-escalator/features/application";
 const timestamp = (expression: string) =>
   `to_char(${expression} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 // Closed identifiers only. All scope, time and source values are query parameters.
-const candidates = ["probe", "metric"]
-  .map((kind) => {
-    const table =
-      kind === "probe" ? "escalator_probe" : "escalator_metric_monitor";
-    const sourceKind = kind === "probe" ? "probe" : "metrics";
-    return `SELECT '${kind}'::text AS kind,m.id,m.source_id FROM ${table} m
+const candidateSql = (enabledOnly: boolean) =>
+  ["probe", "metric"]
+    .map((kind) => {
+      const table =
+        kind === "probe" ? "escalator_probe" : "escalator_metric_monitor";
+      const sourceKind = kind === "probe" ? "probe" : "metrics";
+      return `SELECT '${kind}'::text AS kind,m.id,m.source_id FROM ${table} m
       JOIN escalator_signal_source s ON s.workspace_id=m.workspace_id AND s.id=m.source_id
       WHERE m.workspace_id=$1 AND m.service_id=$2 AND m.environment_id=$3
       AND s.service_id=m.service_id AND s.environment_id=m.environment_id
-      AND (m.data->>'enabled')::boolean AND (s.data->>'enabled')::boolean
+      ${enabledOnly ? "AND (m.data->>'enabled')::boolean AND (s.data->>'enabled')::boolean" : ""}
       AND s.data->>'kind'='${sourceKind}'`;
-  })
-  .join(" UNION ALL ");
+    })
+    .join(" UNION ALL ");
+const candidates = candidateSql(true);
 export const baselineSourceLocksSql = `SELECT s.id FROM escalator_signal_source s
  WHERE s.workspace_id=$1 AND s.id IN (SELECT source_id FROM (${candidates}) candidates)
  ORDER BY s.id COLLATE "C" LIMIT 129 FOR UPDATE OF s`;
@@ -24,7 +27,7 @@ function measurement(kind: "probe" | "metric", column: string) {
     .join(",");
   return `encode(sha256(convert_to(jsonb_build_object(${fields})::text,'UTF8')),'hex')`;
 }
-function stream(kind: "probe" | "metric") {
+function stream(kind: "probe" | "metric", watch = false) {
   const probe = kind === "probe";
   const table = probe ? "escalator_probe" : "escalator_metric_monitor";
   const versions = probe
@@ -37,6 +40,7 @@ function stream(kind: "probe" | "metric") {
   const version = probe ? "probe_version" : "monitor_version";
   const slot = probe ? "scheduled_at" : "observed_at";
   const quality = "r.data->'sample'->>'quality'='complete'";
+  const receiptCutoff = `LEAST(statement_timestamp(),$5::timestamptz+${deploymentWatchReceiptGraceSeconds}*interval '1 second')`;
   const reading = probe
     ? "jsonb_build_object('kind','probe','state',r.data->>'outcome')"
     : `jsonb_build_object('kind','metric','quality',CASE WHEN ${quality} THEN 'complete' ELSE 'unusable' END,
@@ -71,6 +75,7 @@ function stream(kind: "probe" | "metric") {
       FROM ${receipts} r WHERE r.workspace_id=$1 AND r.${key}=m.id
        AND (r.${slot}>=$4::timestamptz AND r.${slot}<$5::timestamptz
          ${probe ? "OR (r.scheduled_at IS NULL AND r.observed_at>=$4::timestamptz AND r.observed_at<$5::timestamptz)" : ""})
+      ${watch ? `AND (r.received_at IS NULL OR r.received_at<=${receiptCutoff}) AND r.observed_at<=${receiptCutoff}` : ""}
       ORDER BY r.observed_at,r.id COLLATE "C" LIMIT 129
     ) SELECT jsonb_build_object(
       'complete',(SELECT count(*)<=128 FROM configurations) AND (SELECT count(*)<=128 FROM receipts),
@@ -84,11 +89,24 @@ function stream(kind: "probe" | "metric") {
 /** Sources were locked before this statement, so recording/configuration and pruning
  * cannot race the snapshot. A newly created, unlocked source makes inventory incomplete.
  */
-export const deploymentBaselineSql = `WITH eligible AS MATERIALIZED (${candidates}),
+const projectionSql = (
+  eligible: string,
+  watch = false,
+) => `WITH eligible AS MATERIALIZED (${eligible}),
  picked AS MATERIALIZED (SELECT * FROM eligible WHERE source_id=ANY($6::text[])
    ORDER BY kind COLLATE "C",id COLLATE "C" LIMIT 128),
- streams AS (${stream("probe")} UNION ALL ${stream("metric")})
+ streams AS (${stream("probe", watch)} UNION ALL ${stream("metric", watch)})
  SELECT jsonb_build_object('workspaceId',$1::text,'serviceId',$2::text,'environmentId',$3::text,
  'capturedAt',${timestamp("statement_timestamp()")},
  'inventoryComplete',(SELECT count(*)<=128 AND bool_and(source_id=ANY($6::text[])) FROM eligible) IS NOT FALSE,
  'streams',COALESCE((SELECT jsonb_agg(data ORDER BY kind COLLATE "C",id COLLATE "C") FROM streams),'[]'::jsonb)) AS snapshot`;
+
+export const deploymentBaselineSql = projectionSql(candidates);
+/** Capture-time sources remain readable after operator disablement; newer streams are not retroactive baselines. */
+export const deploymentWatchSql = projectionSql(
+  `SELECT * FROM (${candidateSql(false)}) captured WHERE source_id=ANY($6::text[])`,
+  true,
+);
+export const watchSourceLocksSql = `SELECT id FROM escalator_signal_source
+ WHERE workspace_id=$1 AND service_id=$2 AND environment_id=$3 AND id=ANY($4::text[])
+ ORDER BY id COLLATE "C" LIMIT 129 FOR UPDATE`;

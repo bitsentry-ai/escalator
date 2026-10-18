@@ -12,6 +12,7 @@ import {
   sustainedFloorRuleSchema,
   type DeploymentEntry,
   type DeploymentBaseline,
+  type WatchEvidenceWindow,
 } from "../../contracts/index.js";
 import { PersistenceError } from "../ports/persistence.js";
 import { replayCoverageSegments } from "../retention/reader.js";
@@ -123,27 +124,6 @@ export function baselineFromProjection(
           stream.environmentId !== projection.environmentId
         )
           throw new PersistenceError("scope_violation");
-        const segments = replayCoverageSegments(stream.configurations, window);
-        const versions = new Set(segments.map((segment) => segment.version));
-        const compatible = stream.configurations.every(
-          (config) =>
-            !versions.has(config.version) ||
-            config.measurementHash === stream.measurementHash,
-        );
-        const samples = stream.receipts.flatMap((receipt) => {
-          if (receipt.reading.kind !== stream.kind)
-            throw new RangeError("Baseline observation kind differs");
-          if (receipt.version === null || receipt.slotAt === null) return [];
-          const slot = Date.parse(receipt.slotAt);
-          if (
-            slot < Date.parse(window.startAt) ||
-            slot >= Date.parse(window.endAt)
-          )
-            throw new RangeError("Baseline receipt outside window");
-          return [
-            { ...receipt, version: receipt.version, slotAt: receipt.slotAt },
-          ];
-        });
         return {
           kind: stream.kind,
           id: stream.id,
@@ -154,18 +134,55 @@ export function baselineFromProjection(
             stream.kind === "probe"
               ? probeWatchCriteria(stream)
               : metricWatchCriteria(stream),
-          evidence: {
-            workspaceId: projection.workspaceId,
-            streamId: stream.id,
-            ...window,
-            complete: stream.complete,
-            configurationCompatible: compatible,
-            segments,
-            samples,
-          },
+          evidence: projectedEvidenceWindow(
+            stream,
+            projection.workspaceId,
+            window,
+            stream.measurementHash,
+          ),
         };
       }),
     },
     entry,
   );
+}
+
+/** Shared baseline/watch projection. Watch readers may include future slots up to their fixed end;
+ * trim those to the evaluation window before using the same coverage and receipt selection rules.
+ */
+export function projectedEvidenceWindow(
+  stream: BaselineProjection["streams"][number],
+  scope: BaselineProjection["workspaceId"],
+  window: Pick<WatchEvidenceWindow, "startAt" | "endAt" | "visibleAt">,
+  measurementHash: string,
+  trimFutureSlots = false,
+): WatchEvidenceWindow {
+  if (stream.workspaceId !== scope)
+    throw new PersistenceError("scope_violation");
+  const segments = replayCoverageSegments(stream.configurations, window);
+  const versions = new Set(segments.map((segment) => segment.version));
+  const compatible = stream.configurations.every(
+    (config) =>
+      !versions.has(config.version) ||
+      config.measurementHash === measurementHash,
+  );
+  const samples = stream.receipts.flatMap((receipt) => {
+    if (receipt.reading.kind !== stream.kind)
+      throw new RangeError("Observation kind differs");
+    if (receipt.version === null || receipt.slotAt === null) return [];
+    const slot = Date.parse(receipt.slotAt);
+    if (trimFutureSlots && slot >= Date.parse(window.endAt)) return [];
+    if (slot < Date.parse(window.startAt) || slot >= Date.parse(window.endAt))
+      throw new RangeError("Receipt outside window");
+    return [{ ...receipt, version: receipt.version, slotAt: receipt.slotAt }];
+  });
+  return {
+    workspaceId: scope,
+    streamId: stream.id,
+    ...window,
+    complete: stream.complete,
+    configurationCompatible: compatible,
+    segments,
+    samples,
+  };
 }

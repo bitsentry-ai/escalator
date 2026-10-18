@@ -69,9 +69,14 @@ export async function openPageInTransaction(
   if (existing) return existing;
   const pageId = pagingWorkId(scope, "page", parsed.incident.id);
   const service = await tx.services.get(parsed.incident.serviceId);
-  // Disabling intake cannot erase an already accepted deployment's deadline.
+  // Disabling intake cannot erase an accepted deployment deadline or watch.
   // Ordinary incident creation still requires an enabled service.
-  if (!service || (!service.enabled && !("deployment" in parsed.policy)))
+  if (
+    !service ||
+    (!service.enabled &&
+      !("deployment" in parsed.policy) &&
+      !("watch" in parsed.policy))
+  )
     throw new Error("Service is unavailable for paging");
   const incident = operationalIncidentSchema.parse({
     ...parsed.incident,

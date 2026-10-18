@@ -169,3 +169,9 @@ export * from "./deploy/watch.js";
 
 export * from "./deploy/baseline.js";
 export * from "./deploy/baseline-reader.js";
+
+export * from "./deploy/watch-record.js";
+
+export * from "./deploy/watch-reader.js";
+
+export * from "./deploy/watch-page-policy.js";
