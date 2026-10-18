@@ -34,3 +34,6 @@ export type { DetectionClient } from "./detection-client.js";
 
 export type { HeartbeatsClient } from "./heartbeats-client.js";
 export { HeartbeatsScreen } from "./heartbeats/HeartbeatsScreen.js";
+
+export type { MetricsClient } from "./metrics-client.js";
+export { MetricsScreen } from "./metrics/MetricsScreen.js";

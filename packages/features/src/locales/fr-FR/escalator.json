@@ -463,5 +463,56 @@
     "none": "Aucun enregistrement",
     "statusHelp": "L'absence d'échéance manquée enregistrée ne prouve pas le bon fonctionnement actuel. Comparez l'échéance et le dernier signal accepté, puis surveillez séparément la disponibilité de l'application.",
     "grantHelp": "Émettez un jeton pendant que la supervision est désactivée, configurez l'émetteur selon la route documentée, puis activez la supervision. Le serveur vérifie l'expiration ; une horloge de navigateur incorrecte peut entraîner un rejet. Émettez un remplacement avant de révoquer l'ancien jeton."
+  },
+  "metrics": {
+    "heading": "Métriques",
+    "guidance": "Surveillez un taux d'erreur durable à partir des nombres de requêtes et d'erreurs. Commencez avec la collecte désactivée, configurez le fournisseur et la politique de notification, puis activez-la.",
+    "create": "Nouvelle supervision de métriques",
+    "empty": "Aucune supervision de métriques configurée.",
+    "more": "Charger d'autres supervisions",
+    "provider": "Fournisseur de métriques",
+    "url": "URL de base du fournisseur",
+    "datasource": "UID de la source de données Prometheus",
+    "queryHelp": "Chaque requête doit retourner une série agrégée de nombres pour l'intervalle de collecte, pas un taux ni un compteur cumulatif. Utilisez le même intervalle et le même périmètre pour les requêtes et les erreurs.",
+    "requests": "Requête du nombre de requêtes",
+    "errors": "Requête du nombre d'erreurs",
+    "step": "Intervalle de collecte (secondes)",
+    "window": "Fenêtre d'évaluation (secondes)",
+    "samples": "Nombre minimal d'échantillons",
+    "minimumRequests": "Nombre minimal de requêtes dans la fenêtre",
+    "floor": "Seuil plancher du taux d'erreur (%)",
+    "floorHelp": "Le seuil doit être supérieur à 0 et au plus égal à 100 %. La fenêtre doit être un multiple de l'intervalle et contenir assez d'échantillons. Les échantillons manquants ou inutilisables ne confirment jamais un rétablissement.",
+    "save": "Enregistrer la supervision",
+    "audit": "Les changements de configuration sont versionnés et audités. Désactiver la collecte ne résout pas un incident existant.",
+    "received": "Reçu",
+    "sampleCount": "Échantillons évalués :",
+    "historyHelp": "L’historique est trié par date de réception décroissante, puis par identifiant en cas d’égalité. Comparez les dates d’observation et de réception ; un résultat enregistré ne prouve pas le bon fonctionnement actuel.",
+    "states": {
+      "active": "Seuil du taux d'erreur atteint",
+      "clear": "Sous le seuil au moment de l'observation",
+      "insufficient_data": "Données insuffisantes"
+    },
+    "reasons": {
+      "floor_met": "Chaque intervalle requis atteint le seuil",
+      "below_floor": "Au moins un intervalle utilisable est sous le seuil",
+      "invalid_window": "Fenêtre d'évaluation invalide",
+      "missing_samples": "Des échantillons requis sont manquants",
+      "unusable_samples": "Certains échantillons sont inutilisables",
+      "insufficient_requests": "Nombre de requêtes insuffisant"
+    },
+    "providerReasons": {
+      "sampled": "Observation du fournisseur enregistrée",
+      "invalid_response": "Réponse du fournisseur inutilisable",
+      "provider_unavailable": "Fournisseur indisponible",
+      "secret_unavailable": "Identifiant indisponible",
+      "destination_denied": "Destination refusée par la politique de déploiement",
+      "cancelled": "Collecte annulée",
+      "timeout": "Délai de collecte dépassé",
+      "invalid_configuration": "Configuration de collecte invalide",
+      "service_disabled": "Service désactivé",
+      "source_disabled": "Source désactivée",
+      "stale_window": "Fenêtre de collecte expirée"
+    },
+    "differentVersion": "Configuration différente de celle sélectionnée"
   }
 }

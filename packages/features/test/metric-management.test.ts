@@ -330,3 +330,65 @@ test("metric input rejects caller scope and incompatible rule windows; creation 
   );
   assert.equal((await f.management.list(f.actor)).items.length, 0);
 });
+
+test("metric inspection resolves the stored observation pointer, independent of history ordering", async () => {
+  const f = await fixture();
+  const metric = await f.management.create(f.actor, input);
+  assert.equal(
+    (await f.management.get(f.actor, { id: metric.id })).lastObservation,
+    null,
+  );
+  await f.repository.transaction(f.actor.workspaceId, async (tx) => {
+    await tx.metrics.lock(metric.id);
+    const sample = {
+      workspaceId: f.actor.workspaceId,
+      monitorId: metric.id,
+      monitorVersion: metric.version,
+      observedAt: tx.now,
+      receivedAt: tx.now,
+      reason: "timeout" as const,
+      sample: null,
+      provenance: null,
+    };
+    await tx.metrics.observe({ ...sample, id: "z-history" });
+    await tx.metrics.observe({ ...sample, id: "a-current" });
+    const schedule = (await tx.metrics.schedule(metric.id))!;
+    await tx.metrics.putSchedule({
+      ...schedule,
+      lastObservationId: "a-current",
+    });
+  });
+  assert.equal(
+    (await f.management.history(f.actor, { id: metric.id, limit: 1 })).items[0]
+      .id,
+    "z-history",
+  );
+  const result = await f.management.get(
+    { ...f.actor, role: "viewer" },
+    { id: metric.id },
+  );
+  assert.equal(result.lastObservation?.id, "a-current");
+  assert.equal(result.lastObservation?.evaluation.state, "insufficient_data");
+});
+
+test("metric inspection cannot combine an old unlocked configuration with its replacement schedule", async () => {
+  const f = await fixture();
+  const old = await f.management.create(f.actor, input);
+  const current = await f.management.update(f.actor, {
+    ...updateInput(old),
+    name: "Updated",
+  });
+  const raced: MetricsRepository = {
+    transaction: (scope, run) =>
+      f.repository.transaction(scope, (tx) =>
+        run({
+          ...tx,
+          metrics: { ...tx.metrics, get: async () => old },
+        }),
+      ),
+  };
+  const management = new MetricManagement(raced, randomUUID, destinations);
+  const detail = await management.get(f.actor, { id: current.id });
+  assert.equal(detail.metric.version, current.version);
+  assert.equal(detail.metric.version, detail.schedule?.monitorVersion);
+});

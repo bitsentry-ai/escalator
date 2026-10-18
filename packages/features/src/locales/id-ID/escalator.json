@@ -463,5 +463,56 @@
     "none": "Tidak tercatat",
     "statusHelp": "Tidak adanya catatan tenggat terlewat tidak membuktikan kondisi saat ini. Bandingkan tenggat tersimpan dan waktu terakhir diterima, serta pantau kesiapan aplikasi secara terpisah.",
     "grantHelp": "Terbitkan token saat monitor nonaktif, konfigurasikan pengirim menggunakan rute heartbeat yang didokumentasikan, lalu aktifkan pemantauan. Server memeriksa kedaluwarsa; jam browser yang salah dapat menyebabkan penolakan. Terbitkan pengganti sebelum mencabut token lama."
+  },
+  "metrics": {
+    "heading": "Metrik",
+    "guidance": "Pantau ambang tingkat kesalahan berkelanjutan menggunakan jumlah permintaan dan kesalahan. Mulai dalam keadaan nonaktif, konfigurasikan penyedia dan kebijakan paging, lalu aktifkan pengambilan sampel.",
+    "create": "Monitor metrik baru",
+    "empty": "Belum ada monitor metrik.",
+    "more": "Muat monitor metrik lainnya",
+    "provider": "Penyedia metrik",
+    "url": "URL dasar penyedia",
+    "datasource": "UID sumber data Prometheus",
+    "queryHelp": "Setiap kueri harus menghasilkan satu deret jumlah agregat untuk interval sampel, bukan laju atau penghitung kumulatif. Gunakan interval dan cakupan yang sama untuk permintaan dan kesalahan.",
+    "requests": "Kueri jumlah permintaan",
+    "errors": "Kueri jumlah kesalahan",
+    "step": "Interval sampel (detik)",
+    "window": "Jendela evaluasi (detik)",
+    "samples": "Sampel minimum",
+    "minimumRequests": "Permintaan minimum dalam jendela",
+    "floor": "Ambang minimum tingkat kesalahan (%)",
+    "floorHelp": "Ambang harus lebih besar dari 0 dan paling tinggi 100%. Jendela harus merupakan kelipatan interval sampel dan memuat cukup sampel. Sampel hilang atau tidak layak tidak pernah membuktikan pemulihan.",
+    "save": "Simpan monitor metrik",
+    "audit": "Perubahan konfigurasi memiliki versi dan dicatat dalam audit. Menonaktifkan sampel tidak menyelesaikan insiden yang ada.",
+    "received": "Diterima",
+    "sampleCount": "Sampel dievaluasi:",
+    "historyHelp": "Riwayat diurutkan berdasarkan waktu penerimaan terbaru, dengan ID catatan sebagai pembeda jika waktunya sama. Bandingkan waktu pengamatan dan penerimaan; hasil tersimpan tidak membuktikan kondisi saat ini.",
+    "states": {
+      "active": "Ambang tingkat kesalahan terpenuhi",
+      "clear": "Di bawah ambang saat pengamatan",
+      "insufficient_data": "Data tidak cukup"
+    },
+    "reasons": {
+      "floor_met": "Setiap interval yang diperlukan memenuhi ambang",
+      "below_floor": "Setidaknya satu interval yang layak berada di bawah ambang",
+      "invalid_window": "Jendela evaluasi tidak valid",
+      "missing_samples": "Sampel yang diperlukan hilang",
+      "unusable_samples": "Sebagian sampel tidak dapat digunakan",
+      "insufficient_requests": "Permintaan tidak cukup"
+    },
+    "providerReasons": {
+      "sampled": "Pengamatan penyedia tercatat",
+      "invalid_response": "Respons penyedia tidak dapat digunakan",
+      "provider_unavailable": "Penyedia tidak tersedia",
+      "secret_unavailable": "Kredensial tidak tersedia",
+      "destination_denied": "Tujuan ditolak oleh kebijakan penerapan",
+      "cancelled": "Pengambilan sampel dibatalkan",
+      "timeout": "Waktu pengambilan sampel habis",
+      "invalid_configuration": "Konfigurasi sampel tidak valid",
+      "service_disabled": "Layanan dinonaktifkan",
+      "source_disabled": "Sumber dinonaktifkan",
+      "stale_window": "Jendela sampel kedaluwarsa"
+    },
+    "differentVersion": "Berbeda dari konfigurasi yang dipilih"
   }
 }

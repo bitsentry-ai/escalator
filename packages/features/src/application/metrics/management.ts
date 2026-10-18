@@ -91,12 +91,20 @@ export class MetricManagement {
     authorize(actor);
     const { id } = metricIdInputSchema.parse(input);
     return this.repository.transaction(actor.workspaceId, async (tx) => {
-      const metric = await tx.metrics.get(id);
+      const metric = await tx.metrics.lock(id);
       if (!metric) throw new PersistenceError("not_found");
-      return {
-        metric,
-        schedule: (await tx.metrics.schedule(id)) ?? null,
-      };
+      const schedule = (await tx.metrics.schedule(id)) ?? null;
+      const lastObservation = schedule?.lastObservationId
+        ? ((await tx.metrics.observation(schedule.lastObservationId)) ?? null)
+        : null;
+      if (
+        lastObservation &&
+        (lastObservation.workspaceId !== actor.workspaceId ||
+          lastObservation.monitorId !== id ||
+          lastObservation.id !== schedule?.lastObservationId)
+      )
+        throw new PersistenceError("scope_violation");
+      return { metric, schedule, lastObservation };
     });
   }
   async history(

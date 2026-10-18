@@ -463,5 +463,56 @@
     "none": "None recorded",
     "statusHelp": "An absent missed-deadline record does not prove current health. Compare the stored deadline and last accepted time, and monitor the application's readiness separately.",
     "grantHelp": "Issue a token while the monitor is disabled, configure the sender using the documented heartbeat route, then enable monitoring. Expiry is checked by the server; an incorrect browser clock can cause rejection. Rotate by issuing a replacement before revoking the old token."
+  },
+  "metrics": {
+    "heading": "Metrics",
+    "guidance": "Monitor a sustained error-rate floor using paired request and error counts. Start disabled, configure the provider and paging policy, then enable sampling.",
+    "create": "New metric monitor",
+    "empty": "No metric monitors configured.",
+    "more": "Load more metric monitors",
+    "provider": "Metrics provider",
+    "url": "Provider base URL",
+    "datasource": "Prometheus datasource UID",
+    "queryHelp": "Each query must return one aggregate count series for the sampling interval, not a rate or cumulative counter. Use the same interval and scope for requests and errors.",
+    "requests": "Request-count query",
+    "errors": "Error-count query",
+    "step": "Sampling interval (seconds)",
+    "window": "Evaluation window (seconds)",
+    "samples": "Minimum samples",
+    "minimumRequests": "Minimum requests in the window",
+    "floor": "Error-rate floor (%)",
+    "floorHelp": "The floor must be greater than 0 and at most 100%. The window must be a multiple of the sampling interval and contain enough samples. Missing or unusable samples never establish recovery.",
+    "save": "Save metric monitor",
+    "audit": "Configuration changes are versioned and audited. Disabling sampling does not resolve an existing incident.",
+    "received": "Received",
+    "sampleCount": "Samples evaluated:",
+    "historyHelp": "History is ordered by receipt time, newest first, with record ID as the tie-breaker. Compare observed and received times; a recorded result does not prove current health.",
+    "states": {
+      "active": "Error-rate floor met",
+      "clear": "Below the floor at observation time",
+      "insufficient_data": "Insufficient data"
+    },
+    "reasons": {
+      "floor_met": "Every required bucket meets the floor",
+      "below_floor": "At least one usable bucket is below the floor",
+      "invalid_window": "Invalid evaluation window",
+      "missing_samples": "Required samples are missing",
+      "unusable_samples": "Some samples cannot be used",
+      "insufficient_requests": "Not enough requests"
+    },
+    "providerReasons": {
+      "sampled": "Provider observation recorded",
+      "invalid_response": "Provider response could not be used",
+      "provider_unavailable": "Provider unavailable",
+      "secret_unavailable": "Credential unavailable",
+      "destination_denied": "Destination denied by deployment policy",
+      "cancelled": "Sampling cancelled",
+      "timeout": "Sampling timed out",
+      "invalid_configuration": "Invalid sampling configuration",
+      "service_disabled": "Service disabled",
+      "source_disabled": "Source disabled",
+      "stale_window": "Sampling window expired"
+    },
+    "differentVersion": "Different from the selected configuration"
   }
 }

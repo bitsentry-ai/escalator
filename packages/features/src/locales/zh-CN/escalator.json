@@ -463,5 +463,56 @@
     "none": "无记录",
     "statusHelp": "没有超时记录并不能证明当前健康状态。请比较已保存的截止时间和最近接受时间，并单独监控应用就绪状态。",
     "grantHelp": "在监控禁用时签发令牌，按文档中的心跳路由配置发送方，然后启用监控。到期时间由服务器验证；浏览器时钟错误可能导致拒绝。轮换时请先签发新令牌，再撤销旧令牌。"
+  },
+  "metrics": {
+    "heading": "指标",
+    "guidance": "使用配对的请求数和错误数监控持续错误率下限。先保持禁用，配置提供方和呼叫策略，然后启用采样。",
+    "create": "新建指标监控",
+    "empty": "尚未配置指标监控。",
+    "more": "加载更多指标监控",
+    "provider": "指标提供方",
+    "url": "提供方基础 URL",
+    "datasource": "Prometheus 数据源 UID",
+    "queryHelp": "每个查询必须返回采样间隔内的一条聚合计数序列，而不是速率或累计计数器。请求数与错误数必须使用相同的间隔和范围。",
+    "requests": "请求计数查询",
+    "errors": "错误计数查询",
+    "step": "采样间隔（秒）",
+    "window": "评估窗口（秒）",
+    "samples": "最少样本数",
+    "minimumRequests": "窗口内最少请求数",
+    "floor": "错误率下限（%）",
+    "floorHelp": "下限必须大于 0 且不超过 100%。窗口必须是采样间隔的整数倍，并包含足够的样本。缺失或不可用的样本绝不表示已恢复。",
+    "save": "保存指标监控",
+    "audit": "配置更改会记录版本和审计日志。禁用采样不会解决现有事件。",
+    "received": "接收时间",
+    "sampleCount": "已评估样本数：",
+    "historyHelp": "历史记录按接收时间从新到旧排列，同一时间按记录 ID 排序。请对比观测时间和接收时间；已记录的结果不能证明当前运行正常。",
+    "states": {
+      "active": "已达到错误率下限",
+      "clear": "观测时低于下限",
+      "insufficient_data": "数据不足"
+    },
+    "reasons": {
+      "floor_met": "所有必需时间段均达到下限",
+      "below_floor": "至少一个可用时间段低于下限",
+      "invalid_window": "评估窗口无效",
+      "missing_samples": "缺少必需样本",
+      "unusable_samples": "部分样本不可用",
+      "insufficient_requests": "请求数不足"
+    },
+    "providerReasons": {
+      "sampled": "已记录提供方观测",
+      "invalid_response": "提供方响应不可用",
+      "provider_unavailable": "提供方不可用",
+      "secret_unavailable": "凭据不可用",
+      "destination_denied": "部署策略拒绝该目标",
+      "cancelled": "采样已取消",
+      "timeout": "采样超时",
+      "invalid_configuration": "采样配置无效",
+      "service_disabled": "服务已禁用",
+      "source_disabled": "信号源已禁用",
+      "stale_window": "采样窗口已过期"
+    },
+    "differentVersion": "与所选配置不同"
   }
 }

@@ -1,0 +1,13 @@
+# Metrics administration
+
+Both hosts use the shared Metrics screen for Prometheus query-range and the supported Grafana Prometheus datasource proxy. Administrators configure a service/environment, two aggregate count queries, an interval, sustained-floor rule and optional opaque authorization credential. New monitors start disabled.
+
+See [provider query setup](metrics-queries.md) and [sampling/runtime configuration](metric-management.md). Queries must describe requests and errors for the same sampling bucket, scope and interval. They must return one aggregate series of counts, not rates or cumulative counters. The visible floor percentage is converted to the domain's fraction. The window must align with the sampling interval and hold the required minimum samples. Provider destination policy, capacity, credential availability and all domain bounds remain server-enforced.
+
+Select the service/environment paging policy explicitly before enabling sampling. Configuration and disable actions carry the selected version and commit their existing audit events. Disabling sampling does not resolve existing incidents.
+
+Standalone supports typed, write-only authorization credential creation separate from saving the monitor. Dashboard metadata selection uses the existing organization-authorized binding; provisioning and activation depend on the separate broker stack. Credentials do not belong in query text or base URLs.
+
+Inspection resolves the persisted last-observation ID under the monitor configuration lock in the same scoped transaction, rather than guessing from history order. A missing or pruned receipt is null. Recorded history is ordered by receipt time descending, then ID descending for equal receipt times; pagination uses an opaque record-ID cursor. Each result displays observed and received times, provider outcome, sample count, evaluator outcome and configuration version. A different configuration version is marked relative to the selected monitor, and insufficient data never appears as a clear/healthy outcome. Stored snapshots do not prove current operational health.
+
+Unit cases cover percentage conversion, strict provider configuration, selected identity/version, persisted observation lookup, insufficient-data display and transport routing. In an authorized disposable environment, configure each provider variant, verify paired sample alignment, introduce missing/nonfinite samples, change configuration before a new result, inspect while configuration changes and verify coherent configuration/receipt versions, exercise stale-version saves, revoke credentials and verify paging/recovery. Browser/provider/PostgreSQL execution remains unverified; no infrastructure was started.
