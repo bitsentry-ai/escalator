@@ -1,3 +1,4 @@
+import { StandaloneRuleProposalRuntime } from "../rules/runtime.js";
 import { InvestigationReports } from "@bitsentry-escalator/features/application";
 import { PostgresInvestigationReportRepository } from "../../../platform/database/postgres-investigation-report.repository.js";
 import { Logger, Module } from "@nestjs/common";
@@ -13,6 +14,29 @@ import { StandaloneInvestigationRuntime } from "./runtime.js";
   imports: [DatabaseModule, SecretKeysModule],
   exports: [InvestigationReports],
   providers: [
+    {
+      provide: StandaloneRuleProposalRuntime,
+      inject: [
+        StandaloneDatabase,
+        SecretKeyRing,
+        StandaloneInvestigationDeployment,
+      ],
+      useFactory: (
+        db: StandaloneDatabase,
+        keys: SecretKeyRing,
+        deployment: StandaloneInvestigationDeployment,
+      ) =>
+        new StandaloneRuleProposalRuntime(
+          process.env.ESCALATOR_DATABASE_URL ?? "",
+          db.workspaceId,
+          keys,
+          deployment,
+          () =>
+            new Logger("EscalatorRuleProposals").warn(
+              "Rule proposal operation unavailable",
+            ),
+        ),
+    },
     {
       provide: InvestigationReports,
       inject: [StandaloneDatabase, StandaloneInvestigationDeployment],

@@ -9,7 +9,7 @@ import {
   type RuleProposalTransaction,
 } from "@bitsentry-escalator/features/application";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { postgresRuleProposalStore } from "./postgres-rule-proposal.store.js";
 import { postgresRuleReplayStore } from "./postgres-rule-replay.store.js";
 import { postgresRuleReplayCaptureStore } from "./postgres-rule-replay-capture.store.js";
@@ -21,6 +21,13 @@ export class PostgresRuleProposalRepository implements RuleProposalRepository {
   transaction<T>(
     scope: WorkspaceId,
     work: (tx: RuleProposalTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.withConnection(scope, (tx) => work(tx));
+  }
+  /** Host-only resource reads share the proposal transaction and commit fences. */
+  withConnection<T>(
+    scope: WorkspaceId,
+    work: (tx: RuleProposalTransaction, db: PoolClient) => Promise<T>,
   ): Promise<T> {
     const fence = new RuleProposalLeaseFence();
     return withBoundedRulePool(
@@ -61,7 +68,7 @@ export class PostgresRuleProposalRepository implements RuleProposalRepository {
               proposal.store,
               guard,
             );
-            const result = await work(tx);
+            const result = await work(tx, db);
             await proposal.assertClaimLive();
             await evaluation.assertLive();
             return result;
