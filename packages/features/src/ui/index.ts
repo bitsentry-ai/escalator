@@ -49,3 +49,6 @@ export type { DeploymentsClient } from "./deployments-client.js";
 export { DeploymentsScreen } from "./deployments/DeploymentsScreen.js";
 
 export type { DeploymentSettingsClient } from "./deployment-settings-client.js";
+
+export type { InvestigationSettingsClient } from "./investigation-settings-client.js";
+export { InvestigationSettingsScreen } from "./investigation/InvestigationSettingsScreen.js";

@@ -1,3 +1,4 @@
+import { InvestigationSettingsRoute } from "./investigation/InvestigationSettingsRoute.js";
 import { DeploymentsRoute } from "./deployments/DeploymentsRoute.js";
 import { RetentionRoute } from "./retention/RetentionRoute.js";
 import { MetricsRoute } from "./metrics/MetricsRoute.js";
@@ -30,6 +31,7 @@ export function EscalatorShell({
     | "metrics"
     | "retention"
     | "deployments"
+    | "investigation"
   >("services");
   return (
     <>
@@ -94,6 +96,12 @@ export function EscalatorShell({
         >
           {t("retention.heading")}
         </button>
+        <button
+          aria-pressed={view === "investigation"}
+          onClick={() => setView("investigation")}
+        >
+          {t("investigationSettings.heading")}
+        </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
@@ -101,6 +109,8 @@ export function EscalatorShell({
         <SourcesRoute client={client} user={user} />
       ) : view === "heartbeats" ? (
         <HeartbeatsRoute client={client} user={user} />
+      ) : view === "investigation" ? (
+        <InvestigationSettingsRoute client={client} user={user} />
       ) : view === "deployments" ? (
         <DeploymentsRoute client={client} user={user} />
       ) : view === "retention" ? (
