@@ -115,6 +115,19 @@ export function signalTransaction(
         }),
     },
     tokens: {
+      list: (sourceId, query) =>
+        guard.operation(async () => {
+          opaqueIdSchema.parse(sourceId);
+          page(query);
+          required(await store.getSource(sourceId));
+          const result = await store.listTokens(sourceId, query);
+          for (const token of result.items) {
+            scoped(token);
+            if (token.sourceId !== sourceId)
+              throw new PersistenceError("scope_violation");
+          }
+          return result;
+        }),
       getByHash: (hash) =>
         guard.operation(() =>
           store.getTokenByHash(signalTokenSchema.shape.tokenHash.parse(hash)),

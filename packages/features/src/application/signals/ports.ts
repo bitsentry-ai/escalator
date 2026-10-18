@@ -27,6 +27,7 @@ export interface SignalTransaction extends FoundationTransaction {
     replace(source: SignalSource, expectedVersion: number): Promise<boolean>;
   };
   tokens: {
+    list(sourceId: string, page: PageRequest): Promise<Page<SignalToken>>;
     getByHash(hash: string): Promise<SignalToken | undefined>;
     /** Hash uniqueness is global; only the hash is ever persisted. */
     insert(token: SignalToken): Promise<void>;
@@ -75,6 +76,7 @@ export interface SignalRecordStore {
   hasSecret(id: string): Promise<boolean>;
   getTokenByHash(hash: string): Promise<SignalToken | undefined>;
   getToken(id: string): Promise<SignalToken | undefined>;
+  listTokens(sourceId: string, page: PageRequest): Promise<Page<SignalToken>>;
   insertToken(token: SignalToken): Promise<void>;
   revokeToken(id: string, at: string): Promise<boolean>;
   getSignal(id: string): Promise<SignalEvent | undefined>;

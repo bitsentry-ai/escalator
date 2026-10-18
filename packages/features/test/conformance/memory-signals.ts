@@ -106,6 +106,19 @@ export class MemorySignalRepository implements SignalRepository {
       hasSecret: async (id) => id === "fixture-secret",
       getToken: async (id) =>
         copy(scoped(data.tokens).find((row) => row.id === id)),
+      listTokens: async (sourceId, query) => {
+        const rows = scoped(data.tokens)
+          .filter(
+            (row) =>
+              row.sourceId === sourceId &&
+              (!query.after || row.id > query.after),
+          )
+          .sort((a, b) => (a.id < b.id ? -1 : 1));
+        return copy({
+          items: rows.slice(0, query.limit),
+          next: rows.length > query.limit ? rows[query.limit - 1].id : null,
+        });
+      },
       getTokenByHash: async (hash) =>
         copy(scoped(data.tokens).find((row) => row.tokenHash === hash)),
       insertToken: async (value) => {

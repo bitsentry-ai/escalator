@@ -275,3 +275,60 @@ test("internal source lifecycle cannot bypass its owning feature through generic
     assert.equal((await f.management.get(f.actor, { id: kind })).version, 1);
   }
 });
+
+test("administrators can inventory and revoke grants without recovering tokens or digests", async () => {
+  const f = await fixture();
+  const first = await f.management.issueToken(f.actor, { sourceId: "source" });
+  const second = await f.management.issueToken(f.actor, { sourceId: "source" });
+  const other = await f.management.create(f.actor, create);
+  await f.management.issueToken(f.actor, { sourceId: other.id });
+  const page = await f.management.listTokens(f.actor, {
+    sourceId: "source",
+    limit: 1,
+  });
+  assert.equal(page.items.length, 1);
+  assert.equal(page.items[0].id, first.id);
+  assert.equal(page.next, first.id);
+  assert.deepEqual(
+    Object.keys(page.items[0]).sort(),
+    ["id", "sourceId", "scope", "createdAt", "expiresAt", "revokedAt"].sort(),
+  );
+  const encoded = JSON.stringify(page);
+  assert.equal(encoded.includes(first.token), false);
+  const digest = signalTokenDigest(first.token);
+  assert.ok(digest);
+  assert.equal(encoded.includes(digest), false);
+  const last = await f.management.listTokens(f.actor, {
+    sourceId: "source",
+    after: page.next!,
+    limit: 1,
+  });
+  assert.equal(last.items[0].id, second.id);
+  assert.equal(last.next, null);
+  await f.management.revokeToken(f.actor, { id: first.id });
+  assert.ok(
+    (await f.management.listTokens(f.actor, { sourceId: "source" })).items[0]
+      .revokedAt,
+  );
+});
+test("grant inventory rejects readers, foreign source IDs and caller-controlled scope", async () => {
+  const f = await fixture();
+  for (const role of ["viewer", "responder"] as const)
+    await assert.rejects(
+      f.management.listTokens({ ...f.actor, role }, { sourceId: "source" }),
+      { code: "forbidden" },
+    );
+  await assert.rejects(
+    f.management.listTokens(f.actor, { sourceId: "missing" }),
+    { code: "not_found" },
+  );
+  await assert.rejects(
+    f.management.listTokens(f.actor, {
+      sourceId: "source",
+      workspaceId: "foreign",
+    } as never),
+  );
+  await assert.rejects(
+    f.management.listTokens(f.actor, { sourceId: "source", limit: 101 }),
+  );
+});

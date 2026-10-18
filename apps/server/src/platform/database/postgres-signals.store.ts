@@ -96,6 +96,19 @@ export function postgresSignalStore(
       );
       return result.rowCount === 1;
     },
+    async listTokens(sourceId, page) {
+      const result = await connection.query<{ data: Record<string, unknown> }>(
+        "SELECT data FROM escalator_signal_token WHERE workspace_id=$1 AND source_id=$2 AND ($3::text IS NULL OR id > $3) ORDER BY id LIMIT $4",
+        [scope, sourceId, page.after ?? null, page.limit + 1],
+      );
+      const rows = result.rows.map(({ data }) =>
+        signalTokenSchema.parse({ ...data, workspaceId: scope }),
+      );
+      return {
+        items: rows.slice(0, page.limit),
+        next: rows.length > page.limit ? rows[page.limit - 1].id : null,
+      };
+    },
     async getTokenByHash(hash) {
       const row = await read("token", "token_hash", hash);
       return row ? signalTokenSchema.parse(row) : undefined;

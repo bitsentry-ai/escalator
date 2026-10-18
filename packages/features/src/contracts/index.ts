@@ -51,3 +51,6 @@ export * from "./metric-inputs.js";
 export * from "./email-credentials.js";
 
 export { validateSyntheticProbe } from "./probe-validation.js";
+
+export * from "./signal-grants.js";
+export * from "./monitoring-credentials.js";

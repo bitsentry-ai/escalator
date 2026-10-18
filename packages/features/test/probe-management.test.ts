@@ -1,3 +1,4 @@
+import { observeProbe } from "../src/domain/probes/observe.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -5,6 +6,7 @@ import {
   workspaceIdSchema,
   responderIdSchema,
   createProbeSchema,
+  probeResultSchema,
   type Actor,
   type Probe,
 } from "../src/contracts/index.js";
@@ -275,4 +277,49 @@ test("destination policy uses authenticated workspace scope rather than a shared
     config: { ...input.config, url: "https://other.test/health" },
   });
   assert.equal(probe.workspaceId, other.workspaceId);
+});
+
+test("probe inspection follows its persisted observation pointer rather than history ID order", async () => {
+  const f = await fixture();
+  const probe = await f.management.create(f.actor, input);
+  assert.equal(
+    (await f.management.get(f.actor, { id: probe.id })).lastResult,
+    null,
+  );
+  await f.repository.transaction(f.actor.workspaceId, async (tx) => {
+    await tx.probes.lock(probe.id);
+    const result = probeResultSchema.parse({
+      id: "z-current",
+      workspaceId: f.actor.workspaceId,
+      probeId: probe.id,
+      probeVersion: probe.version,
+      observedAt: tx.now,
+      outcome: "healthy",
+      reason: "assertions_passed",
+      statusCode: 200,
+      durationMs: 1,
+    });
+    await tx.probes.recordResult({ ...result, id: "a-history" });
+    await tx.probes.recordResult(result);
+    const decision = observeProbe(probe, undefined, result);
+    if ("ignored" in decision) throw new Error("Expected first observation");
+    await tx.probes.putState(decision.state);
+  });
+  assert.equal(
+    (await f.management.history(f.actor, { id: probe.id, limit: 1 })).items[0]
+      .id,
+    "a-history",
+  );
+  const detail = await f.management.get(
+    { ...f.actor, role: "viewer" },
+    { id: probe.id },
+  );
+  assert.equal(detail.lastResult?.id, "z-current");
+  await f.management.update(f.actor, {
+    ...updateInput(probe),
+    name: "New configuration",
+  });
+  const updated = await f.management.get(f.actor, { id: probe.id });
+  assert.equal(updated.probe.version, 2);
+  assert.equal(updated.lastResult?.probeVersion, 1);
 });

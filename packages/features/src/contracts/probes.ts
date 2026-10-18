@@ -196,3 +196,10 @@ export const probeStateSchema = z
       value.consecutiveFailures === 0 || value.consecutiveSuccesses === 0,
   );
 export type ProbeState = z.infer<typeof probeStateSchema>;
+
+/** Browser-safe inspection fields. A retained result may belong to a previous configuration. */
+export interface ProbeInspection {
+  probe: Probe;
+  state: ProbeState | null;
+  lastResult: ProbeResult | null;
+}

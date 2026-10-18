@@ -90,9 +90,21 @@ export class ProbeManagement {
     return this.repository.transaction(actor.workspaceId, async (tx) => {
       const probe = await tx.probes.get(id);
       if (!probe) throw new PersistenceError("not_found");
+      const state = (await tx.probes.state(id)) ?? null;
+      const lastResult = state
+        ? ((await tx.probes.result(state.lastResultId)) ?? null)
+        : null;
+      if (
+        lastResult &&
+        (lastResult.workspaceId !== actor.workspaceId ||
+          lastResult.probeId !== id ||
+          lastResult.id !== state?.lastResultId)
+      )
+        throw new PersistenceError("scope_violation");
       return {
         probe,
-        state: (await tx.probes.state(id)) ?? null,
+        state,
+        lastResult,
         schedule: (await tx.probes.schedule(id)) ?? null,
       };
     });

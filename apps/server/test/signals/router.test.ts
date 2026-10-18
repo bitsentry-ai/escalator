@@ -20,6 +20,10 @@ function fixture() {
     },
   };
   const signals = {
+    async listTokens(actor: Actor) {
+      actors.push(actor);
+      return { items: [], next: null };
+    },
     async list(actor: Actor) {
       actors.push(actor);
       return { items: [], next: null };
@@ -125,4 +129,24 @@ test("provider administration derives local identity and rejects client-selected
     code: "UNAUTHORIZED",
   });
   assert.equal(f.actors.length, 2);
+});
+
+test("grant inventory routes authenticated actor context and rejects injected scope", async () => {
+  const f = fixture();
+  assert.deepEqual(await f.caller.tokens({ sourceId: "source" }), {
+    items: [],
+    next: null,
+  });
+  assert.deepEqual(f.actors, [
+    { workspaceId: "local", responderId: "owner", role: "administrator" },
+  ]);
+  await assert.rejects(
+    f.caller.tokens({ sourceId: "source", workspaceId: "foreign" } as never),
+    { code: "BAD_REQUEST" },
+  );
+  delete f.req.session.account;
+  await assert.rejects(f.caller.tokens({ sourceId: "source" }), {
+    code: "UNAUTHORIZED",
+  });
+  assert.equal(f.actors.length, 1);
 });

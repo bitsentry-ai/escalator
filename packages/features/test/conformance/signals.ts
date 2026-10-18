@@ -319,4 +319,89 @@ export function signalConformance(
       );
     },
   );
+  scenario(
+    "grant inventory pages within one source and tenant and retains revocation metadata",
+    async ({ repository }, a, b) => {
+      await repository.transaction(a, async (tx) => {
+        const source = (await tx.sources.get("source"))!;
+        await tx.sources.insert({ ...source, id: "other" });
+        await tx.tokens.insert({
+          ...fixtureToken(tx, "1".repeat(64)),
+          id: "grant-a",
+        });
+        await tx.tokens.insert({
+          ...fixtureToken(tx, "2".repeat(64)),
+          id: "grant-b",
+        });
+        await tx.tokens.insert({
+          ...fixtureToken(tx, "3".repeat(64)),
+          id: "other-grant",
+          sourceId: "other",
+        });
+      });
+      await repository.transaction(b, async (tx) => {
+        await tx.tokens.insert({
+          ...fixtureToken(tx, "4".repeat(64)),
+          id: "foreign-grant",
+        });
+      });
+      await repository.transaction(a, async (tx) => {
+        const page = await tx.tokens.list("source", { limit: 1 });
+        assert.deepEqual(
+          page.items.map((row) => row.id),
+          ["grant-a"],
+        );
+        assert.equal(page.next, "grant-a");
+        const next = await tx.tokens.list("source", {
+          limit: 1,
+          after: page.next!,
+        });
+        assert.deepEqual(
+          next.items.map((row) => row.id),
+          ["grant-b"],
+        );
+        assert.equal(next.next, null);
+        assert.ok(
+          next.items.every(
+            (row) => row.workspaceId === a && row.sourceId === "source",
+          ),
+        );
+        await tx.tokens.revoke("grant-a");
+        assert.ok(
+          (await tx.tokens.list("source", { limit: 10 })).items[0].revokedAt,
+        );
+      });
+      await repository.transaction(b, async (tx) =>
+        assert.deepEqual(
+          (await tx.tokens.list("source", { limit: 10 })).items.map(
+            (row) => row.id,
+          ),
+          ["foreign-grant"],
+        ),
+      );
+    },
+  );
+  scenario(
+    "grant inventory rejects missing sources and unbounded pages",
+    async ({ repository }, scope) => {
+      await assert.rejects(
+        repository.transaction(scope, (tx) =>
+          tx.tokens.list("missing", { limit: 10 }),
+        ),
+        /not_found/,
+      );
+      await assert.rejects(
+        repository.transaction(scope, (tx) =>
+          tx.tokens.list("source", { limit: 0 }),
+        ),
+        /invalid_page/,
+      );
+      await assert.rejects(
+        repository.transaction(scope, (tx) =>
+          tx.tokens.list("source", { limit: 101 }),
+        ),
+        /invalid_page/,
+      );
+    },
+  );
 }

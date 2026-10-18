@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import {
   createSignalSourceSchema,
+  listSignalTokensSchema,
+  signalGrantPageSchema,
   createProviderSourceSchema,
   updateProviderSourceSchema,
   updateSignalSourceSchema,
@@ -27,6 +29,10 @@ async function ingestionGrant<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 export const signalsRouter = t.router({
+  tokens: authenticated
+    .input(listSignalTokensSchema)
+    .output(signalGrantPageSchema)
+    .query(({ ctx, input }) => ctx.signals.listTokens(ctx.actor, input)),
   createProvider: authenticated
     .input(createProviderSourceSchema)
     .mutation(({ ctx, input }) => ctx.signals.createProvider(ctx.actor, input)),

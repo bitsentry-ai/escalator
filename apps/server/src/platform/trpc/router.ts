@@ -1,3 +1,4 @@
+import { monitoringSecretsRouter } from "../../features/configuration/monitoring-secrets.router.js";
 import { heartbeatsRouter } from "../../features/heartbeats/heartbeats.router.js";
 import { metricsRouter } from "../../features/metrics/metrics.router.js";
 import { probesRouter } from "../../features/probes/probes.router.js";
@@ -21,5 +22,6 @@ export const appRouter = t.router({
   incidents: incidentsRouter,
   configuration: configurationRouter,
   channelSecrets: channelSecretsRouter,
+  monitoringSecrets: monitoringSecretsRouter,
   packageInfo: t.procedure.query(() => getEscalatorPackageInfo()),
 });

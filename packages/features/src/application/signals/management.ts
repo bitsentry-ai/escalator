@@ -1,4 +1,9 @@
 import {
+  listSignalTokensSchema,
+  signalGrantSummarySchema,
+  type ListSignalTokensInput,
+} from "../../contracts/signal-grants.js";
+import {
   providerSourceKind,
   needsManualProviderRecovery,
   usesProviderSignature,
@@ -76,6 +81,27 @@ export class SignalManagement {
     return this.repository.transaction(actor.workspaceId, (tx) =>
       tx.sources.list(query),
     );
+  }
+  async listTokens(actor: Actor, input: ListSignalTokensInput) {
+    authorize(actor, true);
+    const { sourceId, ...page } = listSignalTokensSchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, async (tx) => {
+      const result = await tx.tokens.list(sourceId, page);
+      return {
+        next: result.next,
+        items: result.items.map(
+          ({ id, sourceId, scope, createdAt, expiresAt, revokedAt }) =>
+            signalGrantSummarySchema.parse({
+              id,
+              sourceId,
+              scope,
+              createdAt,
+              expiresAt,
+              revokedAt,
+            }),
+        ),
+      };
+    });
   }
   async get(actor: Actor, input: { id: string }) {
     authorize(actor, false);
