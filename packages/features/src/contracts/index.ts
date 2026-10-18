@@ -92,3 +92,5 @@ export * from "./rule-state.js";
 
 export * from "./rule-replay.js";
 export * from "./rule-label.js";
+
+export * from "./label-requests.js";

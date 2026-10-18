@@ -35,6 +35,7 @@ const selectionSchema = z.strictObject({
   environmentId: environmentIdSchema,
   stream: incidentLabelInputSchema.shape.stream.optional(),
   status: z.enum(["draft", "reviewed"]).optional(),
+  incidentId: opaqueIdSchema.optional(),
 });
 const pageSchema = z.strictObject({
   limit: z.number().int().min(1).max(100),
@@ -178,6 +179,7 @@ export function withIncidentLabels<Tx extends FoundationTransaction>(
         row.serviceId !== filter.serviceId ||
         row.environmentId !== filter.environmentId ||
         (filter.status && row.status !== filter.status) ||
+        (filter.incidentId && row.incidentId !== filter.incidentId) ||
         (filter.stream &&
           (row.stream.kind !== filter.stream.kind ||
             row.stream.id !== filter.stream.id))

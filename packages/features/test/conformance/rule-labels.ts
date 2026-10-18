@@ -147,6 +147,38 @@ export function ruleLabelConformance(
     });
     return { scope, actor, input, incident, viewer, disabled };
   }
+  scenario(
+    "incident filtering excludes other incidents and missed-incident labels",
+    async (f, a) => {
+      const other = { ...a.incident, id: randomUUID() };
+      await f.seedIncident(other);
+      const linked = await f.repository.transaction(a.scope, async (tx) => {
+        await tx.labels.create(a.actor, a.input);
+        await tx.labels.create(a.actor, {
+          ...a.input,
+          origin: "incident_review",
+          incidentId: other.id,
+        });
+        return tx.labels.create(a.actor, {
+          ...a.input,
+          origin: "incident_review",
+          incidentId: a.incident.id,
+        });
+      });
+      const page = await f.repository.transaction(a.scope, (tx) =>
+        tx.labels.list(
+          a.actor,
+          {
+            serviceId: a.input.serviceId,
+            environmentId: a.input.environmentId,
+            incidentId: a.incident.id,
+          },
+          { limit: 10 },
+        ),
+      );
+      assert.deepEqual(page, { items: [linked], next: null });
+    },
+  );
   const audit = (f: RuleLabelFixture, scope: WorkspaceId) =>
     f.foundation.transaction(scope, (tx) => tx.audit.list({ limit: 100 }));
   scenario(

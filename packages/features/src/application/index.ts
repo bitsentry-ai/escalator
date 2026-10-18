@@ -211,3 +211,5 @@ export * from "./rules/labels.js";
 
 export * from "./rules/label-ports.js";
 export * from "./rules/label-transaction.js";
+
+export { IncidentLabelManagement } from "./rules/label-management.js";

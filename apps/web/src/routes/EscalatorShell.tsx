@@ -1,3 +1,4 @@
+import { LabelsRoute } from "./labels/LabelsRoute.js";
 import { InvestigationSettingsRoute } from "./investigation/InvestigationSettingsRoute.js";
 import { DeploymentsRoute } from "./deployments/DeploymentsRoute.js";
 import { RetentionRoute } from "./retention/RetentionRoute.js";
@@ -32,6 +33,7 @@ export function EscalatorShell({
     | "retention"
     | "deployments"
     | "investigation"
+    | "labels"
   >("services");
   return (
     <>
@@ -102,6 +104,12 @@ export function EscalatorShell({
         >
           {t("investigationSettings.heading")}
         </button>
+        <button
+          aria-pressed={view === "labels"}
+          onClick={() => setView("labels")}
+        >
+          {t("labels.heading")}
+        </button>
       </nav>
       {view === "services" ? (
         <ServicesRoute client={client} user={user} />
@@ -109,6 +117,8 @@ export function EscalatorShell({
         <SourcesRoute client={client} user={user} />
       ) : view === "heartbeats" ? (
         <HeartbeatsRoute client={client} user={user} />
+      ) : view === "labels" ? (
+        <LabelsRoute client={client} user={user} />
       ) : view === "investigation" ? (
         <InvestigationSettingsRoute client={client} user={user} />
       ) : view === "deployments" ? (

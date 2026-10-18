@@ -1,3 +1,4 @@
+import { LabelsModule } from "./features/labels/labels.module.js";
 import { StandaloneInvestigationModule } from "./features/escalator/investigation/module.js";
 import { InvestigationSettingsModule } from "./features/investigation/settings.module.js";
 import { DeploymentsModule } from "./features/deploy/deploy.module.js";
@@ -15,6 +16,7 @@ import { ServicesModule } from "./features/services/services.module.js";
 /** Mounted keys are required before the host can accept requests. */
 @Module({
   imports: [
+    LabelsModule,
     StandaloneInvestigationModule,
     SecretKeysModule,
     AuthModule,

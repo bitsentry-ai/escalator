@@ -799,5 +799,35 @@
       "deployment": "Deployment",
       "git_diff": "Repository diff"
     }
+  },
+  "labels": {
+    "heading": "Incident labels",
+    "guidance": "Record missed incidents or review incident outcomes. Only reviewed labels count toward backtest accuracy.",
+    "disabled": "disabled",
+    "loadError": "Could not load or review labels. Refresh and try again.",
+    "actionable": "Actionable",
+    "edit": "Edit draft",
+    "endedAt": "End time (UTC)",
+    "incidentReview": "Incident review",
+    "missed": "Missed incident",
+    "noise": "Noise",
+    "outcome": "Outcome",
+    "saveDraft": "Save draft",
+    "saveError": "Could not save this label. Check the time range or refresh a stale draft.",
+    "startedAt": "Start time (UTC)",
+    "summary": "Impact summary",
+    "timeHelp": "Enter UTC times. The interval must be in the past and no longer than 31 days.",
+    "cancelEdit": "Cancel editing",
+    "draft": "Draft",
+    "empty": "No labels for this source.",
+    "kind": "Source type",
+    "metric": "Metric",
+    "probe": "Probe",
+    "reviewAndLock": "Review and lock",
+    "reviewHelp": "Review confirms the outcome and permanently locks the label. Saving a draft does not review it.",
+    "reviewed": "Reviewed",
+    "reviewedAt": "Reviewed at",
+    "signal": "Alert source",
+    "source": "Source"
   }
 }

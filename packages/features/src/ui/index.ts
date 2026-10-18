@@ -55,3 +55,7 @@ export { InvestigationSettingsScreen } from "./investigation/InvestigationSettin
 
 export * from "./investigation-reports-client.js";
 export * from "./investigation/InvestigationReportPanel.js";
+
+export type { LabelsClient } from "./labels/client.js";
+
+export { LabelsScreen } from "./labels/LabelsScreen.js";

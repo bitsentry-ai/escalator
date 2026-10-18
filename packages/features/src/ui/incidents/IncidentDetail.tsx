@@ -1,3 +1,5 @@
+import { IncidentLabels } from "../labels/LabelsScreen.js";
+import type { LabelsClient } from "../labels/client.js";
 import { InvestigationReportPanel } from "../investigation/InvestigationReportPanel.js";
 import type { InvestigationReportsClient } from "../investigation-reports-client.js";
 import { styles } from "./styles.js";
@@ -10,6 +12,7 @@ import type { IncidentsClient } from "../incidents-client.js";
 export function IncidentDetail({
   client,
   reports,
+  labels,
   id,
   canResolve,
   onResolved,
@@ -17,6 +20,7 @@ export function IncidentDetail({
 }: {
   client: IncidentsClient;
   reports?: InvestigationReportsClient;
+  labels?: LabelsClient;
   id: string;
   canResolve: boolean;
   onResolved: () => void;
@@ -147,6 +151,19 @@ export function IncidentDetail({
       {detail && (
         <>
           <h2>{detail.incident.title}</h2>
+          {labels && (
+            <IncidentLabels
+              key={detail.incident.id}
+              client={labels}
+              scope={{
+                serviceId: detail.incident.serviceId,
+                environmentId: detail.incident.environmentId,
+              }}
+              incident={detail.incident}
+              canLabel={canResolve}
+              t={t}
+            />
+          )}
           {reports && (
             <InvestigationReportPanel
               client={reports}

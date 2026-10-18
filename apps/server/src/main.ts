@@ -17,6 +17,7 @@ import {
   sessionOptions,
 } from "./platform/auth/session-security.js";
 import {
+  IncidentLabelManagement,
   InvestigationReports,
   InvestigationSettingsUseCases,
   ConfigurationUseCases,
@@ -53,6 +54,7 @@ export async function createApp() {
     const db = app.get(StandaloneDatabase);
     const auth = app.get(LocalAuthService);
     const services = app.get(ServiceUseCases);
+    const labels = app.get(IncidentLabelManagement);
     const signals = app.get(SignalManagement);
     const detection = app.get(DetectionManagement);
     const probes = app.get(ProbeManagement);
@@ -99,6 +101,7 @@ export async function createApp() {
           res,
           auth,
           services,
+          labels,
           signals,
           detection,
           probes,

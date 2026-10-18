@@ -799,5 +799,35 @@
       "deployment": "Deployment",
       "git_diff": "Perbedaan repositori"
     }
+  },
+  "labels": {
+    "heading": "Label insiden",
+    "guidance": "Catat insiden yang terlewat atau tinjau hasil insiden. Hanya label yang telah ditinjau dihitung dalam akurasi uji historis.",
+    "disabled": "dinonaktifkan",
+    "loadError": "Tidak dapat memuat atau meninjau label. Muat ulang dan coba lagi.",
+    "actionable": "Perlu tindakan",
+    "edit": "Edit draf",
+    "endedAt": "Waktu selesai (UTC)",
+    "incidentReview": "Tinjauan insiden",
+    "missed": "Insiden terlewat",
+    "noise": "Gangguan tanpa tindakan",
+    "outcome": "Hasil",
+    "saveDraft": "Simpan draf",
+    "saveError": "Tidak dapat menyimpan label. Periksa rentang waktu atau muat ulang draf yang kedaluwarsa.",
+    "startedAt": "Waktu mulai (UTC)",
+    "summary": "Ringkasan dampak",
+    "timeHelp": "Masukkan waktu UTC. Rentang harus berada di masa lalu dan tidak lebih dari 31 hari.",
+    "cancelEdit": "Batalkan pengeditan",
+    "draft": "Draf",
+    "empty": "Belum ada label untuk sumber ini.",
+    "kind": "Jenis sumber",
+    "metric": "Metrik",
+    "probe": "Probe",
+    "reviewAndLock": "Tinjau dan kunci",
+    "reviewHelp": "Peninjauan mengonfirmasi hasil dan mengunci label secara permanen. Menyimpan draf tidak meninjaunya.",
+    "reviewed": "Sudah ditinjau",
+    "reviewedAt": "Ditinjau pada",
+    "signal": "Sumber peringatan",
+    "source": "Sumber"
   }
 }

@@ -1,3 +1,4 @@
+import { labelsClient } from "../labels/labels-client.js";
 import { investigationReportsClient } from "../investigation/investigation-reports-client.js";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,12 +15,14 @@ export function IncidentsRoute({
 }) {
   const { t } = useTranslation("escalator");
   const incidents = useMemo(() => incidentsClient(client), [client]);
+  const labels = useMemo(() => labelsClient(client), [client]);
   const reports = useMemo(() => investigationReportsClient(client), [client]);
   return (
     <IncidentsScreen
       key={user.id}
       client={incidents}
       reports={reports}
+      labels={labels}
       canCreate={hasCapability(user.role, "incident:create")}
       canResolve={hasCapability(user.role, "incident:resolve")}
       canManageEnvironment={hasCapability(user.role, "service:manage")}

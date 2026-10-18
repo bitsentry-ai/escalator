@@ -70,7 +70,7 @@ export function postgresRuleLabelStore(
       const result = await db.query<{ data: Record<string, unknown> }>(
         `SELECT data FROM escalator_incident_label WHERE workspace_id=$1 AND service_id=$2 AND environment_id=$3
          AND ($4::text IS NULL OR stream_kind=$4) AND ($5::text IS NULL OR stream_id=$5)
-         AND ($6::text IS NULL OR status=$6) AND ($7::text IS NULL OR id>$7) ORDER BY id LIMIT $8`,
+         AND ($6::text IS NULL OR status=$6) AND ($7::text IS NULL OR incident_id=$7) AND ($8::text IS NULL OR id>$8) ORDER BY id LIMIT $9`,
         [
           scope,
           selection.serviceId,
@@ -78,6 +78,7 @@ export function postgresRuleLabelStore(
           selection.stream?.kind ?? null,
           selection.stream?.id ?? null,
           selection.status ?? null,
+          selection.incidentId ?? null,
           page.after ?? null,
           page.limit + 1,
         ],

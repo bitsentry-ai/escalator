@@ -799,5 +799,35 @@
       "deployment": "部署",
       "git_diff": "代码仓库差异"
     }
+  },
+  "labels": {
+    "heading": "事件标注",
+    "guidance": "记录漏报事件或评审事件结果。只有已评审的标注才计入回测准确性。",
+    "disabled": "已停用",
+    "loadError": "无法加载或评审标注。请刷新后重试。",
+    "actionable": "需要处理",
+    "edit": "编辑草稿",
+    "endedAt": "结束时间（UTC）",
+    "incidentReview": "事件评审",
+    "missed": "漏报事件",
+    "noise": "噪声",
+    "outcome": "结果",
+    "saveDraft": "保存草稿",
+    "saveError": "无法保存标注。请检查时间范围，或刷新过期的草稿。",
+    "startedAt": "开始时间（UTC）",
+    "summary": "影响摘要",
+    "timeHelp": "请输入 UTC 时间。时间段必须位于过去，且不超过 31 天。",
+    "cancelEdit": "取消编辑",
+    "draft": "草稿",
+    "empty": "此来源暂无标注。",
+    "kind": "来源类型",
+    "metric": "指标",
+    "probe": "探测",
+    "reviewAndLock": "评审并锁定",
+    "reviewHelp": "评审将确认结果并永久锁定标注。保存草稿不会完成评审。",
+    "reviewed": "已评审",
+    "reviewedAt": "评审时间",
+    "signal": "告警来源",
+    "source": "来源"
   }
 }

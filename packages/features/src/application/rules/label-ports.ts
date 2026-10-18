@@ -20,6 +20,7 @@ export interface LabelSelection {
   environmentId: EnvironmentId;
   stream?: IncidentLabelInput["stream"];
   status?: IncidentLabel["status"];
+  incidentId?: string;
 }
 export interface LabelStream {
   workspaceId: WorkspaceId;

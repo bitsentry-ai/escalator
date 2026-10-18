@@ -1,4 +1,5 @@
 import type {
+  IncidentLabelManagement,
   InvestigationReports,
   InvestigationSettingsUseCases,
   InvestigationSourceCatalog,
@@ -60,6 +61,7 @@ test("standalone incident routes require current identity, reject injected scope
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
+    labels: {} as IncidentLabelManagement,
     investigationReports: {} as InvestigationReports,
     investigationSettings: {} as InvestigationSettingsUseCases,
     investigationSourceCatalog: {} as InvestigationSourceCatalog,

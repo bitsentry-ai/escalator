@@ -799,5 +799,35 @@
       "deployment": "Déploiement",
       "git_diff": "Différences du dépôt"
     }
+  },
+  "labels": {
+    "heading": "Annotations des incidents",
+    "guidance": "Signalez les incidents manqués ou évaluez leurs résultats. Seules les annotations validées comptent pour la précision des rétrosimulations.",
+    "disabled": "désactivé",
+    "loadError": "Impossible de charger ou de valider les annotations. Actualisez puis réessayez.",
+    "actionable": "Action nécessaire",
+    "edit": "Modifier le brouillon",
+    "endedAt": "Fin (UTC)",
+    "incidentReview": "Évaluation de l’incident",
+    "missed": "Incident manqué",
+    "noise": "Bruit",
+    "outcome": "Résultat",
+    "saveDraft": "Enregistrer le brouillon",
+    "saveError": "Impossible d’enregistrer cette annotation. Vérifiez la période ou actualisez le brouillon.",
+    "startedAt": "Début (UTC)",
+    "summary": "Résumé de l’impact",
+    "timeHelp": "Saisissez les heures en UTC. La période doit être passée et ne pas dépasser 31 jours.",
+    "cancelEdit": "Annuler la modification",
+    "draft": "Brouillon",
+    "empty": "Aucune annotation pour cette source.",
+    "kind": "Type de source",
+    "metric": "Métrique",
+    "probe": "Sonde",
+    "reviewAndLock": "Valider et verrouiller",
+    "reviewHelp": "La validation confirme le résultat et verrouille définitivement l’annotation. Enregistrer un brouillon ne le valide pas.",
+    "reviewed": "Validée",
+    "reviewedAt": "Validée le",
+    "signal": "Source d’alertes",
+    "source": "Source"
   }
 }

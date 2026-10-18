@@ -77,6 +77,8 @@ export class MemoryRuleLabels implements IncidentLabelRepository {
                       row.serviceId === selection.serviceId &&
                       row.environmentId === selection.environmentId &&
                       (!selection.status || row.status === selection.status) &&
+                      (!selection.incidentId ||
+                        row.incidentId === selection.incidentId) &&
                       (!selection.stream ||
                         (row.stream.kind === selection.stream.kind &&
                           row.stream.id === selection.stream.id)) &&

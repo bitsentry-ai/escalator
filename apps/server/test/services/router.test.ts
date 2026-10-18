@@ -1,4 +1,5 @@
 import type {
+  IncidentLabelManagement,
   InvestigationReports,
   InvestigationSettingsUseCases,
   InvestigationSourceCatalog,
@@ -64,6 +65,7 @@ function fixture() {
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
     metrics: {} as MetricManagement,
+    labels: {} as IncidentLabelManagement,
     investigationReports: {} as InvestigationReports,
     investigationSettings: {} as InvestigationSettingsUseCases,
     investigationSourceCatalog: {} as InvestigationSourceCatalog,
