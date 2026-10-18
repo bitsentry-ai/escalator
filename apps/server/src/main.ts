@@ -21,6 +21,7 @@ import {
   ServiceUseCases,
   SignalManagement,
   DetectionManagement,
+  ProbeManagement,
 } from "@bitsentry-escalator/features/application";
 /** Construction only: importing this module never starts a listener. */
 export async function createApp() {
@@ -43,6 +44,7 @@ export async function createApp() {
     const services = app.get(ServiceUseCases);
     const signals = app.get(SignalManagement);
     const detection = app.get(DetectionManagement);
+    const probes = app.get(ProbeManagement);
     app.use("/v1/ingest", signalBodyParser());
     const incidents = app.get(IncidentUseCases);
     const configuration = app.get(ConfigurationUseCases);
@@ -75,6 +77,7 @@ export async function createApp() {
           services,
           signals,
           detection,
+          probes,
           incidents,
           configuration,
           secretWriter,

@@ -19,6 +19,7 @@ export class PostgresJobsRuntime
     handlers: WorkHandlers,
     onError: (queue: WorkQueue) => void,
     jobLanes?: readonly (readonly string[])[],
+    jobConcurrency?: Readonly<Record<string, number>>,
   ) {
     this.scheduler = new DurableWorkScheduler(
       new PostgresWorkStore(pool),
@@ -33,7 +34,7 @@ export class PostgresJobsRuntime
         token: randomUUID,
         random: Math.random,
       },
-      { intervalMs: 5000, batchSize: 10, onError, jobLanes },
+      { intervalMs: 5000, batchSize: 10, onError, jobLanes, jobConcurrency },
     );
   }
   onApplicationBootstrap(): void {

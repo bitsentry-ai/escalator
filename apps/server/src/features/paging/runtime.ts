@@ -1,6 +1,12 @@
+import { PostgresProbeRepository } from "../../platform/database/probes.repository.js";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import {
+  ProbeDeployment,
+  HttpProbeRunner,
+  PolicyHttpProbeTransport,
+  withProbeHandlers,
+  probeJobLane,
   createMonitoringHandlers,
   monitoringJobLanes,
   type WorkQueue,
@@ -20,10 +26,15 @@ export function standalonePagingRuntime(
   keys: SecretKeyRing,
   publicUrl: string,
   onError: (queue: WorkQueue) => void,
+  deployment = new ProbeDeployment(),
 ) {
   const repository = new PostgresDetectionRepository(pool);
+  const secrets = new EncryptedSecretStore(
+    keys,
+    new PostgresSecretReader(pool),
+  );
   const channels = createPagingChannels(
-    new EncryptedSecretStore(keys, new PostgresSecretReader(pool)),
+    secrets,
     new PublicHttpsChannelTransport(),
   );
   return {
@@ -31,9 +42,17 @@ export function standalonePagingRuntime(
     runtime: new PostgresJobsRuntime(
       pool,
       scope,
-      createMonitoringHandlers(repository, channels, publicUrl),
+      withProbeHandlers(
+        createMonitoringHandlers(repository, channels, publicUrl),
+        new PostgresProbeRepository(pool),
+        new HttpProbeRunner(
+          new PolicyHttpProbeTransport(deployment.policy),
+          secrets,
+        ),
+      ),
       onError,
-      monitoringJobLanes,
+      [...monitoringJobLanes, probeJobLane],
+      { "probe.execute": deployment.limits.concurrency },
     ),
   };
 }

@@ -1,3 +1,5 @@
+import { ProbesModule } from "../probes/probes.module.js";
+import { ProbeDeployment } from "@bitsentry-escalator/features/application";
 import { randomUUID } from "node:crypto";
 import {
   ConfigurationUseCases,
@@ -20,7 +22,7 @@ import { SecretKeyRing } from "../../platform/secrets/keyring.js";
 import { PostgresJobsRuntime } from "../../platform/jobs/postgres-jobs.runtime.js";
 import { standalonePagingRuntime } from "./runtime.js";
 @Module({
-  imports: [DatabaseModule, SecretKeysModule],
+  imports: [DatabaseModule, SecretKeysModule, ProbesModule],
   controllers: [EscalatorAcknowledgementController],
   exports: [IncidentUseCases, ConfigurationUseCases],
   providers: [
@@ -53,8 +55,12 @@ import { standalonePagingRuntime } from "./runtime.js";
     },
     {
       provide: PostgresJobsRuntime,
-      inject: [StandaloneDatabase, SecretKeyRing],
-      useFactory: (db: StandaloneDatabase, keys: SecretKeyRing) => {
+      inject: [StandaloneDatabase, SecretKeyRing, ProbeDeployment],
+      useFactory: (
+        db: StandaloneDatabase,
+        keys: SecretKeyRing,
+        deployment: ProbeDeployment,
+      ) => {
         const logger = new Logger("EscalatorPaging");
         return standalonePagingRuntime(
           db.pool,
@@ -62,6 +68,7 @@ import { standalonePagingRuntime } from "./runtime.js";
           keys,
           process.env.ESCALATOR_PUBLIC_URL ?? "",
           (queue) => logger.error(`Paging poll failed: ${queue}`),
+          deployment,
         ).runtime;
       },
     },
