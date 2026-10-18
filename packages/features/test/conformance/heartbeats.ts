@@ -96,6 +96,47 @@ export function heartbeatConformance(
       }
     });
   check(
+    "grant pages stay scoped and retain revoked metadata",
+    async ({ repository }) => {
+      const scope = workspaceIdSchema.parse(randomUUID());
+      const probe = await repository.transaction(scope, seedHeartbeatFixture);
+      await repository.transaction(scope, async (tx) => {
+        await tx.heartbeats.lock(probe.id);
+        const original = (await tx.heartbeats.grantByHash(
+          heartbeatTokenHash(heartbeatTestToken),
+        ))!;
+        await tx.heartbeats.insertGrant({
+          ...original,
+          id: "grant-two",
+          tokenHash: heartbeatTokenHash(`ehb_${"B".repeat(43)}`),
+        });
+        await tx.heartbeats.revokeGrant(probe.id, "grant");
+        const first = await tx.heartbeats.grants(probe.id, { limit: 1 });
+        assert.equal(first.items[0].id, "grant");
+        assert.ok(first.items[0].revokedAt);
+        assert.equal(first.next, "grant");
+        const second = await tx.heartbeats.grants(probe.id, {
+          limit: 1,
+          after: first.next!,
+        });
+        assert.equal(second.items[0].id, "grant-two");
+        assert.equal(second.next, null);
+      });
+      await assert.rejects(
+        repository.transaction(workspaceIdSchema.parse(randomUUID()), (tx) =>
+          tx.heartbeats.grants(probe.id, { limit: 10 }),
+        ),
+        { code: "not_found" },
+      );
+      await assert.rejects(
+        repository.transaction(scope, (tx) =>
+          tx.heartbeats.grants(probe.id, { limit: 101 }),
+        ),
+        { code: "invalid_page" },
+      );
+    },
+  );
+  check(
     "ping receipts are idempotent and tenant context comes only from the grant",
     async ({ repository }) => {
       const scope = workspaceIdSchema.parse(randomUUID());

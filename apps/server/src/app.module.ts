@@ -1,3 +1,4 @@
+import { HeartbeatsModule } from "./features/heartbeats/heartbeats.module.js";
 import { ProbesModule } from "./features/probes/probes.module.js";
 import { SignalsModule } from "./features/signals/signals.module.js";
 import "reflect-metadata";
@@ -15,6 +16,7 @@ import { ServicesModule } from "./features/services/services.module.js";
     PagingModule,
     SignalsModule,
     ProbesModule,
+    HeartbeatsModule,
   ],
 })
 export class AppModule {}

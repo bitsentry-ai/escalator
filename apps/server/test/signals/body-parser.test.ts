@@ -9,6 +9,7 @@ import { signalBodyParser } from "../../src/platform/http/ingest/body-parser.js"
 async function read(
   chunks: Buffer[],
   headers: Record<string, string | undefined> = {},
+  limit = SIGNAL_INGRESS_MAX_BYTES,
 ) {
   const stream = new PassThrough();
   const socket = Object.assign(new EventEmitter(), {
@@ -47,7 +48,7 @@ async function read(
   const done = new Promise<void>((resolve) => {
     finish = resolve;
   });
-  signalBodyParser()(
+  signalBodyParser(limit)(
     request as unknown as Request,
     response as unknown as Response,
     (error) => {
@@ -104,4 +105,10 @@ test("compressed ingestion is rejected rather than expanded", async () => {
 test("a bodyless request remains bounded input for JSON validation", async () => {
   const result = await read([], { "transfer-encoding": undefined });
   assert.deepEqual(result.request.body, Buffer.alloc(0));
+});
+
+test("heartbeat streaming limit is smaller than the generic ingress limit", async () => {
+  const result = await read([Buffer.alloc(2048), Buffer.from("x")], {}, 2048);
+  assert.equal(result.status, 413);
+  assert.deepEqual(result.errorBody, { error: "body_too_large" });
 });

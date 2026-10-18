@@ -1,9 +1,11 @@
 import { raw, type RequestHandler } from "express";
 import { SIGNAL_INGRESS_MAX_BYTES } from "@bitsentry-escalator/features/contracts";
 /** Install before any broad JSON parser. Raw bytes are bounded before parsing. */
-export function signalBodyParser(): RequestHandler {
+export function signalBodyParser(
+  limit = SIGNAL_INGRESS_MAX_BYTES,
+): RequestHandler {
   const read = raw({
-    limit: SIGNAL_INGRESS_MAX_BYTES,
+    limit,
     inflate: false,
     type: () => true,
   });

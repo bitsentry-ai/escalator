@@ -1,3 +1,4 @@
+import type { HeartbeatManagement } from "@bitsentry-escalator/features/application";
 import type {
   DetectionManagement,
   ProbeManagement,
@@ -46,6 +47,7 @@ test("standalone incident routes require current identity, reject injected scope
     signals: {} as SignalManagement,
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
+    heartbeats: {} as HeartbeatManagement,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     workspaceId: workspaceIdSchema.parse("local"),

@@ -1,3 +1,4 @@
+import { PostgresHeartbeatRepository } from "../../platform/database/heartbeats.repository.js";
 import { PostgresProbeRepository } from "../../platform/database/probes.repository.js";
 import type { Pool } from "pg";
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
@@ -6,6 +7,8 @@ import {
   HttpProbeRunner,
   PolicyHttpProbeTransport,
   withProbeHandlers,
+  withHeartbeatHandlers,
+  heartbeatJobLane,
   probeJobLane,
   createMonitoringHandlers,
   monitoringJobLanes,
@@ -42,16 +45,19 @@ export function standalonePagingRuntime(
     runtime: new PostgresJobsRuntime(
       pool,
       scope,
-      withProbeHandlers(
-        createMonitoringHandlers(repository, channels, publicUrl),
-        new PostgresProbeRepository(pool),
-        new HttpProbeRunner(
-          new PolicyHttpProbeTransport(deployment.policy),
-          secrets,
+      withHeartbeatHandlers(
+        withProbeHandlers(
+          createMonitoringHandlers(repository, channels, publicUrl),
+          new PostgresProbeRepository(pool),
+          new HttpProbeRunner(
+            new PolicyHttpProbeTransport(deployment.policy),
+            secrets,
+          ),
         ),
+        new PostgresHeartbeatRepository(pool),
       ),
       onError,
-      [...monitoringJobLanes, probeJobLane],
+      [...monitoringJobLanes, probeJobLane, heartbeatJobLane],
       { "probe.execute": deployment.limits.concurrency },
     ),
   };

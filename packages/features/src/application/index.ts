@@ -96,3 +96,7 @@ export * from "./probes/heartbeat-ports.js";
 export * from "./probes/heartbeat-jobs.js";
 export * from "./probes/heartbeat-transaction.js";
 export * from "./probes/heartbeat-intake.js";
+
+export * from "./probes/heartbeat-management.js";
+export * from "./probes/heartbeat-http.js";
+export * from "./probes/heartbeat-handlers.js";

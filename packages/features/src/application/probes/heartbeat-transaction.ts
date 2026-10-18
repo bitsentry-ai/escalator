@@ -185,6 +185,13 @@ export function heartbeatTransaction(
           await store.insertReceipt(value);
           accepted.set(probe.id, next);
         }),
+      grants: (id, page) =>
+        guard.operation(async () => {
+          opaqueIdSchema.parse(id);
+          validatePage(page);
+          required(await store.get(id));
+          return store.grants(id, page);
+        }),
       grantByHash: (hash) =>
         guard.operation(() =>
           store.grantByHash(heartbeatGrantSchema.shape.tokenHash.parse(hash)),

@@ -21,6 +21,7 @@ export interface HeartbeatTransaction extends SignalTransaction {
       eventId: string,
     ): Promise<HeartbeatReceipt | undefined>;
     insertReceipt(value: HeartbeatReceipt): Promise<void>;
+    grants(probeId: string, page: PageRequest): Promise<Page<HeartbeatGrant>>;
     grantByHash(hash: string): Promise<HeartbeatGrant | undefined>;
     insertGrant(value: HeartbeatGrant): Promise<void>;
     revokeGrant(probeId: string, grantId: string): Promise<boolean>;
@@ -46,6 +47,7 @@ export interface HeartbeatRecordStore {
     eventId: string,
   ): Promise<HeartbeatReceipt | undefined>;
   insertReceipt(value: HeartbeatReceipt): Promise<void>;
+  grants(probeId: string, page: PageRequest): Promise<Page<HeartbeatGrant>>;
   grantByHash(hash: string): Promise<HeartbeatGrant | undefined>;
   grant(id: string): Promise<HeartbeatGrant | undefined>;
   insertGrant(value: HeartbeatGrant): Promise<void>;

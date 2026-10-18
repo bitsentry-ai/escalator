@@ -120,6 +120,19 @@ export function postgresHeartbeatStore(
         ],
       );
     },
+    async grants(probeId, page) {
+      const result = await connection.query<{ data: Record<string, unknown> }>(
+        "SELECT data FROM escalator_heartbeat_grant WHERE workspace_id=$1 AND probe_id=$2 AND ($3::text IS NULL OR id>$3) ORDER BY id LIMIT $4",
+        [scope, probeId, page.after ?? null, page.limit + 1],
+      );
+      const values = result.rows.map((row) =>
+        heartbeatGrantSchema.parse({ ...row.data, workspaceId: scope }),
+      );
+      return {
+        items: values.slice(0, page.limit),
+        next: values.length > page.limit ? values[page.limit - 1].id : null,
+      };
+    },
     async grantByHash(hash) {
       const row = await read("grant", "token_hash", hash, true);
       return row ? heartbeatGrantSchema.parse(row) : undefined;

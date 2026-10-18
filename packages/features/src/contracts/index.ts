@@ -38,3 +38,5 @@ export * from "./probes.js";
 export * from "./probe-inputs.js";
 
 export * from "./heartbeat.js";
+
+export * from "./heartbeat-inputs.js";

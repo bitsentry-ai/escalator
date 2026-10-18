@@ -10,6 +10,7 @@ import type {
   SignalManagement,
   DetectionManagement,
   ProbeManagement,
+  HeartbeatManagement,
 } from "@bitsentry-escalator/features/application";
 export interface AppContext {
   secretWriter: PostgresSecretWriter;
@@ -17,6 +18,7 @@ export interface AppContext {
   signals: SignalManagement;
   detection: DetectionManagement;
   probes: ProbeManagement;
+  heartbeats: HeartbeatManagement;
   incidents: IncidentUseCases;
   configuration: ConfigurationUseCases;
   req: Request;

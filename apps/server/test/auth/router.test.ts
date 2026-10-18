@@ -1,3 +1,4 @@
+import type { HeartbeatManagement } from "@bitsentry-escalator/features/application";
 import type {
   DetectionManagement,
   ProbeManagement,
@@ -85,6 +86,7 @@ function fixture() {
     signals: {} as SignalManagement,
     detection: {} as DetectionManagement,
     probes: {} as ProbeManagement,
+    heartbeats: {} as HeartbeatManagement,
     secretWriter: {} as PostgresSecretWriter,
     configuration: {} as ConfigurationUseCases,
     services: {} as ServiceUseCases,

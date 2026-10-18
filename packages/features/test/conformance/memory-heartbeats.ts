@@ -117,6 +117,20 @@ export class MemoryHeartbeatRepository implements HeartbeatRepository {
             );
             data.receipts.push(copy(value));
           },
+          grants: async (probeId, input) => {
+            const sorted = scoped(data.grants)
+              .filter(
+                (row) =>
+                  row.probeId === probeId &&
+                  (!input.after || row.id > input.after),
+              )
+              .sort((a, b) => (a.id < b.id ? -1 : 1));
+            return copy({
+              items: sorted.slice(0, input.limit),
+              next:
+                sorted.length > input.limit ? sorted[input.limit - 1].id : null,
+            });
+          },
           grantByHash: async (hash) =>
             copy(scoped(data.grants).find((row) => row.tokenHash === hash)),
           grant: async (id) =>
