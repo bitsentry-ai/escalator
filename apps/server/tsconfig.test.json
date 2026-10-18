@@ -28,6 +28,9 @@
       "@escalator-test/signals": [
         "../../packages/features/test/conformance/signals.ts"
       ],
+      "@escalator-test/probes": [
+        "../../packages/features/test/conformance/probes.ts"
+      ],
       "@escalator-test/detection": [
         "../../packages/features/test/conformance/detection.ts"
       ]
