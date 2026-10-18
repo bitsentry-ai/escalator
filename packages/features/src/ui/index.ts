@@ -45,3 +45,5 @@ export type {
 export { RetentionScreen } from "./retention/RetentionScreen.js";
 
 export type { DeploymentsClient } from "./deployments-client.js";
+
+export { DeploymentsScreen } from "./deployments/DeploymentsScreen.js";

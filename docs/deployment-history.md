@@ -20,8 +20,10 @@ secret broker. This keeps recorded evidence inspectable during a paging outage.
 
 A null watch means no persisted watch exists, not a passing release. Baseline
 availability means a capture exists, not that its evidence is sufficient. The
-shared browser client exposes these distinctions; the deployments screen follows
-in the next stack layer. Coverage proof inspection continues through the existing
+shared deployments screen exposes these distinctions in both hosts. It shows
+persisted verdicts, evaluation/finalization times, paginated evidence references
+and gaps, overlapping releases, and the linked operational incident. Refresh
+explicitly to read the latest persisted evidence; the screen never evaluates it. Coverage proof inspection continues through the existing
 coverage query, which returns only the historical decision. Its evaluation and
 override describe the accepted start; this read does not authorize a new start.
 
@@ -29,3 +31,26 @@ The feature tests cover pagination, cross-workspace isolation, disabled targets,
 strict query inputs and rejection of incorrectly scoped adapter rows. Host router
 tests cover session-derived actors, membership changes and logged-out callers.
 No database, image, browser or provider runtime was started for this change.
+
+## Screen verification procedure
+
+With an authorized running host, open Deployments and select a target and release.
+Check a tracking-only start, a successful finish with a pending watch, incomplete
+evidence, a first failure linked to an incident, and a later healthy observation.
+The first failure and incident must remain visible. Deployment success alone must
+never display a passing health verdict. Inspect both baseline and watch evidence,
+including later pages of references and gaps. Check an overlapping release and
+incomplete overlap inventory: neither may imply certain causal attribution.
+
+Inspect a start accepted with an override. Its recorded responder, reason and
+proof expiry remain visible; the screen does not present that historical proof as
+current authorization. A failed proof read must display an unavailable warning,
+not a tracking-only claim. Switch organization while a detail request is pending:
+no old release or follow-up proof request may appear in the new workspace. Open
+the linked incident as a viewer and as a responder to verify host permissions.
+
+These interactive browser checks remain not runtime-verified. Network-free DOM
+unit tests exercise both authenticated client adapters, unavailable proofs and
+an organization switch with a delayed response. Shared rendering tests cover
+missing watches, incomplete evidence, bounded rows, escaped override text and
+small nonzero error thresholds. Target and grant setup follows separately.

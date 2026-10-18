@@ -1,3 +1,4 @@
+import { DeploymentsRoute } from "./deployments/DeploymentsRoute.js";
 import { RetentionRoute } from "./retention/RetentionRoute.js";
 import { MetricsRoute } from "./metrics/MetricsRoute.js";
 import { HeartbeatsRoute } from "./heartbeats/HeartbeatsRoute.js";
@@ -28,6 +29,7 @@ export function EscalatorShell({
     | "heartbeats"
     | "metrics"
     | "retention"
+    | "deployments"
   >("services");
   return (
     <>
@@ -81,6 +83,12 @@ export function EscalatorShell({
           {t("metrics.heading")}
         </button>
         <button
+          aria-pressed={view === "deployments"}
+          onClick={() => setView("deployments")}
+        >
+          {t("deployments.heading")}
+        </button>
+        <button
           aria-pressed={view === "retention"}
           onClick={() => setView("retention")}
         >
@@ -93,6 +101,8 @@ export function EscalatorShell({
         <SourcesRoute client={client} user={user} />
       ) : view === "heartbeats" ? (
         <HeartbeatsRoute client={client} user={user} />
+      ) : view === "deployments" ? (
+        <DeploymentsRoute client={client} user={user} />
       ) : view === "retention" ? (
         <RetentionRoute client={client} user={user} />
       ) : view === "metrics" ? (
