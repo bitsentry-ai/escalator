@@ -1,0 +1,41 @@
+import type { CSSProperties } from "react";
+export const styles = {
+  card: {
+    padding: 16,
+    border: "1px solid #64748b",
+    borderRadius: 8,
+    marginBlock: 16,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
+  form: {
+    display: "grid",
+    gap: 12,
+    border: 0,
+    padding: 0,
+    margin: 0,
+    minWidth: 0,
+  },
+  label: { display: "grid", gap: 6 },
+  input: {
+    padding: 8,
+    border: "1px solid #64748b",
+    borderRadius: 6,
+    minWidth: 0,
+    background: "transparent",
+    color: "inherit",
+    font: "inherit",
+  },
+  button: {
+    padding: "8px 12px",
+    margin: 4,
+    border: "1px solid #0f766e",
+    borderRadius: 6,
+    background: "#0f766e",
+    color: "white",
+    font: "inherit",
+    cursor: "pointer",
+    minHeight: 44,
+  },
+  cell: { textAlign: "left", padding: 8, borderBottom: "1px solid #94a3b844" },
+} satisfies Record<string, CSSProperties>;

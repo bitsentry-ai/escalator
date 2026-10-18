@@ -64,5 +64,78 @@
     "invalid": "Ce lien est invalide ou a expiré.",
     "acknowledged": "Cette alerte a été prise en charge.",
     "resolved": "Cet incident a été résolu."
+  },
+  "incidents": {
+    "heading": "Incidents",
+    "detail": "Détails de l’incident",
+    "error": "Chargement ou enregistrement impossible. Vérifiez les informations et réessayez.",
+    "loading": "Chargement…",
+    "refresh": "Actualiser",
+    "state": "État",
+    "owner": "Responsable",
+    "unowned": "Non acquitté",
+    "opened": "Ouvert",
+    "acknowledged": "Acquitté",
+    "resolved": "Résolu",
+    "resolve": "Résoudre l’incident",
+    "timeline": "Chronologie de l’escalade",
+    "deliveries": "Historique des envois",
+    "noDeliveries": "Aucun envoi pour le moment.",
+    "attempt": "Tentative",
+    "afterAck": "Terminé après acquittement",
+    "moreAttempts": "Charger plus de tentatives",
+    "moreDeliveries": "Charger plus d’envois",
+    "create": "Créer un incident",
+    "title": "Titre de l’incident",
+    "service": "Service",
+    "choose": "Choisir…",
+    "moreServices": "Charger plus de services",
+    "refreshServices": "Actualiser les services",
+    "environment": "Environnement",
+    "moreEnvironments": "Charger plus d’environnements",
+    "refreshEnvironments": "Actualiser les environnements",
+    "policy": "Politique d’escalade",
+    "morePolicies": "Charger plus de politiques",
+    "refreshPolicies": "Actualiser les politiques",
+    "severity": "Gravité",
+    "saving": "Enregistrement…",
+    "createEnvironment": "Créer un environnement",
+    "environmentSaved": "Environnement créé. Actualisez les choix d’environnement ci-dessous.",
+    "environmentName": "Nom de l’environnement",
+    "environmentKey": "Identifiant de l’environnement",
+    "production": "Environnement de production",
+    "empty": "Aucun incident pour le moment.",
+    "active": "Actif",
+    "more": "Charger plus d’incidents",
+    "configurationHelp": "Choisissez un service, un environnement et une politique d’escalade active avant de créer un incident.",
+    "states": {
+      "open": "Ouvert",
+      "exhausted": "Escalade épuisée",
+      "acknowledged": "Acquitté",
+      "resolved": "Résolu"
+    },
+    "targets": {
+      "primary": "Responsable principal",
+      "peer": "Collègue planifié",
+      "fallback": "Remplaçant",
+      "operator": "Opérateur"
+    },
+    "dispositions": {
+      "pending": "En attente",
+      "dispatch": "Mis en file d’envoi",
+      "skipped": "Ignoré",
+      "uncovered": "Non couvert"
+    },
+    "outcomes": {
+      "in_flight": "En cours",
+      "accepted": "Accepté",
+      "failed": "Échec",
+      "unknown": "Résultat inconnu"
+    },
+    "severities": {
+      "warning": "Avertissement",
+      "high": "Élevée",
+      "critical": "Critique"
+    }
   }
 }

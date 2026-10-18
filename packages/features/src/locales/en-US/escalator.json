@@ -64,5 +64,78 @@
     "invalid": "This acknowledgement link is invalid or expired.",
     "acknowledged": "This page has been acknowledged.",
     "resolved": "This incident has been resolved."
+  },
+  "incidents": {
+    "heading": "Incidents",
+    "detail": "Incident details",
+    "error": "Unable to load or save. Check your details and try again.",
+    "loading": "Loading…",
+    "refresh": "Refresh",
+    "state": "Status",
+    "owner": "Owner",
+    "unowned": "Not acknowledged",
+    "opened": "Opened",
+    "acknowledged": "Acknowledged",
+    "resolved": "Resolved",
+    "resolve": "Resolve incident",
+    "timeline": "Escalation timeline",
+    "deliveries": "Delivery history",
+    "noDeliveries": "No deliveries yet.",
+    "attempt": "Attempt",
+    "afterAck": "Completed after acknowledgement",
+    "moreAttempts": "Load more attempts",
+    "moreDeliveries": "Load more deliveries",
+    "create": "Create incident",
+    "title": "Incident title",
+    "service": "Service",
+    "choose": "Choose…",
+    "moreServices": "Load more services",
+    "refreshServices": "Refresh services",
+    "environment": "Environment",
+    "moreEnvironments": "Load more environments",
+    "refreshEnvironments": "Refresh environments",
+    "policy": "Escalation policy",
+    "morePolicies": "Load more policies",
+    "refreshPolicies": "Refresh policies",
+    "severity": "Severity",
+    "saving": "Saving…",
+    "createEnvironment": "Create environment",
+    "environmentSaved": "Environment created. Refresh the environment choices below.",
+    "environmentName": "Environment name",
+    "environmentKey": "Environment key",
+    "production": "Production environment",
+    "empty": "No incidents yet.",
+    "active": "Active",
+    "more": "Load more incidents",
+    "configurationHelp": "Choose a service, environment and active escalation policy before creating an incident.",
+    "states": {
+      "open": "Open",
+      "exhausted": "Escalation exhausted",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved"
+    },
+    "targets": {
+      "primary": "Primary",
+      "peer": "Scheduled peer",
+      "fallback": "Fallback",
+      "operator": "Operator"
+    },
+    "dispositions": {
+      "pending": "Pending",
+      "dispatch": "Queued for sending",
+      "skipped": "Skipped",
+      "uncovered": "Uncovered"
+    },
+    "outcomes": {
+      "in_flight": "In flight",
+      "accepted": "Accepted",
+      "failed": "Failed",
+      "unknown": "Outcome unknown"
+    },
+    "severities": {
+      "warning": "Warning",
+      "high": "High",
+      "critical": "Critical"
+    }
   }
 }

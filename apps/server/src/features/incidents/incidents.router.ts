@@ -10,6 +10,9 @@ import {
 import { t } from "../../platform/trpc/context.js";
 import { authenticated } from "../../platform/trpc/authenticated.js";
 export const incidentsRouter = t.router({
+  policies: authenticated
+    .input(incidentPageInputSchema)
+    .query(({ ctx, input }) => ctx.incidents.listPolicies(ctx.actor, input)),
   resolve: authenticated
     .input(incidentDetailInputSchema)
     .mutation(({ ctx, input }) => ctx.incidents.resolve(ctx.actor, input)),

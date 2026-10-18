@@ -64,5 +64,78 @@
     "invalid": "此确认链接无效或已过期。",
     "acknowledged": "此告警已被确认。",
     "resolved": "此事件已解决。"
+  },
+  "incidents": {
+    "heading": "事件",
+    "detail": "事件详情",
+    "error": "无法加载或保存。请检查信息后重试。",
+    "loading": "正在加载…",
+    "refresh": "刷新",
+    "state": "状态",
+    "owner": "负责人",
+    "unowned": "尚未确认",
+    "opened": "开始时间",
+    "acknowledged": "确认时间",
+    "resolved": "解决时间",
+    "resolve": "解决事件",
+    "timeline": "升级时间线",
+    "deliveries": "通知发送记录",
+    "noDeliveries": "暂无发送记录。",
+    "attempt": "尝试",
+    "afterAck": "确认后完成",
+    "moreAttempts": "加载更多尝试",
+    "moreDeliveries": "加载更多发送记录",
+    "create": "创建事件",
+    "title": "事件标题",
+    "service": "服务",
+    "choose": "请选择…",
+    "moreServices": "加载更多服务",
+    "refreshServices": "刷新服务",
+    "environment": "环境",
+    "moreEnvironments": "加载更多环境",
+    "refreshEnvironments": "刷新环境",
+    "policy": "升级策略",
+    "morePolicies": "加载更多策略",
+    "refreshPolicies": "刷新策略",
+    "severity": "严重程度",
+    "saving": "正在保存…",
+    "createEnvironment": "创建环境",
+    "environmentSaved": "环境已创建。请刷新下方的环境选项。",
+    "environmentName": "环境名称",
+    "environmentKey": "环境标识",
+    "production": "生产环境",
+    "empty": "暂无事件。",
+    "active": "进行中",
+    "more": "加载更多事件",
+    "configurationHelp": "创建事件前，请选择服务、环境和已启用的升级策略。",
+    "states": {
+      "open": "未解决",
+      "exhausted": "升级已耗尽",
+      "acknowledged": "已确认",
+      "resolved": "已解决"
+    },
+    "targets": {
+      "primary": "主要值班人员",
+      "peer": "排班同事",
+      "fallback": "后备人员",
+      "operator": "运维人员"
+    },
+    "dispositions": {
+      "pending": "待处理",
+      "dispatch": "已加入发送队列",
+      "skipped": "已跳过",
+      "uncovered": "无人覆盖"
+    },
+    "outcomes": {
+      "in_flight": "发送中",
+      "accepted": "已接受",
+      "failed": "失败",
+      "unknown": "结果未知"
+    },
+    "severities": {
+      "warning": "警告",
+      "high": "高",
+      "critical": "严重"
+    }
   }
 }

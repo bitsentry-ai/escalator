@@ -9,3 +9,6 @@ export {
 export * from "./ack/client.js";
 export * from "./ack/transport.js";
 export * from "./ack/AcknowledgementScreen.js";
+
+export type { IncidentsClient } from "./incidents-client.js";
+export { IncidentsScreen } from "./incidents/IncidentsScreen.js";

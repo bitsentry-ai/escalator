@@ -108,6 +108,13 @@ export class IncidentUseCases {
       tx.incidents.list(query),
     );
   }
+  async listPolicies(actor: Actor, input: IncidentPageInput = {}) {
+    authorize(actor, "incident:read");
+    const query = incidentPageInputSchema.parse(input);
+    return this.repository.transaction(actor.workspaceId, (tx) =>
+      tx.configuration.policies.list(query),
+    );
+  }
   async listEnvironments(actor: Actor, input: IncidentPageInput = {}) {
     authorize(actor, "service:read");
     const query = incidentPageInputSchema.parse(input);

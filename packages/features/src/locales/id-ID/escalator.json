@@ -64,5 +64,78 @@
     "invalid": "Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.",
     "acknowledged": "Panggilan ini telah dikonfirmasi.",
     "resolved": "Insiden ini telah diselesaikan."
+  },
+  "incidents": {
+    "heading": "Insiden",
+    "detail": "Detail insiden",
+    "error": "Tidak dapat memuat atau menyimpan. Periksa data dan coba lagi.",
+    "loading": "Memuat…",
+    "refresh": "Muat ulang",
+    "state": "Status",
+    "owner": "Penanggung jawab",
+    "unowned": "Belum dikonfirmasi",
+    "opened": "Dibuka",
+    "acknowledged": "Dikonfirmasi",
+    "resolved": "Diselesaikan",
+    "resolve": "Selesaikan insiden",
+    "timeline": "Linimasa eskalasi",
+    "deliveries": "Riwayat pengiriman",
+    "noDeliveries": "Belum ada pengiriman.",
+    "attempt": "Percobaan",
+    "afterAck": "Selesai setelah konfirmasi",
+    "moreAttempts": "Muat percobaan lainnya",
+    "moreDeliveries": "Muat pengiriman lainnya",
+    "create": "Buat insiden",
+    "title": "Judul insiden",
+    "service": "Layanan",
+    "choose": "Pilih…",
+    "moreServices": "Muat layanan lainnya",
+    "refreshServices": "Muat ulang layanan",
+    "environment": "Lingkungan",
+    "moreEnvironments": "Muat lingkungan lainnya",
+    "refreshEnvironments": "Muat ulang lingkungan",
+    "policy": "Kebijakan eskalasi",
+    "morePolicies": "Muat kebijakan lainnya",
+    "refreshPolicies": "Muat ulang kebijakan",
+    "severity": "Tingkat keparahan",
+    "saving": "Menyimpan…",
+    "createEnvironment": "Buat lingkungan",
+    "environmentSaved": "Lingkungan dibuat. Muat ulang pilihan lingkungan di bawah.",
+    "environmentName": "Nama lingkungan",
+    "environmentKey": "Kunci lingkungan",
+    "production": "Lingkungan produksi",
+    "empty": "Belum ada insiden.",
+    "active": "Aktif",
+    "more": "Muat insiden lainnya",
+    "configurationHelp": "Pilih layanan, lingkungan, dan kebijakan eskalasi aktif sebelum membuat insiden.",
+    "states": {
+      "open": "Terbuka",
+      "exhausted": "Eskalasi habis",
+      "acknowledged": "Dikonfirmasi",
+      "resolved": "Diselesaikan"
+    },
+    "targets": {
+      "primary": "Utama",
+      "peer": "Rekan terjadwal",
+      "fallback": "Cadangan",
+      "operator": "Operator"
+    },
+    "dispositions": {
+      "pending": "Menunggu",
+      "dispatch": "Masuk antrean kirim",
+      "skipped": "Dilewati",
+      "uncovered": "Tanpa petugas"
+    },
+    "outcomes": {
+      "in_flight": "Sedang dikirim",
+      "accepted": "Diterima",
+      "failed": "Gagal",
+      "unknown": "Hasil tidak diketahui"
+    },
+    "severities": {
+      "warning": "Peringatan",
+      "high": "Tinggi",
+      "critical": "Kritis"
+    }
   }
 }
