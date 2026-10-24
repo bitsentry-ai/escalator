@@ -81,7 +81,9 @@ test("cancellation intents always retain the frozen credential reference", async
         .success,
       false,
     );
-    const { secretId: _secretId, ...missing } = delivery;
+    const missing = Object.fromEntries(
+      Object.entries(delivery).filter(([key]) => key !== "secretId"),
+    );
     assert.equal(recipientDeliverySchema.safeParse(missing).success, false);
     await cancelDeliveryWork(tx, [delivery]);
   });
