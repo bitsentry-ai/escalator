@@ -1,0 +1,40 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreIssues": {
+    "apps/server/src/platform/database/compatibility.ts": ["exports"],
+    "apps/web/src/routes/login/CredentialForm.tsx": ["types"],
+    "packages/features/src/ui/rules/types.ts": ["types"],
+    "scripts/capacity-snapshot.mjs": ["unlisted"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.{mjs,cjs}"
+      ]
+    },
+    "apps/server": {
+      "entry": [
+        "src/start.ts",
+        "src/platform/{auth/operator,database/migrate,secrets/rotate}-cli.ts",
+        "test/**/*.test.ts"
+      ],
+      "ignoreDependencies": [
+        "@escalator-test/*"
+      ]
+    },
+    "apps/web": {
+      "entry": [
+        "test/*.test.ts"
+      ]
+    },
+    "packages/features": {
+      "entry": [
+        "src/{contracts,application,channels,investigation,ui,locales}/index.ts",
+        "test/**/*.test.{ts,mjs}",
+        "test/conformance/{rule-catalog,rule-labels,investigation-reports,investigations,watch-runtime,stuck,coverage,deployments,retention-maintenance,retention-pruning,retention-accounting,replay-recording,replay-coverage,health,metrics,heartbeats,probes,detection,signals,incidents,configuration,paging,secrets,work,foundation}.ts",
+        "test/fixtures/{rule-label-seed,investigation}.ts",
+        "test/scenarios/paging/scenarios.ts"
+      ]
+    }
+  }
+}
