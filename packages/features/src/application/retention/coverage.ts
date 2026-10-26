@@ -49,6 +49,109 @@ export function selectPeriodicCoverage(
 ): PeriodicCoverageSelection {
   return computePeriodicCoverage(raw, true, options.endInclusive ?? false);
 }
+function assertCoverageWindow(start: number, end: number, visible: number) {
+  if (end <= start || end - start > 366 * 86400000 || end > visible)
+    throw new RangeError("Invalid coverage window");
+}
+/** Receipts grouped by configuration version and slot; a receipt id may appear only once. */
+function receiptsBySlot(
+  samples: readonly CoverageSample[],
+): Map<string, CoverageSample[]> {
+  const bySlot = new Map<string, CoverageSample[]>();
+  const ids = new Set<string>();
+  for (const sample of samples) {
+    if (ids.has(sample.id)) throw new RangeError("Duplicate receipt identity");
+    ids.add(sample.id);
+    const key = `${sample.version}:${Date.parse(sample.slotAt)}`;
+    const receipts = bySlot.get(key) ?? [];
+    receipts.push(sample);
+    bySlot.set(key, receipts);
+  }
+  return bySlot;
+}
+/** Receipts received and observed by the cutoff, newest receipt first. */
+function visibleReceipts(
+  receipts: readonly CoverageSample[],
+  visibleAt: string,
+) {
+  return receipts
+    .filter(
+      (row): row is CoverageSample & { receivedAt: string } =>
+        row.receivedAt !== null &&
+        compareUtcTimestamps(row.receivedAt, visibleAt) <= 0 &&
+        compareUtcTimestamps(row.observedAt, visibleAt) <= 0,
+    )
+    .sort(
+      (a, b) =>
+        compareUtcTimestamps(b.receivedAt, a.receivedAt) ||
+        compareCodeUnits(b.id, a.id),
+    );
+}
+/** A segment recorded after the cutoff, or disabled, covers none of its slots. */
+function segmentGap(
+  segment: { recordedAt: string | null; enabled: boolean },
+  visibleAt: string,
+): CoverageReason | undefined {
+  if (
+    segment.recordedAt === null ||
+    compareUtcTimestamps(segment.recordedAt, visibleAt) > 0
+  )
+    return "configuration_unavailable";
+  if (!segment.enabled) return "disabled";
+  return undefined;
+}
+/** Adds a gap, merging it into the previous one when it continues it for the same reason. */
+function addGap(
+  gaps: CoverageGap[],
+  from: number,
+  to: number,
+  reason: CoverageReason,
+): void {
+  if (to <= from) return;
+  const previous = gaps.at(-1);
+  if (previous?.reason === reason && previous.endAt === iso(from))
+    previous.endAt = iso(to);
+  else gaps.push({ startAt: iso(from), endAt: iso(to), reason });
+}
+interface SlotScan {
+  bySlot: Map<string, CoverageSample[]>;
+  visibleAt: string;
+  tally: { expectedSlots: number; availableSlots: number };
+  selected: PeriodicCoverageSelection["samples"] | undefined;
+  gap: (from: number, to: number, reason: CoverageReason) => void;
+}
+/** Counts each scheduled slot of a segment within [from, to) as available or as a gap. */
+function scanSlots(
+  segment: { version: number; stepSeconds: number; anchorAt: string },
+  from: number,
+  to: number,
+  scan: SlotScan,
+): void {
+  const step = segment.stepSeconds * 1000,
+    anchor = Date.parse(segment.anchorAt);
+  const first = anchor + Math.ceil((from - anchor) / step) * step;
+  for (let slot = first; slot < to; slot += step) {
+    if (++scan.tally.expectedSlots > 100000)
+      throw new RangeError("Coverage slot limit exceeded");
+    const receipts = scan.bySlot.get(`${segment.version}:${slot}`) ?? [];
+    const known = visibleReceipts(receipts, scan.visibleAt);
+    if (known[0]?.usable) {
+      scan.tally.availableSlots++;
+      scan.selected?.push({
+        id: known[0].id,
+        version: segment.version,
+        slotAt: iso(slot),
+        stepSeconds: segment.stepSeconds,
+      });
+      continue;
+    }
+    scan.gap(
+      slot,
+      Math.min(to, slot + step),
+      gapReason(known.length > 0, receipts),
+    );
+  }
+}
 function computePeriodicCoverage(
   raw: PeriodicCoverageInput,
   collect: boolean,
@@ -59,12 +162,7 @@ function computePeriodicCoverage(
   const rawStart = Date.parse(input.startAt),
     rawEnd = Date.parse(input.endAt);
   const visible = Date.parse(input.visibleAt);
-  if (
-    rawEnd <= rawStart ||
-    rawEnd - rawStart > 366 * 86400000 ||
-    rawEnd > visible
-  )
-    throw new RangeError("Invalid coverage window");
+  assertCoverageWindow(rawStart, rawEnd, visible);
   // Coverage arithmetic uses milliseconds. Only iteration boundaries change
   // for (start,end]; the availability cutoff and all evidence stay untouched.
   // Callers requesting this mode must supply configuration segments through
@@ -72,13 +170,8 @@ function computePeriodicCoverage(
   const start = rawStart + (endInclusive ? 1 : 0),
     end = rawEnd + (endInclusive ? 1 : 0);
   const gaps: CoverageGap[] = [];
-  const gap = (from: number, to: number, reason: CoverageReason) => {
-    if (to <= from) return;
-    const previous = gaps.at(-1);
-    if (previous?.reason === reason && previous.endAt === iso(from))
-      previous.endAt = iso(to);
-    else gaps.push({ startAt: iso(from), endAt: iso(to), reason });
-  };
+  const gap = (from: number, to: number, reason: CoverageReason) =>
+    addGap(gaps, from, to, reason);
   if (!input.complete) {
     gap(start, end, "query_truncated");
     return {
@@ -92,20 +185,16 @@ function computePeriodicCoverage(
       samples: selected,
     };
   }
-  const samples = new Map<string, CoverageSample[]>();
-  const ids = new Set<string>();
-  for (const sample of input.samples) {
-    if (ids.has(sample.id)) throw new RangeError("Duplicate receipt identity");
-    ids.add(sample.id);
-    const key = `${sample.version}:${Date.parse(sample.slotAt)}`;
-    const receipts = samples.get(key) ?? [];
-    receipts.push(sample);
-    samples.set(key, receipts);
-  }
+  const samples = receiptsBySlot(input.samples);
   let cursor = start,
-    previousEnd = -Infinity,
-    expectedSlots = 0,
-    availableSlots = 0;
+    previousEnd = -Infinity;
+  const scan: SlotScan = {
+    bySlot: samples,
+    visibleAt: input.visibleAt,
+    tally: { expectedSlots: 0, availableSlots: 0 },
+    selected: collect ? selected : undefined,
+    gap,
+  };
   for (const segment of input.segments) {
     const rawStart = Date.parse(segment.startAt),
       rawEnd = Date.parse(segment.endAt);
@@ -117,57 +206,18 @@ function computePeriodicCoverage(
     if (to <= from) continue;
     gap(cursor, from, "configuration_unknown");
     cursor = to;
-    if (
-      segment.recordedAt === null ||
-      compareUtcTimestamps(segment.recordedAt, input.visibleAt) > 0
-    ) {
-      gap(from, to, "configuration_unavailable");
+    const unavailable = segmentGap(segment, input.visibleAt);
+    if (unavailable) {
+      gap(from, to, unavailable);
       continue;
     }
-    if (!segment.enabled) {
-      gap(from, to, "disabled");
-      continue;
-    }
-    const step = segment.stepSeconds * 1000,
-      anchor = Date.parse(segment.anchorAt);
-    const first = anchor + Math.ceil((from - anchor) / step) * step;
-    for (let slot = first; slot < to; slot += step) {
-      if (++expectedSlots > 100000)
-        throw new RangeError("Coverage slot limit exceeded");
-      const receipts = samples.get(`${segment.version}:${slot}`) ?? [];
-      const known = receipts
-        .filter(
-          (row): row is (typeof receipts)[number] & { receivedAt: string } =>
-            row.receivedAt !== null &&
-            compareUtcTimestamps(row.receivedAt, input.visibleAt) <= 0 &&
-            compareUtcTimestamps(row.observedAt, input.visibleAt) <= 0,
-        )
-        .sort(
-          (a, b) =>
-            compareUtcTimestamps(b.receivedAt, a.receivedAt) ||
-            compareCodeUnits(b.id, a.id),
-        );
-      if (known[0]?.usable) {
-        availableSlots++;
-        if (collect)
-          selected.push({
-            id: known[0].id,
-            version: segment.version,
-            slotAt: iso(slot),
-            stepSeconds: segment.stepSeconds,
-          });
-        continue;
-      }
-      const reason = gapReason(known.length > 0, receipts);
-      gap(slot, Math.min(to, slot + step), reason);
-    }
+    scanSlots(segment, from, to, scan);
   }
   gap(cursor, end, "configuration_unknown");
   return {
     report: {
       coverageVersion: 1,
-      expectedSlots,
-      availableSlots,
+      ...scan.tally,
       gaps,
       queryComplete: true,
     },
