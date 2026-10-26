@@ -19,6 +19,11 @@ import { pagingWorkId } from "./work-ids.js";
 import { acknowledgementDigest } from "./acknowledge.js";
 import { cancelDeliveryWork } from "./cancel.js";
 import { expectDefined } from "../../contracts/expect-defined.js";
+function attemptOutcome(outcome: string): "accepted" | "failed" | "unknown" {
+  if (outcome === "accepted") return "accepted";
+  if (outcome === "rejected") return "failed";
+  return "unknown";
+}
 const payloadSchema = z.strictObject({
   pageId: opaqueIdSchema,
   deliveryId: opaqueIdSchema,
@@ -248,12 +253,7 @@ export class PageDelivery {
     return this.repository.transaction(lease.workspaceId, async (tx) => {
       const page = await tx.pages.lock(prepared.delivery.pageId);
       if (!page) throw new Error("Missing page");
-      const outcome =
-        result.outcome === "accepted"
-          ? "accepted"
-          : result.outcome === "rejected"
-            ? "failed"
-            : "unknown";
+      const outcome = attemptOutcome(result.outcome);
       const candidate = deliveryAttemptSchema.safeParse({
         ...prepared.attempt,
         outcome,

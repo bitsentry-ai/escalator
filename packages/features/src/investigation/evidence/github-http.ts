@@ -7,6 +7,11 @@ import {
   repositoryComparisonSchema,
   type RepositoryComparison,
 } from "./github-diff.js";
+function diffFailure(status: number | undefined): GithubDiffFailure {
+  if (status === 401 || status === 403) return "not_authorized";
+  if (status === 404) return "not_found";
+  return "invalid_response";
+}
 export type GithubDiffFailure =
   | "invalid_configuration"
   | "not_authorized"
@@ -137,13 +142,7 @@ export class GithubDiffHttp {
         };
         const status = res.statusCode;
         if (status !== 200) {
-          failure(
-            status === 401 || status === 403
-              ? "not_authorized"
-              : status === 404
-                ? "not_found"
-                : "invalid_response",
-          );
+          failure(diffFailure(status));
           return;
         }
         const encoding = res.headers["content-encoding"];

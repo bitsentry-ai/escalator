@@ -132,13 +132,14 @@ export function ruleWindowFromHistory(
     },
     { endInclusive: true },
   );
-  window.coverage = selection.report.gaps.length
-    ? "gaps"
-    : selection.report.expectedSlots ===
-          rule.windowSeconds / rule.stepSeconds &&
-        selection.report.availableSlots === selection.report.expectedSlots
-      ? "complete"
-      : "unknown";
+  const { gaps, expectedSlots, availableSlots } = selection.report;
+  if (gaps.length) window.coverage = "gaps";
+  else if (
+    expectedSlots === rule.windowSeconds / rule.stepSeconds &&
+    availableSlots === expectedSlots
+  )
+    window.coverage = "complete";
+  else window.coverage = "unknown";
   window.samples = selection.samples.map(
     (row) =>
       expectDefined(selectedReceipts.get(row.id), "selected receipt").sample,

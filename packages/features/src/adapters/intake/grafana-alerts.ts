@@ -9,6 +9,11 @@ import {
   parseSignalBody,
   SignalIngressError,
 } from "../../application/signals/ingest.js";
+function grafanaSeverity(level: unknown): "critical" | "warning" | "high" {
+  if (level === "critical") return "critical";
+  if (level === "warning") return "warning";
+  return "high";
+}
 /** Configure a timestamp header in Grafana. Its exact bytes are part of the MAC. */
 export function verifyGrafanaSignature(
   body: Uint8Array,
@@ -83,12 +88,7 @@ export function normalizeGrafanaAlerts(body: Uint8Array): SignalInput[] {
         fingerprint,
         observedAt,
         status,
-        severity:
-          level === "critical"
-            ? "critical"
-            : level === "warning"
-              ? "warning"
-              : "high",
+        severity: grafanaSeverity(level),
         title: "Grafana alert",
         evidence: {
           summary:

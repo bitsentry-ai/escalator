@@ -8,6 +8,22 @@ import {
   type MetricsObservation,
   type MetricCountSample,
 } from "../../contracts/metrics.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
+function countQuality(
+  count: number | null | undefined,
+  failed: number | null | undefined,
+): MetricCountSample["quality"] {
+  if (count === undefined || failed === undefined) return "missing";
+  if (count === null || failed === null) return "nonfinite";
+  if (
+    count < 0 ||
+    failed < 0 ||
+    count > Number.MAX_SAFE_INTEGER ||
+    failed > count
+  )
+    return "invalid_counts";
+  return "complete";
+}
 export class MetricsReadError extends Error {
   constructor(
     readonly code:
@@ -82,7 +98,7 @@ function decode(body: string, range: MetricsRange) {
         ? hash(
             JSON.stringify(
               Object.entries(series.metric).sort(([a], [b]) =>
-                a < b ? -1 : a > b ? 1 : 0,
+                compareCodeUnits(a, b),
               ),
             ),
           )
@@ -111,19 +127,10 @@ export function normalizeMetricCounts(
   ) {
     const count = requests.points.get(at),
       failed = errors.points.get(at);
-    const quality: MetricCountSample["quality"] =
+    const quality =
       requests.annotated || errors.annotated
         ? "provider_annotation"
-        : count === undefined || failed === undefined
-          ? "missing"
-          : count === null || failed === null
-            ? "nonfinite"
-            : count < 0 ||
-                failed < 0 ||
-                count > Number.MAX_SAFE_INTEGER ||
-                failed > count
-              ? "invalid_counts"
-              : "complete";
+        : countQuality(count, failed);
     samples.push({
       observedAt: new Date(at * 1000).toISOString(),
       requests: count ?? null,

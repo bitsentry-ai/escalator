@@ -9,6 +9,7 @@ import {
 } from "../../contracts/index.js";
 import type { ModelScope } from "../ports/index.js";
 import { repositoryComparisonSchema } from "./github-diff.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 const scopeSchema = investigationScopeSchema.pick({
   workspaceId: true,
   serviceId: true,
@@ -99,9 +100,7 @@ export class RepositoryConnections {
           sameScope(value.scope, scope) &&
           (!query.after || value.sourceId > query.after),
       )
-      .sort((a, b) =>
-        a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0,
-      );
+      .sort((a, b) => compareCodeUnits(a.sourceId, b.sourceId));
     const page = values.slice(0, query.limit);
     return {
       items: page.map((value) => ({

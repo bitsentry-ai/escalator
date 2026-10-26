@@ -25,6 +25,15 @@ import {
   InvestigationBudgetError,
   systemInvestigationClock,
 } from "./budget.js";
+function reportStatus(
+  reason: string,
+  hasEvidence: boolean,
+): InvestigationReport["status"] {
+  if (reason === "completed") return "complete";
+  if (reason === "cancelled" || reason === "lease_lost") return "cancelled";
+  if (reason === "budget_exhausted" || hasEvidence) return "partial";
+  return "error";
+}
 const diagnosisSchema = z.strictObject({
   summary: z.string().trim().min(1).max(8000),
   findings: z.array(investigationFindingSchema).max(20),
@@ -177,13 +186,11 @@ export async function runInvestigation(
         continue;
       }
       const ids = new Set(evidence.map((item) => item.reference.id));
-      const rejectedReason = result.items.some((item) =>
-        ids.has(item.reference.id),
-      )
-        ? "invalid_response"
-        : evidence.length + result.items.length > 128
-          ? "budget_exhausted"
-          : null;
+      let rejectedReason: "invalid_response" | "budget_exhausted" | null = null;
+      if (result.items.some((item) => ids.has(item.reference.id)))
+        rejectedReason = "invalid_response";
+      else if (evidence.length + result.items.length > 128)
+        rejectedReason = "budget_exhausted";
       if (rejectedReason) {
         unavailable.push({ query, reason: rejectedReason });
         nextSource += 1;
@@ -336,14 +343,7 @@ export async function runInvestigation(
           reason === "budget_exhausted" ? "budget_exhausted" : "cancelled",
       });
   }
-  const status: InvestigationReport["status"] =
-    reason === "completed"
-      ? "complete"
-      : reason === "cancelled" || reason === "lease_lost"
-        ? "cancelled"
-        : reason === "budget_exhausted" || evidence.length > 0
-          ? "partial"
-          : "error";
+  const status = reportStatus(reason, evidence.length > 0);
   const report = investigationReportSchema.parse({
     id: claim.id,
     scope: claim.scope,

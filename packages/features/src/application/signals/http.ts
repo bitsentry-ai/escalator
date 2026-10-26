@@ -1,6 +1,11 @@
 import type { WorkspaceId } from "../../contracts/index.js";
 import { SignalIngressError, SignalIntake, parseSignalBody } from "./ingest.js";
 import type { SignalRepository } from "./ports.js";
+function ingressErrorStatus(code: string): 401 | 413 | 400 {
+  if (code === "invalid_token") return 401;
+  if (code === "body_too_large") return 413;
+  return 400;
+}
 
 export interface SignalHttpRequest {
   sourceId: string;
@@ -63,12 +68,7 @@ export class SignalHttp {
       return { status: result.state === "accepted" ? 202 : 200, body: result };
     } catch (error) {
       if (error instanceof SignalIngressError) {
-        const status =
-          error.code === "invalid_token"
-            ? 401
-            : error.code === "body_too_large"
-              ? 413
-              : 400;
+        const status = ingressErrorStatus(error.code);
         return { status, body: { error: error.code } };
       }
       // Never expose database, provider, source-existence or credential details.

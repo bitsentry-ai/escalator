@@ -6,6 +6,7 @@ import type {
   RuleWindowReason,
 } from "../../contracts/rules.js";
 import { ruleSampleTime, ruleWindowBounds } from "./time.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 
 export interface SelectedRuleSamples {
   samples: RuleSample[];
@@ -80,7 +81,7 @@ export function selectRuleSamples(
   result.samples.sort(
     (a, b) =>
       compareUtcTimestamps(a.observedAt, b.observedAt) ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      compareCodeUnits(a.id, b.id),
   );
   return result;
 }

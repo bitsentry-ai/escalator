@@ -1,6 +1,11 @@
 import { SIGNAL_INGRESS_MAX_BYTES } from "../../contracts/index.js";
 import { SignalIngressError } from "./ingest.js";
 import { ProviderIntake, type ProviderDelivery } from "./provider-ingest.js";
+function ingressErrorStatus(code: string): 401 | 413 | 400 {
+  if (code === "invalid_token") return 401;
+  if (code === "body_too_large") return 413;
+  return 400;
+}
 
 export interface ProviderHttpRequest extends ProviderDelivery {
   contentType: string | undefined;
@@ -38,12 +43,7 @@ export class ProviderHttp {
       return { status: result.state === "accepted" ? 202 : 200, body: result };
     } catch (error) {
       if (error instanceof SignalIngressError) {
-        const status =
-          error.code === "invalid_token"
-            ? 401
-            : error.code === "body_too_large"
-              ? 413
-              : 400;
+        const status = ingressErrorStatus(error.code);
         return { status, body: { error: error.code } };
       }
       return { status: 503, body: { error: "unavailable" } };

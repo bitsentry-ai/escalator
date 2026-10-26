@@ -18,6 +18,21 @@ const numberFields = [
   "recoverySeconds",
   "cooldownSeconds",
 ] as const;
+const KIND_FIELDS = {
+  probe: ["failure", "duration_ms"],
+  metric: ["requests", "errors", "error_rate"],
+  signal: ["events"],
+} as const;
+const DEFAULT_FIELD = {
+  probe: "failure",
+  metric: "error_rate",
+  signal: "events",
+} as const;
+function minimumFor(key: (typeof numberFields)[number]): number {
+  if (key === "windowSeconds" || key === "stepSeconds") return 60;
+  if (key === "minimumSamples") return 1;
+  return 0;
+}
 export function RuleEditor({
   client,
   scope,
@@ -141,13 +156,7 @@ export function RuleEditor({
               const next = e.target.value as typeof kind;
               setKind(next);
               setSource("");
-              setField(
-                next === "probe"
-                  ? "failure"
-                  : next === "metric"
-                    ? "error_rate"
-                    : "events",
-              );
+              setField(DEFAULT_FIELD[next]);
               setAggregation(next === "signal" ? "count" : "maximum");
             }}
           >
@@ -178,12 +187,7 @@ export function RuleEditor({
             value={field}
             onChange={(e) => setField(e.target.value as typeof field)}
           >
-            {(kind === "probe"
-              ? ["failure", "duration_ms"]
-              : kind === "metric"
-                ? ["requests", "errors", "error_rate"]
-                : ["events"]
-            ).map((value) => (
+            {KIND_FIELDS[kind].map((value) => (
               <option key={value} value={value}>
                 {t(`rules.fields.${value}`)}
               </option>
@@ -214,13 +218,7 @@ export function RuleEditor({
             <input
               type="number"
               required
-              min={
-                key === "windowSeconds" || key === "stepSeconds"
-                  ? 60
-                  : key === "minimumSamples"
-                    ? 1
-                    : 0
-              }
+              min={minimumFor(key)}
               step={1}
               value={numbers[key]}
               onChange={(e) =>

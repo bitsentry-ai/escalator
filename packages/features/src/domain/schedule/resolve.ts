@@ -10,6 +10,7 @@ import {
   type SchedulePreviewInterval,
 } from "../../contracts/index.js";
 import { expectDefined } from "../../contracts/expect-defined.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 export class ScheduleError extends Error {
   constructor(
     readonly code:
@@ -131,7 +132,7 @@ function resolveValidated(
         Date.parse(entry.startsAt) <= timestamp &&
         timestamp < Date.parse(entry.endsAt),
     )
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+    .sort((a, b) => compareCodeUnits(a.id, b.id))[0];
   if (override)
     return {
       responderId: override.responderId,
@@ -141,8 +142,7 @@ function resolveValidated(
       endsAt: iso(instant(override.endsAt)),
     };
   const rotations = [...schedule.rotations].sort(
-    (a, b) =>
-      b.priority - a.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    (a, b) => b.priority - a.priority || compareCodeUnits(a.id, b.id),
   );
   for (const rotation of rotations) {
     const assignment = rotationAt(rotation, at);
@@ -251,11 +251,7 @@ export function previewSchedule(
     const chosen = [...active.values()].sort(
       (a, b) =>
         b.priority - a.priority ||
-        (a.assignment.sourceId < b.assignment.sourceId
-          ? -1
-          : a.assignment.sourceId > b.assignment.sourceId
-            ? 1
-            : 0),
+        compareCodeUnits(a.assignment.sourceId, b.assignment.sourceId),
     )[0];
     return {
       startsAt: iso(Temporal.Instant.fromEpochMilliseconds(point)),
@@ -269,16 +265,20 @@ export function isWorkingAt(value: WorkingHours, at: string): boolean {
   const hours = workingHoursSchema.parse(value);
   const local = instant(at).toZonedDateTimeISO(hours.timeZone);
   const minute = local.hour * 60 + local.minute;
-  return hours.windows.some((window) =>
-    window.startMinute < window.endMinute
-      ? window.weekdays.includes(local.dayOfWeek) &&
+  // ISO weekdays run Monday 1 to Sunday 7.
+  const previousDay = local.dayOfWeek === 1 ? 7 : local.dayOfWeek - 1;
+  return hours.windows.some((window) => {
+    if (window.startMinute < window.endMinute)
+      return (
+        window.weekdays.includes(local.dayOfWeek) &&
         minute >= window.startMinute &&
         minute < window.endMinute
-      : (window.weekdays.includes(local.dayOfWeek) &&
-          minute >= window.startMinute) ||
-        (window.weekdays.includes(
-          local.dayOfWeek === 1 ? 7 : local.dayOfWeek - 1,
-        ) &&
-          minute < window.endMinute),
-  );
+      );
+    // An overnight window starts on a listed day and ends on the next day.
+    return (
+      (window.weekdays.includes(local.dayOfWeek) &&
+        minute >= window.startMinute) ||
+      (window.weekdays.includes(previousDay) && minute < window.endMinute)
+    );
+  });
 }

@@ -15,6 +15,7 @@ import {
 } from "./policy-management.js";
 import type { ReplayPruneBatch } from "./prune.js";
 import { planSourceReplayPrune } from "./source-plan.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 type Candidate = ReplayPruneBatch["candidates"][number];
 export type ReplayPruneCursor = Pick<Candidate, "observedAt" | "kind" | "id">;
 export interface ReplayPruneSnapshot {
@@ -63,7 +64,7 @@ function compare(left: ReplayPruneCursor, right: ReplayPruneCursor) {
   const width = Math.max(leftFraction.length, rightFraction.length);
   const x = leftFraction.padEnd(width, "0"),
     y = rightFraction.padEnd(width, "0");
-  return (x < y ? -1 : x > y ? 1 : 0) || (a < b ? -1 : a > b ? 1 : 0);
+  return compareCodeUnits(x, y) || compareCodeUnits(a, b);
 }
 /** Internal use case; authenticated management and fenced jobs provide authorization.
  * A result is committed only after the repository transaction resolves successfully.
@@ -158,12 +159,10 @@ export async function pruneReplayInTransaction(
       (Date.parse(row.observedAt) < Date.parse(plan.cutoffAt) ||
         plan.budgetPressureAfterBatch > 0),
   );
-  const lastExamined =
-    firstRemaining >= 0
-      ? firstRemaining === 0
-        ? after
-        : snapshot.candidates[firstRemaining - 1]
-      : previous;
+  let lastExamined = previous;
+  if (firstRemaining === 0) lastExamined = after;
+  else if (firstRemaining > 0)
+    lastExamined = snapshot.candidates[firstRemaining - 1];
   // Once pressure is relieved and this ordered page reaches the age cutoff,
   // later records cannot be eligible in this sweep. Avoid walking recent history.
   const last = snapshot.candidates.at(-1);

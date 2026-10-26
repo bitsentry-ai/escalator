@@ -10,6 +10,7 @@ import {
   type DeploymentWatchRecord,
   type EvaluatedWatchStream,
 } from "../../contracts/index.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 /** A finish records a separate server-time watch, including failure/cancellation and a late finish after timeout. */
 export function startDeploymentWatch(
   raw: DeploymentEntry,
@@ -85,9 +86,7 @@ export function advanceDeploymentWatch(
     )
       throw new RangeError("Watch evaluation cutoff differs");
   streams.sort(
-    (a, b) =>
-      (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    (a, b) => compareCodeUnits(a.kind, b.kind) || compareCodeUnits(a.id, b.id),
   );
   const firstFailure =
     current.firstFailure ??
@@ -97,17 +96,15 @@ export function advanceDeploymentWatch(
     !update.inventoryComplete ||
     streams.length === 0 ||
     streams.some((stream) => stream.evaluation.verdict === "INSUFFICIENT_DATA");
-  const verdict = firstFailure
-    ? "FAIL"
-    : incomplete
-      ? "INSUFFICIENT_DATA"
-      : !final
-        ? "PENDING"
-        : streams.some((stream) => stream.evaluation.verdict === "WARN")
-          ? "WARN"
-          : streams.every((stream) => stream.evaluation.verdict === "PASS")
-            ? "PASS"
-            : "INSUFFICIENT_DATA";
+  let verdict: "FAIL" | "INSUFFICIENT_DATA" | "PENDING" | "WARN" | "PASS";
+  if (firstFailure) verdict = "FAIL";
+  else if (incomplete) verdict = "INSUFFICIENT_DATA";
+  else if (!final) verdict = "PENDING";
+  else if (streams.some((stream) => stream.evaluation.verdict === "WARN"))
+    verdict = "WARN";
+  else if (streams.every((stream) => stream.evaluation.verdict === "PASS"))
+    verdict = "PASS";
+  else verdict = "INSUFFICIENT_DATA";
   const overlaps = [
     ...new Set([
       ...current.overlappingDeploymentIds,

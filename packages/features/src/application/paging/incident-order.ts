@@ -3,6 +3,7 @@ import {
   type OperationalIncident,
 } from "../../contracts/index.js";
 import { PersistenceError } from "../ports/persistence.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 
 /** Incident lists show open incidents first, then newest; the cursor carries the whole sort key. */
 export interface IncidentOrderKey {
@@ -26,7 +27,7 @@ export function compareIncidentOrder(
 ): number {
   if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
   if (a.openedAt !== b.openedAt) return b.openedAt - a.openedAt;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  return compareCodeUnits(a.id, b.id);
 }
 export function incidentCursor(incident: OperationalIncident): string {
   const key = incidentOrderKey(incident);

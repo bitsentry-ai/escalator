@@ -21,6 +21,16 @@ import {
   hasSubmillisecondTime,
 } from "../../contracts/timestamps.js";
 import { PersistenceError } from "../ports/persistence.js";
+function backtestReason(
+  inputComplete: boolean,
+  evaluated: number,
+  partial: boolean,
+): "incomplete_input" | "no_usable_history" | "partial_history" | "complete" {
+  if (!inputComplete) return "incomplete_input";
+  if (evaluated === 0) return "no_usable_history";
+  if (partial) return "partial_history";
+  return "complete";
+}
 /** Reviewed intervals are [start,end); episodes overlap them from opening until
  * recovery. An unmatched episode is unreviewed, never an inferred false positive.
  * Ambiguous many-to-one/one-to-many overlaps remain unadjudicated. */
@@ -211,13 +221,11 @@ export function summarizeRuleBacktest(
     status:
       snapshot.complete && evaluated > 0 ? "BACKTESTED" : "NOT_BACKTESTABLE",
     simulation: { initialState: "inactive", warmupUntil },
-    reason: !snapshot.complete
-      ? "incomplete_input"
-      : evaluated === 0
-        ? "no_usable_history"
-        : evaluated + suppressed < decisions.length
-          ? "partial_history"
-          : "complete",
+    reason: backtestReason(
+      snapshot.complete,
+      evaluated,
+      evaluated + suppressed < decisions.length,
+    ),
     range: { firstDecisionAt: snapshot.firstDecisionAt, lastDecisionAt: end },
     coverage: {
       totalDecisions: decisions.length,

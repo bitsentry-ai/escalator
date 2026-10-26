@@ -19,6 +19,7 @@ import {
   type ResponderId,
 } from "../../contracts/index.js";
 import { resolveSchedule, isWorkingAt } from "../schedule/resolve.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 /** Private evidence read in one host transaction. No contact secret is returned to the client. */
 export interface DeploymentCoverageSnapshot {
   /** False for any bounded query overflow or missing evidence batch. */
@@ -34,7 +35,7 @@ function canonical(value: unknown): unknown {
   if (value && typeof value === "object")
     return Object.fromEntries(
       Object.entries(value)
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .sort(([a], [b]) => compareCodeUnits(a, b))
         .map(([key, item]) => [key, canonical(item)]),
     );
   return value;
@@ -42,7 +43,7 @@ function canonical(value: unknown): unknown {
 function ordered<T extends { id: string }>(rows: T[]): T[] {
   if (new Set(rows.map((row) => row.id)).size !== rows.length)
     throw new Error("Duplicate coverage evidence");
-  return [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return [...rows].sort((a, b) => compareCodeUnits(a.id, b.id));
 }
 /** Declared availability is not proof that a responder is awake or a channel will deliver. */
 export function validateDeploymentCoverageSnapshot(

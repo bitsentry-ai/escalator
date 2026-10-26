@@ -2,6 +2,11 @@ import type { WorkspaceId } from "../../contracts/identity.js";
 import { heartbeatPingSchema } from "../../contracts/heartbeat.js";
 import type { HeartbeatRepository } from "./heartbeat-ports.js";
 import { HeartbeatIntake, HeartbeatIngressError } from "./heartbeat-intake.js";
+function heartbeatErrorStatus(code: string): 401 | 409 | 400 {
+  if (code === "invalid_token") return 401;
+  if (code === "stale_ping") return 409;
+  return 400;
+}
 export const HEARTBEAT_MAX_BYTES = 2048;
 export interface HeartbeatHttpRequest {
   probeId: string;
@@ -71,12 +76,7 @@ export class HeartbeatHttp {
     } catch (error) {
       if (error instanceof HeartbeatIngressError)
         return {
-          status:
-            error.code === "invalid_token"
-              ? 401
-              : error.code === "stale_ping"
-                ? 409
-                : 400,
+          status: heartbeatErrorStatus(error.code),
           body: { error: error.code },
         };
       return { status: 503, body: { error: "unavailable" } };
