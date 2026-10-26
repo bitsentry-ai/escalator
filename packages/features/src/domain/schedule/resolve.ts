@@ -38,18 +38,16 @@ function boundary(rotation: Rotation, index: number): Temporal.Instant {
     })
     .toInstant();
 }
-/** Validation is also used before publishing an immutable schedule revision. */
-export function validateSchedule(value: unknown): Schedule {
-  const schedule = scheduleSchema.parse(value);
-  const rotations = new Set<string>();
-  const overrides = new Set<string>();
-  for (const rotation of schedule.rotations) {
+/** Rotation ids and each rotation's responders are unique, and every rotation starts before its end. */
+function assertRotations(rotations: readonly Rotation[]): void {
+  const ids = new Set<string>();
+  for (const rotation of rotations) {
     if (
-      rotations.has(rotation.id) ||
+      ids.has(rotation.id) ||
       new Set(rotation.responders).size !== rotation.responders.length
     )
       throw new ScheduleError("invalid_schedule");
-    rotations.add(rotation.id);
+    ids.add(rotation.id);
     try {
       const start = boundary(rotation, 0);
       if (
@@ -61,11 +59,15 @@ export function validateSchedule(value: unknown): Schedule {
       throw new ScheduleError("invalid_schedule");
     }
   }
-  for (const override of schedule.overrides) {
-    if (overrides.has(override.id)) throw new ScheduleError("invalid_schedule");
-    overrides.add(override.id);
+}
+/** Override ids are unique, and approved overrides for different responders never overlap. */
+function assertOverrides(overrides: Schedule["overrides"]): void {
+  const ids = new Set<string>();
+  for (const override of overrides) {
+    if (ids.has(override.id)) throw new ScheduleError("invalid_schedule");
+    ids.add(override.id);
   }
-  const approved = schedule.overrides.filter((entry) => entry.approved);
+  const approved = overrides.filter((entry) => entry.approved);
   for (let i = 0; i < approved.length; i++) {
     const a = approved[i];
     for (const b of approved.slice(i + 1))
@@ -76,6 +78,12 @@ export function validateSchedule(value: unknown): Schedule {
       )
         throw new ScheduleError("conflicting_override");
   }
+}
+/** Validation is also used before publishing an immutable schedule revision. */
+export function validateSchedule(value: unknown): Schedule {
+  const schedule = scheduleSchema.parse(value);
+  assertRotations(schedule.rotations);
+  assertOverrides(schedule.overrides);
   return schedule;
 }
 function rotationAt(
@@ -157,6 +165,39 @@ export function resolveSchedule(
 ): ScheduleAssignment | null {
   return resolveValidated(validateSchedule(value), instant(at));
 }
+/** The rotation's shifts from about two before `start` until `end`, cut at its end date; at most 40. */
+function rotationShifts(
+  rotation: Rotation,
+  start: Temporal.Instant,
+  end: Temporal.Instant,
+): ScheduleAssignment[] {
+  const shifts: ScheduleAssignment[] = [];
+  const until = rotation.until ? instant(rotation.until) : undefined;
+  const days = anchor(rotation)
+    .toPlainDate()
+    .until(start.toZonedDateTimeISO(rotation.timeZone).toPlainDate(), {
+      largestUnit: "day",
+    }).days;
+  let index = Math.max(0, Math.floor(days / rotation.shiftDays) - 2);
+  for (let count = 0; count < 40; count++, index++) {
+    const left = boundary(rotation, index);
+    if (
+      Temporal.Instant.compare(left, end) >= 0 ||
+      (until && Temporal.Instant.compare(left, until) >= 0)
+    )
+      break;
+    let right = boundary(rotation, index + 1);
+    if (until && Temporal.Instant.compare(right, until) > 0) right = until;
+    shifts.push({
+      responderId: rotation.responders[index % rotation.responders.length],
+      source: "rotation",
+      sourceId: rotation.id,
+      startsAt: iso(left),
+      endsAt: iso(right),
+    });
+  }
+  return shifts;
+}
 /** A bounded exact-boundary sweep; gaps are explicit, never inferred from sampling. */
 export function previewSchedule(
   value: unknown,
@@ -208,39 +249,9 @@ export function previewSchedule(
         },
         101,
       );
-  for (const rotation of schedule.rotations) {
-    const days = anchor(rotation)
-      .toPlainDate()
-      .until(start.toZonedDateTimeISO(rotation.timeZone).toPlainDate(), {
-        largestUnit: "day",
-      }).days;
-    let index = Math.max(0, Math.floor(days / rotation.shiftDays) - 2);
-    for (let count = 0; count < 40; count++, index++) {
-      const left = boundary(rotation, index);
-      if (
-        Temporal.Instant.compare(left, end) >= 0 ||
-        (rotation.until &&
-          Temporal.Instant.compare(left, instant(rotation.until)) >= 0)
-      )
-        break;
-      let right = boundary(rotation, index + 1);
-      if (
-        rotation.until &&
-        Temporal.Instant.compare(right, instant(rotation.until)) > 0
-      )
-        right = instant(rotation.until);
-      add(
-        {
-          responderId: rotation.responders[index % rotation.responders.length],
-          source: "rotation",
-          sourceId: rotation.id,
-          startsAt: iso(left),
-          endsAt: iso(right),
-        },
-        rotation.priority,
-      );
-    }
-  }
+  for (const rotation of schedule.rotations)
+    for (const shift of rotationShifts(rotation, start, end))
+      add(shift, rotation.priority);
   const sorted = [...events.keys()].sort((a, b) => a - b);
   if (sorted.length > 2000) throw new ScheduleError("preview_limit");
   const active = new Map<number, Candidate>();

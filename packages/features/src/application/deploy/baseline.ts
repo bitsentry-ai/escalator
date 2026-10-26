@@ -31,6 +31,29 @@ export interface BaselineTransaction extends DeploymentTransaction {
     ): Promise<DeploymentBaseline | undefined>;
   };
 }
+/** A captured stream's evidence covers exactly the baseline window, with configuration known at capture. */
+function assertBaselineStream(
+  stream: DeploymentBaseline["streams"][number],
+  workspaceId: string,
+  start: number,
+  captured: number,
+): void {
+  const evidence = stream.evidence;
+  if (evidence.workspaceId !== workspaceId || evidence.streamId !== stream.id)
+    throw new PersistenceError("scope_violation");
+  if (
+    Date.parse(evidence.startAt) !== start - deploymentBaselineSeconds * 1000 ||
+    Date.parse(evidence.endAt) !== start ||
+    Date.parse(evidence.visibleAt) !== captured
+  )
+    throw new RangeError("Baseline evidence window differs");
+  for (const segment of evidence.segments)
+    if (
+      segment.version > stream.configurationVersion ||
+      (segment.recordedAt !== null && Date.parse(segment.recordedAt) > captured)
+    )
+      throw new RangeError("Baseline contains unavailable configuration");
+}
 export function validateDeploymentBaseline(
   raw: unknown,
   rawEntry: DeploymentEntry,
@@ -55,25 +78,7 @@ export function validateDeploymentBaseline(
     throw new RangeError("Invalid baseline capture chronology");
   for (const stream of value.streams) {
     const evidence = stream.evidence;
-    if (
-      evidence.workspaceId !== owner.workspaceId ||
-      evidence.streamId !== stream.id
-    )
-      throw new PersistenceError("scope_violation");
-    if (
-      Date.parse(evidence.startAt) !==
-        start - deploymentBaselineSeconds * 1000 ||
-      Date.parse(evidence.endAt) !== start ||
-      Date.parse(evidence.visibleAt) !== captured
-    )
-      throw new RangeError("Baseline evidence window differs");
-    for (const segment of evidence.segments)
-      if (
-        segment.version > stream.configurationVersion ||
-        (segment.recordedAt !== null &&
-          Date.parse(segment.recordedAt) > captured)
-      )
-        throw new RangeError("Baseline contains unavailable configuration");
+    assertBaselineStream(stream, owner.workspaceId, start, captured);
     periodicCoverage({
       workspaceId: evidence.workspaceId,
       streamId: evidence.streamId,

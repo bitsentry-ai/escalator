@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { investigationSettingsSchema } from "../../contracts/investigation-settings.js";
 import {
   hasCapability,
@@ -29,6 +30,55 @@ export class InvestigationSettingsError extends Error {
   }
 }
 /** One validation path for both SQL adapters. The guard poisons caught failed operations. */
+type Settings = z.infer<typeof investigationSettingsSchema>;
+function assertSaveRequest(
+  actor: { workspaceId: string; role: Parameters<typeof hasCapability>[0] },
+  value: Settings,
+  expected: number | null,
+  base: { workspaceId: string; now: string },
+): void {
+  if (actor.workspaceId !== base.workspaceId)
+    throw new PersistenceError("scope_violation");
+  if (!hasCapability(actor.role, "service:manage"))
+    throw new InvestigationSettingsError("forbidden");
+  if (
+    (expected !== null && (!Number.isSafeInteger(expected) || expected < 1)) ||
+    value.profile.revision !== (expected ?? 0) + 1
+  )
+    throw new InvestigationSettingsError("invalid_revision");
+  if (
+    value.updatedAt !== base.now ||
+    (expected === null && value.createdAt !== base.now)
+  )
+    throw new InvestigationSettingsError("invalid_timestamp");
+}
+/** A saved profile keeps its service, environment and creation time. */
+function assertSameIdentity(current: Settings, value: Settings): void {
+  if (
+    current.profile.scope.serviceId !== value.profile.scope.serviceId ||
+    current.profile.scope.environmentId !== value.profile.scope.environmentId ||
+    current.createdAt !== value.createdAt
+  )
+    throw new InvestigationSettingsError("identity_change");
+}
+/**
+ * Disabling a profile must remain possible after a connection or secret has been revoked. Enabling or changing its
+ * configuration always requires fresh metadata authorization.
+ */
+function onlyEnabledChanged(
+  current: Settings | undefined,
+  value: Settings,
+): boolean {
+  return (
+    current !== undefined &&
+    JSON.stringify({
+      ...current,
+      enabled: value.enabled,
+      updatedAt: value.updatedAt,
+      profile: { ...current.profile, revision: value.profile.revision },
+    }) === JSON.stringify(value)
+  );
+}
 export function investigationSettingsTransaction(
   base: FoundationTransaction,
   store: InvestigationSettingsStore,
@@ -68,48 +118,18 @@ export function investigationSettingsTransaction(
           const value = investigationSettingsSchema.parse(input);
           const profile = value.profile;
           scoped(profile.scope);
-          if (actor.workspaceId !== base.workspaceId)
-            throw new PersistenceError("scope_violation");
-          if (!hasCapability(actor.role, "service:manage"))
-            throw new InvestigationSettingsError("forbidden");
-          if (
-            (expected !== null &&
-              (!Number.isSafeInteger(expected) || expected < 1)) ||
-            profile.revision !== (expected ?? 0) + 1
-          )
-            throw new InvestigationSettingsError("invalid_revision");
-          if (
-            value.updatedAt !== base.now ||
-            (expected === null && value.createdAt !== base.now)
-          )
-            throw new InvestigationSettingsError("invalid_timestamp");
+          assertSaveRequest(actor, value, expected, base);
           if (!(await store.lockScope(profile.scope)))
             throw new InvestigationSettingsError("not_found");
           const current = await store.get(profile.id);
           if ((current?.profile.revision ?? null) !== expected) return false;
           if (current) {
             scoped(current.profile.scope);
-            if (
-              current.profile.scope.serviceId !== profile.scope.serviceId ||
-              current.profile.scope.environmentId !==
-                profile.scope.environmentId ||
-              current.createdAt !== value.createdAt
-            )
-              throw new InvestigationSettingsError("identity_change");
+            assertSameIdentity(current, value);
           }
           const selected = await store.selected(profile.scope);
           if (selected && selected.profile.id !== profile.id) return false;
-          // Disabling a profile must remain possible after a connection/secret has been revoked.
-          // Enabling or changing its configuration always requires fresh metadata authorization.
-          const unchanged =
-            current &&
-            JSON.stringify({
-              ...current,
-              enabled: value.enabled,
-              updatedAt: value.updatedAt,
-              profile: { ...current.profile, revision: profile.revision },
-            }) === JSON.stringify(value);
-          if (value.enabled || !unchanged) {
+          if (value.enabled || !onlyEnabledChanged(current, value)) {
             if (
               !(await store.authorizeSources(
                 actor,

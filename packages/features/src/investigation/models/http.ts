@@ -46,6 +46,59 @@ export interface ModelHttpLimits {
   responseBytes: number;
 }
 /** One approved endpoint, no redirects/proxy, bounded non-streaming JSON, pinned DNS. */
+/** Only a JSON POST with a string body within the request limit; returns that body. */
+function assertModelRequest(
+  input: Parameters<typeof globalThis.fetch>[0],
+  init: RequestInit | undefined,
+  maxRequest: number,
+): string {
+  if (
+    !(typeof input === "string" || input instanceof URL) ||
+    init?.method !== "POST" ||
+    typeof init.body !== "string" ||
+    Buffer.byteLength(init.body) > maxRequest
+  )
+    throw new ModelTransportError("invalid_configuration");
+  return init.body;
+}
+/** Allowed, printable, bounded JSON request headers, with compression disabled. */
+function modelHeaders(init: HeadersInit | undefined): Record<string, string> {
+  let inputHeaders: Headers;
+  try {
+    inputHeaders = new Headers(init);
+  } catch {
+    throw new ModelTransportError("invalid_configuration");
+  }
+  const headers: Record<string, string> = {};
+  let headerBytes = 0;
+  for (const [key, value] of inputHeaders) {
+    headerBytes += key.length + value.length;
+    if (
+      !allowedHeaders.has(key) ||
+      /[^\x20-\x7e]/.test(value) ||
+      value.length > 8192 ||
+      headerBytes > 16384
+    )
+      throw new ModelTransportError("invalid_configuration");
+    headers[key] = value;
+  }
+  if (!/^application\/json(?:\s*;|$)/i.test(headers["content-type"] ?? ""))
+    throw new ModelTransportError("invalid_configuration");
+  headers["accept-encoding"] = "identity";
+  return headers;
+}
+function modelTransportError(
+  error: unknown,
+  cancelled: boolean,
+  timedOut: boolean,
+): ModelTransportError {
+  if (cancelled) return new ModelTransportError("cancelled");
+  if (timedOut) return new ModelTransportError("timeout");
+  if (error instanceof ModelTransportError) return error;
+  if (error instanceof ModelDestinationError)
+    return new ModelTransportError("destination_denied");
+  return new ModelTransportError("network_error");
+}
 export class BoundedModelHttp {
   constructor(
     private readonly policy: ModelDestinationPolicy,
@@ -94,55 +147,15 @@ export class BoundedModelHttp {
       }, timeout);
       try {
         controller.signal.throwIfAborted();
-        if (
-          !(typeof input === "string" || input instanceof URL) ||
-          init?.method !== "POST" ||
-          typeof init.body !== "string" ||
-          Buffer.byteLength(init.body) > maxRequest
-        )
-          throw new ModelTransportError("invalid_configuration");
+        const body = assertModelRequest(input, init, maxRequest);
         const target = this.policy.request(String(input), base, location);
-        const headers: Record<string, string> = {};
-        let headerBytes = 0;
-        let inputHeaders: Headers;
-        try {
-          inputHeaders = new Headers(init.headers);
-        } catch {
-          throw new ModelTransportError("invalid_configuration");
-        }
-        for (const [key, value] of inputHeaders) {
-          headerBytes += key.length + value.length;
-          if (
-            !allowedHeaders.has(key) ||
-            /[^\x20-\x7e]/.test(value) ||
-            value.length > 8192 ||
-            headerBytes > 16384
-          )
-            throw new ModelTransportError("invalid_configuration");
-          headers[key] = value;
-        }
-        if (
-          !/^application\/json(?:\s*;|$)/i.test(headers["content-type"] ?? "")
-        )
-          throw new ModelTransportError("invalid_configuration");
-        headers["accept-encoding"] = "identity";
-        const hostname = target.hostname.replace(/^\[|\]$/g, "");
-        const family = isIP(hostname);
-        const peers = family
-          ? [{ address: hostname, family }]
-          : await this.abortable(this.resolve(hostname), controller.signal);
-        if (
-          !peers.length ||
-          peers.length > 64 ||
-          peers.some(
-            (peer) =>
-              isIP(peer.address) !== peer.family ||
-              !this.policy.address(peer.address, location),
-          )
-        )
-          throw new ModelDestinationError();
+        const headers = modelHeaders(init?.headers);
+        const peer = await this.resolvePeer(
+          target,
+          location,
+          controller.signal,
+        );
         controller.signal.throwIfAborted();
-        const peer = peers[0];
         const options: RequestOptions & {
           rejectUnauthorized: boolean;
           autoSelectFamily: false;
@@ -159,25 +172,46 @@ export class BoundedModelHttp {
             callback(null, peer.address, peer.family),
         };
         const result = await this.abortable(
-          this.send(target, options, init.body, maxResponse),
+          this.send(target, options, body, maxResponse),
           controller.signal,
         );
         controller.signal.throwIfAborted();
         return result;
       } catch (error) {
-        if (signals.some((signal) => signal.aborted))
-          throw new ModelTransportError("cancelled");
-        if (timedOut) throw new ModelTransportError("timeout");
-        if (error instanceof ModelTransportError) throw error;
-        if (error instanceof ModelDestinationError)
-          throw new ModelTransportError("destination_denied");
-        throw new ModelTransportError("network_error");
+        throw modelTransportError(
+          error,
+          signals.some((signal) => signal.aborted),
+          timedOut,
+        );
       } finally {
         clearTimeout(timer);
         for (const signal of signals)
           signal.removeEventListener("abort", abort);
       }
     };
+  }
+  /** Resolves the endpoint host and admits it only when every address passes the location's policy. */
+  private async resolvePeer(
+    target: URL,
+    location: ModelLocation,
+    signal: AbortSignal,
+  ): Promise<Address> {
+    const hostname = target.hostname.replace(/^\[|\]$/g, "");
+    const family = isIP(hostname);
+    const peers = family
+      ? [{ address: hostname, family }]
+      : await this.abortable(this.resolve(hostname), signal);
+    if (
+      !peers.length ||
+      peers.length > 64 ||
+      peers.some(
+        (peer) =>
+          isIP(peer.address) !== peer.family ||
+          !this.policy.address(peer.address, location),
+      )
+    )
+      throw new ModelDestinationError();
+    return peers[0];
   }
   private abortable<T>(
     promise: PromiseLike<T>,

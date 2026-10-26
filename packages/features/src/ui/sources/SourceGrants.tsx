@@ -8,6 +8,23 @@ import type { SourcesClient } from "../sources-client.js";
 import type { ProbePageInput } from "../probes-client.js";
 import { useIncidentCollection as useCollection } from "../incidents/useIncidentCollection.js";
 import { styles } from "../incidents/styles.js";
+/** A provider-signed source gets a receiver id; any other source gets a bearer token. */
+async function issueGrant(
+  client: SourcesClient,
+  source: SignalSource,
+  input: Parameters<SourcesClient["issueToken"]>[0],
+): Promise<{ value: string; expiresAt: string; receiver: boolean }> {
+  if (source.intake && usesProviderSignature(source.intake)) {
+    const result = await client.issueReceiver(input);
+    return {
+      value: result.receiverId,
+      expiresAt: result.expiresAt,
+      receiver: true,
+    };
+  }
+  const result = await client.issueToken(input);
+  return { value: result.token, expiresAt: result.expiresAt, receiver: false };
+}
 /** Mounted only for administrators. Issued values live only in this component's memory. */
 export function SourceGrants({
   source,
@@ -57,23 +74,8 @@ export function SourceGrants({
           sourceId: source.id,
           ttlSeconds: Number(days) * 86400,
         });
-        if (source.intake && usesProviderSignature(source.intake)) {
-          const result = await client.issueReceiver(input);
-          if (current === generation.current)
-            setIssued({
-              value: result.receiverId,
-              expiresAt: result.expiresAt,
-              receiver: true,
-            });
-        } else {
-          const result = await client.issueToken(input);
-          if (current === generation.current)
-            setIssued({
-              value: result.token,
-              expiresAt: result.expiresAt,
-              receiver: false,
-            });
-        }
+        const value = await issueGrant(client, source, input);
+        if (current === generation.current) setIssued(value);
       }
       if (current === generation.current) grants.refresh();
     } catch {
