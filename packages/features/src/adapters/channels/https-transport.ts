@@ -68,7 +68,7 @@ export class PublicHttpsChannelTransport implements ChannelHttpTransport {
       )
         throw failure();
       controller.signal.throwIfAborted();
-      const peer = addresses[0]!;
+      const peer = addresses[0];
       const options: RequestOptions & { autoSelectFamily: false } = {
         method,
         headers,

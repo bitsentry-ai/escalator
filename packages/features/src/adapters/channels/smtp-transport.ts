@@ -59,24 +59,25 @@ export class PublicSmtpTransport implements EmailTransport {
       )
         throw failure();
       controller.signal.throwIfAborted();
-      const address = addresses[0]!;
-      peer = this.socket({
+      const address = addresses[0];
+      const socket = this.socket({
         host: address.address,
         port: 465,
         servername: c.host,
         rejectUnauthorized: true,
         minVersion: "TLSv1.2",
       });
+      peer = socket;
       // Always consume socket errors; never emit provider details to logs.
-      peer.on("error", () => {
+      socket.on("error", () => {
         /* Error details deliberately discarded. */
       });
       const connected = new Promise<void>((resolve, reject) => {
-        peer!.once("secureConnect", () =>
-          peer!.authorized ? resolve() : reject(failure()),
+        socket.once("secureConnect", () =>
+          socket.authorized ? resolve() : reject(failure()),
         );
-        peer!.once("error", () => reject(failure()));
-        peer!.once("close", () => reject(failure()));
+        socket.once("error", () => reject(failure()));
+        socket.once("close", () => reject(failure()));
       });
       await this.bounded(connected, controller.signal);
       controller.signal.throwIfAborted();
@@ -85,7 +86,7 @@ export class PublicSmtpTransport implements EmailTransport {
         port: 465,
         secure: true,
         getSocket: (_options, callback) =>
-          callback(null, { connection: peer!, secured: true }),
+          callback(null, { connection: socket, secured: true }),
         auth: { type: "login", user: c.username, pass: c.password },
         forceAuth: true,
         name: "escalator.invalid",

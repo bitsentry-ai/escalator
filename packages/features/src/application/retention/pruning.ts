@@ -162,7 +162,7 @@ export async function pruneReplayInTransaction(
     firstRemaining >= 0
       ? firstRemaining === 0
         ? after
-        : snapshot.candidates[firstRemaining - 1]!
+        : snapshot.candidates[firstRemaining - 1]
       : previous;
   // Once pressure is relieved and this ordered page reaches the age cutoff,
   // later records cannot be eligible in this sweep. Avoid walking recent history.

@@ -15,6 +15,8 @@ import type { PagingRepository, PagingTransaction } from "./persistence.js";
 import { acknowledgePageInTransaction } from "./acknowledge.js";
 import { cancelDeliveryWork } from "./cancel.js";
 import { pagingWorkId } from "./work-ids.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
+import type { WorkspaceId } from "../../contracts/identity.js";
 const common = {
   pageId: opaqueIdSchema,
   deliveryId: opaqueIdSchema,
@@ -35,6 +37,30 @@ const cancelPayload = z.strictObject({
   ...common,
   attemptId: opaqueIdSchema.optional(),
 });
+/** The job id a claim must carry; a receipt job without an attempt matches no claim. */
+function expectedClaimId(
+  workspaceId: WorkspaceId,
+  mode: "receipt" | "cancel",
+  payload: { deliveryId: string; attemptId?: string },
+): string | undefined {
+  if (mode === "receipt")
+    return payload.attemptId
+      ? pagingWorkId(
+          workspaceId,
+          "receipt",
+          payload.deliveryId,
+          payload.attemptId,
+        )
+      : undefined;
+  if (payload.attemptId)
+    return pagingWorkId(
+      workspaceId,
+      "cancel-after",
+      payload.deliveryId,
+      payload.attemptId,
+    );
+  return pagingWorkId(workspaceId, "cancel", payload.deliveryId);
+}
 interface Prepared {
   lease: WorkLease;
   delivery: RecipientDelivery;
@@ -60,22 +86,7 @@ export class PagingProviderJobs {
       if (!claimed) return { state: "stale" };
       const payload = schema.parse(claimed.payload);
       const delivery = await tx.deliveries.get(payload.deliveryId);
-      const expected =
-        mode === "receipt"
-          ? pagingWorkId(
-              tx.workspaceId,
-              "receipt",
-              payload.deliveryId,
-              payload.attemptId!,
-            )
-          : payload.attemptId
-            ? pagingWorkId(
-                tx.workspaceId,
-                "cancel-after",
-                payload.deliveryId,
-                payload.attemptId,
-              )
-            : pagingWorkId(tx.workspaceId, "cancel", payload.deliveryId);
+      const expected = expectedClaimId(tx.workspaceId, mode, payload);
       if (
         !page ||
         payload.pageId !== page.id ||
@@ -131,11 +142,12 @@ export class PagingProviderJobs {
     pageId: string,
     delivery: RecipientDelivery,
   ): Promise<boolean> {
-    const page = (await tx.pages.get(pageId))!;
+    const page = expectDefined(await tx.pages.get(pageId), "page");
     if (page.state === "acknowledged" || page.state === "resolved") return true;
     const step = await tx.steps.get(delivery.stepId);
+    if (!step) throw new Error("Invalid delivery deadline");
     const steps = escalationSteps(page.policy, page.createdAt);
-    const index = steps.findIndex((s) => s.id === step?.logicalStepId);
+    const index = steps.findIndex((s) => s.id === step.logicalStepId);
     if (index < 0) throw new Error("Invalid delivery deadline");
     const next = steps[index + 1]?.dueAt;
     if (next !== undefined && Date.parse(tx.now) >= Date.parse(next))
@@ -146,7 +158,7 @@ export class PagingProviderJobs {
       const batch = await tx.steps.forPage(page.id, { limit: 100, after });
       if (
         batch.items.some(
-          (entry) => Date.parse(entry.dueAt) > Date.parse(step!.dueAt),
+          (entry) => Date.parse(entry.dueAt) > Date.parse(step.dueAt),
         )
       )
         return true;
@@ -179,10 +191,13 @@ export class PagingProviderJobs {
   ): Promise<WorkHandlerResult> {
     const prepared = await this.prepare(lease, "receipt");
     if (!("delivery" in prepared)) return prepared;
+    // A prepared receipt job always carries its receipt and polling deadline.
+    const receiptId = expectDefined(prepared.receiptId, "receipt id");
+    const pollUntil = expectDefined(prepared.pollUntil, "receipt deadline");
     let result: ChannelReceiptResult;
     try {
       result = await this.channel.inspect(
-        prepared.receiptId!,
+        receiptId,
         this.use(prepared, signal),
       );
     } catch {
@@ -196,7 +211,7 @@ export class PagingProviderJobs {
         await cancelDeliveryWork(tx, [prepared.delivery]);
         return { state: "stale" };
       }
-      if (Date.parse(tx.now) >= Date.parse(prepared.pollUntil!))
+      if (Date.parse(tx.now) >= Date.parse(pollUntil))
         return { state: "completed" };
       if (result.state === "acknowledged") {
         utcTimestampSchema.parse(result.acknowledgedAt);
@@ -215,7 +230,7 @@ export class PagingProviderJobs {
         state: "wait",
         delayMs: Math.max(
           1,
-          Math.min(5000, Date.parse(prepared.pollUntil!) - Date.parse(tx.now)),
+          Math.min(5000, Date.parse(pollUntil) - Date.parse(tx.now)),
         ),
       };
     });

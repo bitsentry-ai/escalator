@@ -79,7 +79,7 @@ export class GithubDiffHttp {
       )
         throw new GithubDiffError("unreachable");
       controller.signal.throwIfAborted();
-      const peer = addresses[0]!;
+      const peer = addresses[0];
       const headers: Record<string, string> = {
         accept: "application/vnd.github+json",
         "accept-encoding": "identity",

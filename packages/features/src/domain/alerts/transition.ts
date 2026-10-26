@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SignalEvent, SignalSource } from "../../contracts/index.js";
 import { alertStateSchema, type AlertState } from "../../contracts/alerts.js";
 import { utcTimestampSchema } from "../../contracts/entities.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 const hash = (parts: unknown[]) =>
   createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 type AlertIdentityFields = Pick<
@@ -137,7 +138,8 @@ export function incidentRecoveryDeadline(
     (latest, alert) =>
       Math.max(
         latest,
-        Date.parse(alert.recoveredAt!) + alert.recoveryHoldSeconds * 1000,
+        Date.parse(expectDefined(alert.recoveredAt, "recovery time")) +
+          alert.recoveryHoldSeconds * 1000,
       ),
     0,
   );

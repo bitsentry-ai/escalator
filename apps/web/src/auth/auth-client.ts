@@ -28,18 +28,20 @@ export class LocalAuthClient {
     mutation = false,
   ): Promise<T> {
     if (mutation && !this.csrf) await this.session();
+    const headers: Record<string, string> = {};
+    if (mutation) {
+      // Without a session token the server rejects the mutation anyway.
+      if (!this.csrf) throw new Error("Authentication request failed");
+      headers["Content-Type"] = "application/json";
+      headers["x-escalator-csrf"] = this.csrf;
+    }
     const response = await this.fetcher(
       `/trpc/${name}${!mutation && input !== undefined ? `?input=${encodeURIComponent(JSON.stringify(input))}` : ""}`,
       {
         method: mutation ? "POST" : "GET",
         credentials: "same-origin",
         cache: "no-store",
-        headers: mutation
-          ? {
-              "Content-Type": "application/json",
-              "x-escalator-csrf": this.csrf!,
-            }
-          : {},
+        headers,
         body: mutation ? JSON.stringify(input ?? null) : undefined,
       },
     );

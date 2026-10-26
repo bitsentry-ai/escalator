@@ -5,6 +5,7 @@ import {
   type DeploymentReceipt,
   type DeploymentPreflightResult,
 } from "../../contracts/index.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 import { DeploymentAccessError, deploymentTokenDigest } from "./access.js";
 import { DeploymentCommands, DeploymentCommandError } from "./commands.js";
 import {
@@ -37,6 +38,11 @@ export interface DeploymentHttpResponse {
     | { error: ErrorCode };
 }
 /** Bounded machine ingress; hosts apply the same byte limit while reading the stream. */
+function statusFor(state: string): 200 | 202 | 409 {
+  if (state === "rejected") return 409;
+  if (state === "accepted") return 202;
+  return 200;
+}
 export class DeploymentHttp {
   private active = 0;
   constructor(
@@ -110,16 +116,14 @@ export class DeploymentHttp {
       const result =
         action === "start"
           ? await this.commands.start(match[1], key.data, body)
-          : await this.commands.finish(match[1], id!, key.data, body);
-      return {
-        status:
-          result.state === "rejected"
-            ? 409
-            : result.state === "accepted"
-              ? 202
-              : 200,
-        body: result,
-      };
+          : await this.commands.finish(
+              match[1],
+              // Validated as an opaque id above.
+              expectDefined(id, "deployment id"),
+              key.data,
+              body,
+            );
+      return { status: statusFor(result.state), body: result };
     } catch (error) {
       if (error instanceof DeploymentAccessError)
         return { status: 401, body: { error: "invalid_token" } };

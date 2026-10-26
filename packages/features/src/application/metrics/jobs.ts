@@ -189,6 +189,7 @@ export class MetricPollingJobs {
         (!observation || observation.samples.length !== 1)
       )
         throw new Error("Invalid metric observation");
+      const sampled = reason === "sampled" ? observation : undefined;
       const record = await tx.metrics.observe({
         id: lease.id,
         workspaceId: tx.workspaceId,
@@ -197,8 +198,8 @@ export class MetricPollingJobs {
         observedAt: ready.point,
         receivedAt: tx.now,
         reason,
-        sample: reason === "sampled" ? observation!.samples[0] : null,
-        provenance: reason === "sampled" ? observation!.provenance : null,
+        sample: sampled ? sampled.samples[0] : null,
+        provenance: sampled ? sampled.provenance : null,
       });
       const previousActive =
         (await tx.metrics.schedule(monitor.id))?.active ?? false;

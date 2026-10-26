@@ -130,7 +130,7 @@ export function summarizeRuleBacktest(
     while (low < high) {
       const mid = (low + high) >>> 1;
       const order =
-        rows[mid] === null ? 1 : compareUtcTimestamps(rows[mid]!, value);
+        rows[mid] === null ? 1 : compareUtcTimestamps(rows[mid], value);
       if (order < 0 || (inclusive && order === 0)) low = mid + 1;
       else high = mid;
     }
@@ -145,14 +145,14 @@ export function summarizeRuleBacktest(
     if (first >= last || compareUtcTimestamps(label.startedAt, end) > 0)
       continue;
     matched.add(label.id);
-    additions[first] = additions[first]! + 1;
-    additions[last] = additions[last]! - 1;
+    additions[first] = additions[first] + 1;
+    additions[last] = additions[last] - 1;
     if (last - first === 1) candidate.set(first, label);
   }
   let ambiguous = 0,
     overlaps = 0;
   for (const [i, e] of episodes.entries()) {
-    overlaps += additions[i]!;
+    overlaps += additions[i];
     const label = candidate.get(i);
     if (overlaps === 1 && label) {
       e.outcome = label.outcome;
@@ -168,7 +168,7 @@ export function summarizeRuleBacktest(
   const decisionTimes = decisions.map((d) => d.state.lastDecisionAt);
   const unavailable = [0];
   for (const d of decisions)
-    unavailable.push(unavailable.at(-1)! + (usable(d) ? 0 : 1));
+    unavailable.push(unavailable[unavailable.length - 1] + (usable(d) ? 0 : 1));
   const missed: string[] = [],
     unevaluable: string[] = [];
   for (const label of reviewed) {

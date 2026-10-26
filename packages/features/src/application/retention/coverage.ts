@@ -10,6 +10,12 @@ import {
   type PeriodicCoverageReport,
   type EventCoverageReport,
 } from "../../contracts/replay-coverage.js";
+/** Orders ids by UTF-16 code units, the way `<` and `>` compare strings. */
+function compareIds(left: string, right: string): number {
+  if (left > right) return 1;
+  if (left < right) return -1;
+  return 0;
+}
 const iso = (at: number) => new Date(at).toISOString();
 /** Half-open UTC windows. Coverage describes retained evidence, never service health.
  * visibleAt is a snapshot cutoff, not a substitute for per-decision replay filtering.
@@ -126,15 +132,15 @@ function computePeriodicCoverage(
       const receipts = samples.get(`${segment.version}:${slot}`) ?? [];
       const known = receipts
         .filter(
-          (row) =>
+          (row): row is (typeof receipts)[number] & { receivedAt: string } =>
             row.receivedAt !== null &&
             compareUtcTimestamps(row.receivedAt, input.visibleAt) <= 0 &&
             compareUtcTimestamps(row.observedAt, input.visibleAt) <= 0,
         )
         .sort(
           (a, b) =>
-            compareUtcTimestamps(b.receivedAt!, a.receivedAt!) ||
-            (b.id > a.id ? 1 : b.id < a.id ? -1 : 0),
+            compareUtcTimestamps(b.receivedAt, a.receivedAt) ||
+            compareIds(b.id, a.id),
         );
       if (known[0]?.usable) {
         availableSlots++;

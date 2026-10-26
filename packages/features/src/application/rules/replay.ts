@@ -41,7 +41,7 @@ function visibleInterval<T extends Interval>(
   while (low < high) {
     const middle = (low + high) >>> 1;
     if (
-      compareUtcTimestamps(rows[middle]!.startAt, new Date(at).toISOString()) <=
+      compareUtcTimestamps(rows[middle].startAt, new Date(at).toISOString()) <=
       0
     )
       low = middle + 1;
@@ -64,7 +64,7 @@ function after(
     high = samples.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (ruleSampleTime(rule, samples[middle]!) <= at) low = middle + 1;
+    if (ruleSampleTime(rule, samples[middle]) <= at) low = middle + 1;
     else high = middle;
   }
   return low;

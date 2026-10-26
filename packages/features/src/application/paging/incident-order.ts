@@ -39,6 +39,6 @@ export function parseIncidentCursor(cursor: string): IncidentOrderKey {
   return {
     resolved: match[1] === "r",
     openedAt: Number(match[2]),
-    id: match[3]!,
+    id: match[3],
   };
 }

@@ -20,7 +20,9 @@ export function backtestAvailability(
         : (d.verdict?.reason ?? "unknown");
     const at = d.state.lastDecisionAt;
     if (reason === priorReason) {
-      const last = usable ? available.at(-1)! : gaps.at(-1)!.range;
+      const last = usable
+        ? available[available.length - 1]
+        : gaps[gaps.length - 1].range;
       last.lastDecisionAt = at;
       last.decisions++;
     } else {

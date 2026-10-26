@@ -20,6 +20,7 @@ import {
 import { PersistenceError } from "../ports/persistence.js";
 import type { DeploymentRepository, DeploymentTransaction } from "./ports.js";
 import { deploymentTokenDigest } from "./access.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 export class DeploymentManagementError extends Error {
   constructor(
     readonly code: "forbidden" | "conflict" | "disabled" | "invalid_responder",
@@ -184,7 +185,10 @@ export class DeploymentManagement {
           id: this.newId(),
           workspaceId: actor.workspaceId,
           targetId: target.id,
-          tokenHash: deploymentTokenDigest(token)!,
+          tokenHash: expectDefined(
+            deploymentTokenDigest(token),
+            "token digest",
+          ),
           capabilities: fields.capabilities,
           mappedDeployerId: fields.mappedDeployerId,
           createdAt: at,
