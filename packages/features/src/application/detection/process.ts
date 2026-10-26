@@ -53,59 +53,173 @@ async function receipt(
     metadata: { disposition, incidentId },
   });
 }
+/** A signal observed before a manual resolution stays resolved unless it is a relapse. */
+const stillResolved = (
+  resolvedAt: string,
+  signal: SignalEvent,
+  current: AlertState | undefined,
+) =>
+  Date.parse(signal.observedAt) <= Date.parse(resolvedAt) &&
+  !relapses(current, signal);
+function assertSignalClaim(
+  claimed: { queue: string; kind: string; id: string; payload: unknown },
+  signal: SignalEvent,
+): void {
+  if (
+    claimed.queue !== "job" ||
+    claimed.kind !== "signal.process" ||
+    claimed.id !== `signal.process:${signal.id}` ||
+    payloadSchema.parse(claimed.payload).signalId !== signal.id
+  )
+    throw new Error("Invalid signal processing claim");
+}
+/** Opens a page for an active signal under its enabled escalation policy; undefined when none is bound. */
+async function openSignalIncident(
+  tx: DetectionTransaction,
+  signal: SignalEvent,
+  key: string,
+) {
+  const binding = await tx.detection.binding(
+    signal.serviceId,
+    signal.environmentId,
+  );
+  const policy =
+    binding?.enabled && binding.policyId
+      ? await tx.configuration.policies.get(binding.policyId)
+      : undefined;
+  if (!policy?.enabled || policy.serviceId !== signal.serviceId)
+    return undefined;
+  const id = pagingWorkId(tx.workspaceId, "signal-incident", key, signal.id);
+  await openPageInTransaction(
+    tx,
+    {
+      incident: {
+        id,
+        serviceId: signal.serviceId,
+        environmentId: signal.environmentId,
+        title: signal.title,
+        severity: signal.severity,
+      },
+      policy: policyDefinition(policy),
+    },
+    actor,
+  );
+  const incident = await tx.incidents.get(id);
+  if (!incident) throw new Error("Page creation did not persist its incident");
+  return incident;
+}
+/**
+ * Reads the signal's alert and locks its group and the pages of its incidents. Manual resolution takes the same
+ * page lock, so the alert's incident is re-read after acquiring it.
+ */
+async function lockAlertContext(
+  tx: DetectionTransaction,
+  signal: SignalEvent,
+  source: Parameters<typeof alertGroupKey>[1],
+) {
+  const current = await tx.detection.alert(alertIdentity(signal));
+  let previousIncident = current?.incidentId
+    ? await tx.incidents.get(current.incidentId)
+    : undefined;
+  const key =
+    current?.incidentId && !previousIncident?.resolvedAt
+      ? current.groupKey
+      : alertGroupKey(signal, source);
+  const group = await tx.detection.lockGroup(key);
+  if (current?.incidentId) {
+    await tx.pages.lock(
+      pagingWorkId(tx.workspaceId, "page", current.incidentId),
+    );
+    previousIncident = await tx.incidents.get(current.incidentId);
+    if (!previousIncident) throw new Error("Alert incident is missing");
+  }
+  if (group?.incidentId && group.incidentId !== current?.incidentId)
+    await tx.pages.lock(pagingWorkId(tx.workspaceId, "page", group.incidentId));
+  return { current, previousIncident, key, group };
+}
+/** Writes the next group revision and the alert, schedules recovery for an incident, and records the receipt. */
+async function persistAlertDecision(
+  tx: DetectionTransaction,
+  signal: SignalEvent,
+  key: string,
+  group: AlertGroup | undefined,
+  incident: { id: string } | undefined,
+  alert: AlertState,
+) {
+  const next: AlertGroup = {
+    id: key,
+    workspaceId: tx.workspaceId,
+    serviceId: signal.serviceId,
+    environmentId: signal.environmentId,
+    revision: (group?.revision ?? 0) + 1,
+    incidentId: incident?.id ?? null,
+    recoveryJobId: null,
+  };
+  if (group?.recoveryJobId) await tx.work.cancel("job", [group.recoveryJobId]);
+  if (!(await tx.detection.putGroup(next, group?.revision ?? null)))
+    throw new Error("Locked group revision changed");
+  await tx.detection.putAlert({ ...alert, incidentId: incident?.id ?? null });
+  if (incident)
+    await scheduleRecovery(tx, next, await recoveryDeadline(tx, incident.id));
+  await receipt(
+    tx,
+    signal,
+    alert.active ? "active" : "recovered",
+    incident?.id ?? null,
+  );
+}
+/** Records a manually resolved receipt when the signal does not reopen the resolved incident. */
+async function recordIfStillResolved(
+  tx: DetectionTransaction,
+  signal: SignalEvent,
+  incident: { id: string; resolvedAt?: string | null } | undefined,
+  current: AlertState | undefined,
+): Promise<boolean> {
+  if (
+    !incident?.resolvedAt ||
+    !stillResolved(incident.resolvedAt, signal, current)
+  )
+    return false;
+  await receipt(tx, signal, "manually_resolved", incident.id);
+  return true;
+}
+async function groupIncident(
+  tx: DetectionTransaction,
+  group: AlertGroup | undefined,
+) {
+  if (!group?.incidentId) return undefined;
+  const incident = await tx.incidents.get(group.incidentId);
+  if (!incident) throw new Error("Group incident is missing");
+  return incident;
+}
+async function loadSignal(tx: DetectionTransaction, signalId: string) {
+  const signal = await tx.signals.get(signalId);
+  if (!signal) throw new Error("Signal job references a missing event");
+  const source = await tx.sources.get(signal.sourceId);
+  if (!source) throw new Error("Signal job references a missing source");
+  return { signal, source };
+}
 /** Only persisted events and claimed work may open pages. Receipt and page share the transaction. */
 export class SignalProcessing {
   constructor(private readonly repository: DetectionRepository) {}
   process(lease: WorkLease): Promise<WorkResult> {
     const hint = payloadSchema.parse(lease.payload);
     return this.repository.transaction(lease.workspaceId, async (tx) => {
-      const signal = await tx.signals.get(hint.signalId);
-      if (!signal) throw new Error("Signal job references a missing event");
-      const source = await tx.sources.get(signal.sourceId);
-      if (!source) throw new Error("Signal job references a missing source");
-      let current = await tx.detection.alert(alertIdentity(signal));
-      let previousIncident = current?.incidentId
-        ? await tx.incidents.get(current.incidentId)
-        : undefined;
-      const key =
-        current?.incidentId && !previousIncident?.resolvedAt
-          ? current.groupKey
-          : alertGroupKey(signal, source);
-      let group = await tx.detection.lockGroup(key);
-      // Manual resolution also takes this page lock. Re-read its incident after acquiring it.
-      if (current?.incidentId) {
-        await tx.pages.lock(
-          pagingWorkId(tx.workspaceId, "page", current.incidentId),
-        );
-        previousIncident = await tx.incidents.get(current.incidentId);
-        if (!previousIncident) throw new Error("Alert incident is missing");
-      }
-      if (group?.incidentId && group.incidentId !== current?.incidentId)
-        await tx.pages.lock(
-          pagingWorkId(tx.workspaceId, "page", group.incidentId),
-        );
+      const { signal, source } = await loadSignal(tx, hint.signalId);
+      const locked = await lockAlertContext(tx, signal, source);
+      const { key, previousIncident } = locked;
+      let { current } = locked;
+      const { group } = locked;
       const claimed = await tx.work.lockClaim(lease);
       if (!claimed) return { state: "completed" };
-      if (
-        claimed.queue !== "job" ||
-        claimed.kind !== "signal.process" ||
-        claimed.id !== `signal.process:${signal.id}` ||
-        payloadSchema.parse(claimed.payload).signalId !== signal.id
-      )
-        throw new Error("Invalid signal processing claim");
+      assertSignalClaim(claimed, signal);
       if (await tx.detection.processed(signal.id))
         return { state: "completed" };
-      if (previousIncident?.resolvedAt) {
-        if (
-          Date.parse(signal.observedAt) <=
-            Date.parse(previousIncident.resolvedAt) &&
-          !relapses(current, signal)
-        ) {
-          await receipt(tx, signal, "manually_resolved", previousIncident.id);
-          return { state: "completed" };
-        }
+      if (await recordIfStillResolved(tx, signal, previousIncident, current))
+        return { state: "completed" };
+      // A relapse after resolution starts a new incident for the same alert.
+      if (previousIncident?.resolvedAt)
         current = current ? { ...current, incidentId: null } : undefined;
-      }
       const service = await tx.services.get(signal.serviceId);
       const decision = transitionAlert(
         current,
@@ -121,87 +235,24 @@ export class SignalProcessing {
         throw new Error(
           "Grouping changed during manual resolution; retry with fresh locks",
         );
-      let incident = group?.incidentId
-        ? await tx.incidents.get(group.incidentId)
-        : undefined;
-      if (group?.incidentId && !incident)
-        throw new Error("Group incident is missing");
-      if (incident?.resolvedAt) {
-        if (
-          Date.parse(signal.observedAt) <= Date.parse(incident.resolvedAt) &&
-          !relapses(current, signal)
-        ) {
-          await receipt(tx, signal, "manually_resolved", incident.id);
-          return { state: "completed" };
-        }
-        incident = undefined;
-      }
+      let incident = await groupIncident(tx, group);
+      if (await recordIfStillResolved(tx, signal, incident, current))
+        return { state: "completed" };
+      if (incident?.resolvedAt) incident = undefined;
       if (!incident && decision.alert.active) {
-        const binding = await tx.detection.binding(
-          signal.serviceId,
-          signal.environmentId,
-        );
-        const policy =
-          binding?.enabled && binding.policyId
-            ? await tx.configuration.policies.get(binding.policyId)
-            : undefined;
-        if (!policy?.enabled || policy.serviceId !== signal.serviceId) {
+        incident = await openSignalIncident(tx, signal, key);
+        if (!incident) {
           await receipt(tx, signal, "unbound", null);
           return { state: "completed" };
         }
-        const id = pagingWorkId(
-          tx.workspaceId,
-          "signal-incident",
-          key,
-          signal.id,
-        );
-        await openPageInTransaction(
-          tx,
-          {
-            incident: {
-              id,
-              serviceId: signal.serviceId,
-              environmentId: signal.environmentId,
-              title: signal.title,
-              severity: signal.severity,
-            },
-            policy: policyDefinition(policy),
-          },
-          actor,
-        );
-        incident = await tx.incidents.get(id);
-        if (!incident)
-          throw new Error("Page creation did not persist its incident");
       }
-      const next: AlertGroup = {
-        id: key,
-        workspaceId: tx.workspaceId,
-        serviceId: signal.serviceId,
-        environmentId: signal.environmentId,
-        revision: (group?.revision ?? 0) + 1,
-        incidentId: incident?.id ?? null,
-        recoveryJobId: null,
-      };
-      if (group?.recoveryJobId)
-        await tx.work.cancel("job", [group.recoveryJobId]);
-      if (!(await tx.detection.putGroup(next, group?.revision ?? null)))
-        throw new Error("Locked group revision changed");
-      group = next;
-      await tx.detection.putAlert({
-        ...decision.alert,
-        incidentId: incident?.id ?? null,
-      });
-      if (incident)
-        await scheduleRecovery(
-          tx,
-          group,
-          await recoveryDeadline(tx, incident.id),
-        );
-      await receipt(
+      await persistAlertDecision(
         tx,
         signal,
-        decision.alert.active ? "active" : "recovered",
-        incident?.id ?? null,
+        key,
+        group,
+        incident,
+        decision.alert,
       );
       return { state: "completed" };
     });
