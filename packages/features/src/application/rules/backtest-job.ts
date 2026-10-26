@@ -17,6 +17,57 @@ export const ruleBacktestJobId = (
   scope: WorkLease["workspaceId"],
   runId: string,
 ) => pagingWorkId(scope, "rule-backtest", runId);
+type BacktestTransaction = Parameters<
+  Parameters<RuleBacktestRepository["transaction"]>[1]
+>[0];
+function assertBacktestClaim(
+  workspaceId: WorkLease["workspaceId"],
+  claim: {
+    workspaceId: string;
+    queue: string;
+    kind: string;
+    id: string;
+    payload: unknown;
+  },
+  runId: string,
+): void {
+  const payload = ruleBacktestJobSchema.parse(claim.payload);
+  if (
+    claim.workspaceId !== workspaceId ||
+    claim.queue !== "job" ||
+    claim.kind !== "rules.backtest" ||
+    payload.runId !== runId ||
+    claim.id !== ruleBacktestJobId(workspaceId, payload.runId)
+  )
+    throw new Error("Invalid backtest claim");
+}
+/** Every persisted batch of the run, in order and bound to it, ending at the run's cursor. */
+async function replayDecisions(
+  tx: BacktestTransaction,
+  run: ReturnType<typeof ruleReplayRunSchema.parse>,
+) {
+  const chunks = (await tx.reports.chunks(run.id)).map((x) =>
+    ruleReplayChunkSchema.parse(x),
+  );
+  if (chunks.length !== run.nextBatch)
+    throw new Error("Backtest chunks incomplete");
+  for (const [i, c] of chunks.entries())
+    if (
+      c.workspaceId !== tx.workspaceId ||
+      c.runId !== run.id ||
+      c.snapshotId !== run.snapshotId ||
+      c.batch !== i
+    )
+      throw new Error("Backtest chunk binding mismatch");
+  const decisions = chunks.flatMap((c) => c.decisions);
+  if (
+    decisions.length !== run.decisionCount ||
+    JSON.stringify(decisions.at(-1)?.state) !==
+      JSON.stringify(run.cursor?.state)
+  )
+    throw new Error("Backtest decisions incomplete");
+  return decisions;
+}
 /** Finalization is restartable and has no paging or activation effects. */
 export class RuleBacktestExecution {
   constructor(private readonly repository: RuleBacktestRepository) {}
@@ -27,15 +78,7 @@ export class RuleBacktestExecution {
       const run = raw ? ruleReplayRunSchema.parse(raw) : undefined;
       const claim = await tx.work.lockClaim(lease);
       if (!claim) return { state: "completed" };
-      const payload = ruleBacktestJobSchema.parse(claim.payload);
-      if (
-        claim.workspaceId !== tx.workspaceId ||
-        claim.queue !== "job" ||
-        claim.kind !== "rules.backtest" ||
-        payload.runId !== hint.runId ||
-        claim.id !== ruleBacktestJobId(tx.workspaceId, payload.runId)
-      )
-        throw new Error("Invalid backtest claim");
+      assertBacktestClaim(tx.workspaceId, claim, hint.runId);
       if (!run || run.status !== "completed")
         throw new Error("Replay must complete before reporting");
       if (run.workspaceId !== tx.workspaceId || run.id !== hint.runId)
@@ -61,26 +104,7 @@ export class RuleBacktestExecution {
         stored.inputHash !== run.inputHash
       )
         throw new PersistenceError("scope_violation");
-      const chunks = (await tx.reports.chunks(run.id)).map((x) =>
-        ruleReplayChunkSchema.parse(x),
-      );
-      if (chunks.length !== run.nextBatch)
-        throw new Error("Backtest chunks incomplete");
-      for (const [i, c] of chunks.entries())
-        if (
-          c.workspaceId !== tx.workspaceId ||
-          c.runId !== run.id ||
-          c.snapshotId !== run.snapshotId ||
-          c.batch !== i
-        )
-          throw new Error("Backtest chunk binding mismatch");
-      const decisions = chunks.flatMap((c) => c.decisions);
-      if (
-        decisions.length !== run.decisionCount ||
-        JSON.stringify(decisions.at(-1)?.state) !==
-          JSON.stringify(run.cursor?.state)
-      )
-        throw new Error("Backtest decisions incomplete");
+      const decisions = await replayDecisions(tx, run);
       const labels = (await tx.reports.labels(stored.snapshot)).map((x) =>
         incidentLabelSchema.parse(x),
       );

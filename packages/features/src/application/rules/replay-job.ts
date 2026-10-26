@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { ruleBacktestJobId } from "./backtest-job.js";
 import {
   ruleReplayRunSchema,
@@ -42,6 +43,46 @@ export async function enqueueRuleReplay(
     payload: { runId: row.id, batch: row.nextBatch },
   });
 }
+type ReplayRun = z.infer<typeof ruleReplayRunSchema>;
+function assertReplayClaim(
+  workspaceId: WorkspaceId,
+  claim: { workspaceId: string; queue: string; kind: string; id: string },
+  payload: z.infer<typeof ruleReplayJobSchema>,
+  runId: string,
+): void {
+  if (
+    claim.workspaceId !== workspaceId ||
+    claim.queue !== "job" ||
+    claim.kind !== "rules.replay" ||
+    payload.runId !== runId ||
+    claim.id !== ruleReplayJobId(workspaceId, payload.runId, payload.batch)
+  )
+    throw new Error("Invalid replay claim");
+}
+/** The run's frozen snapshot, captured before the run, with the run's cursor at its recorded decision count. */
+async function runSnapshot(tx: RuleReplayTransaction, row: ReplayRun) {
+  const source = await tx.replay.snapshot(row.snapshotId);
+  if (!source) throw new Error("Replay snapshot unavailable");
+  const stored = storedRuleReplaySnapshotSchema.parse(source);
+  const snapshot = stored.snapshot;
+  if (
+    stored.workspaceId !== tx.workspaceId ||
+    snapshot.snapshotId !== row.snapshotId ||
+    stored.inputHash !== row.inputHash
+  )
+    throw new PersistenceError("scope_violation");
+  if (compareUtcTimestamps(snapshot.snapshotAt, row.createdAt) > 0)
+    throw new Error("Replay snapshot follows run creation");
+  const step = snapshot.version.definition.stepSeconds * 1000;
+  const expectedPrior =
+    Date.parse(snapshot.firstDecisionAt) + (row.decisionCount - 1) * step;
+  if (
+    row.cursor &&
+    Date.parse(row.cursor.state.lastDecisionAt) !== expectedPrior
+  )
+    throw new Error("Replay cursor/count mismatch");
+  return snapshot;
+}
 /** Resumable deterministic computation. Each job advances one bounded batch;
  * lease loss, CAS failure or cancellation cannot commit a partial result. */
 export class RuleReplayExecution {
@@ -56,15 +97,7 @@ export class RuleReplayExecution {
       const claim = await tx.work.lockClaim(lease);
       if (!claim) return { state: "completed" };
       const payload = ruleReplayJobSchema.parse(claim.payload);
-      if (
-        claim.workspaceId !== tx.workspaceId ||
-        claim.queue !== "job" ||
-        claim.kind !== "rules.replay" ||
-        payload.runId !== hint.runId ||
-        claim.id !==
-          ruleReplayJobId(tx.workspaceId, payload.runId, payload.batch)
-      )
-        throw new Error("Invalid replay claim");
+      assertReplayClaim(tx.workspaceId, claim, payload, hint.runId);
       if (
         !row ||
         row.status === "completed" ||
@@ -72,26 +105,7 @@ export class RuleReplayExecution {
         row.nextBatch !== payload.batch
       )
         return { state: "completed" };
-      const source = await tx.replay.snapshot(row.snapshotId);
-      if (!source) throw new Error("Replay snapshot unavailable");
-      const stored = storedRuleReplaySnapshotSchema.parse(source);
-      const snapshot = stored.snapshot;
-      if (
-        stored.workspaceId !== tx.workspaceId ||
-        snapshot.snapshotId !== row.snapshotId ||
-        stored.inputHash !== row.inputHash
-      )
-        throw new PersistenceError("scope_violation");
-      if (compareUtcTimestamps(snapshot.snapshotAt, row.createdAt) > 0)
-        throw new Error("Replay snapshot follows run creation");
-      const step = snapshot.version.definition.stepSeconds * 1000;
-      const expectedPrior =
-        Date.parse(snapshot.firstDecisionAt) + (row.decisionCount - 1) * step;
-      if (
-        row.cursor &&
-        Date.parse(row.cursor.state.lastDecisionAt) !== expectedPrior
-      )
-        throw new Error("Replay cursor/count mismatch");
+      const snapshot = await runSnapshot(tx, row);
       const batch = replayRuleWindows(snapshot, row.cursor, {
         maxDecisions: 60,
         maxSampleVisits: 100000,

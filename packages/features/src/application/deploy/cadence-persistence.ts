@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import {
   opaqueIdSchema,
   watchCadenceLeaseSchema,
@@ -67,6 +68,53 @@ export interface WatchCadenceRepository {
  * target/source/probe locks; the probe row serializes its lease and receipts.
  * No provider I/O. Runtime must fence its work claim before calling writers.
  */
+type CadenceLease = z.infer<typeof watchCadenceLeaseSchema>;
+/** A new lease belongs to this deployment's generation, starts now, and restores when the watch ends. */
+function assertNewLease(
+  value: CadenceLease,
+  context: {
+    deploymentId: string;
+    probeId: string;
+    workspaceId: WorkspaceId;
+    now: string;
+    endsAt: string;
+  },
+): void {
+  if (
+    value.generationDeploymentId !== context.deploymentId ||
+    value.createdAt !== context.now ||
+    value.restoreAt !== context.endsAt ||
+    value.generationId !==
+      pagingWorkId(
+        context.workspaceId,
+        "watch-cadence-lease",
+        context.deploymentId,
+        context.probeId,
+      )
+  )
+    throw new PersistenceError("scope_violation");
+}
+/** An extension keeps the lease's generation and only moves restoration to the later watch end. */
+function assertLeaseExtension(
+  value: CadenceLease,
+  current: CadenceLease,
+  endsAt: string,
+): void {
+  for (const key of [
+    "generationId",
+    "generationDeploymentId",
+    "createdAt",
+    "originalIntervalSeconds",
+    "appliedProbeVersion",
+  ] as const)
+    if (value[key] !== current[key])
+      throw new PersistenceError("scope_violation");
+  if (
+    Date.parse(value.restoreAt) !==
+    Math.max(Date.parse(current.restoreAt), Date.parse(endsAt))
+  )
+    throw new RangeError("Invalid cadence extension");
+}
 export function withWatchCadence<Tx extends DeploymentWatchTransaction>(
   base: Tx,
   probes: ProbeTransaction,
@@ -209,36 +257,15 @@ export function withWatchCadence<Tx extends DeploymentWatchTransaction>(
             throw new RangeError("Cadence watch expired");
           const current = await lease(value.targetId, probe);
           if ((current?.revision ?? null) !== expected) return false;
-          if (!current) {
-            if (
-              value.generationDeploymentId !== deploymentId ||
-              value.createdAt !== base.now ||
-              value.restoreAt !== watch.endsAt ||
-              value.generationId !==
-                pagingWorkId(
-                  base.workspaceId,
-                  "watch-cadence-lease",
-                  deploymentId,
-                  probe.id,
-                )
-            )
-              throw new PersistenceError("scope_violation");
-          } else {
-            for (const key of [
-              "generationId",
-              "generationDeploymentId",
-              "createdAt",
-              "originalIntervalSeconds",
-              "appliedProbeVersion",
-            ] as const)
-              if (value[key] !== current[key])
-                throw new PersistenceError("scope_violation");
-            if (
-              Date.parse(value.restoreAt) !==
-              Math.max(Date.parse(current.restoreAt), Date.parse(watch.endsAt))
-            )
-              throw new RangeError("Invalid cadence extension");
-          }
+          if (current) assertLeaseExtension(value, current, watch.endsAt);
+          else
+            assertNewLease(value, {
+              deploymentId,
+              probeId: probe.id,
+              workspaceId: base.workspaceId,
+              now: base.now,
+              endsAt: watch.endsAt,
+            });
           return store.putLease(value, expected);
         }),
       removeLease: (targetId, probeId, generationId, expected) =>

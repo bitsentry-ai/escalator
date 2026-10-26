@@ -51,6 +51,28 @@ export interface WatchEvaluationUpdate {
   overlappingDeploymentIds: string[];
   overlapInventoryComplete: boolean;
 }
+function assertWatchUpdate(update: WatchEvaluationUpdate): void {
+  if (
+    typeof update.inventoryComplete !== "boolean" ||
+    typeof update.overlapInventoryComplete !== "boolean"
+  )
+    throw new RangeError("Invalid inventory completeness");
+}
+/** The update's streams, all evaluated at its cutoff with the same finality, in kind and id order. */
+function evaluatedStreams(update: WatchEvaluationUpdate, final: boolean) {
+  const streams = update.streams.map((stream) =>
+    evaluatedWatchStreamSchema.parse(stream),
+  );
+  for (const stream of streams)
+    if (
+      stream.evaluation.evaluatedAt !== update.evaluatedAt ||
+      stream.evaluation.final !== final
+    )
+      throw new RangeError("Watch evaluation cutoff differs");
+  return streams.sort(
+    (a, b) => compareCodeUnits(a.kind, b.kind) || compareCodeUnits(a.id, b.id),
+  );
+}
 /** Orchestration must produce these evaluations with evaluateWatchStream and the immutable baseline.
  * Persist and link a newly failed watch's incident atomically; later health never erases its first failure.
  */
@@ -59,11 +81,7 @@ export function advanceDeploymentWatch(
   update: WatchEvaluationUpdate,
 ): DeploymentWatchRecord {
   const current = deploymentWatchRecordSchema.parse(raw);
-  if (
-    typeof update.inventoryComplete !== "boolean" ||
-    typeof update.overlapInventoryComplete !== "boolean"
-  )
-    throw new RangeError("Invalid inventory completeness");
+  assertWatchUpdate(update);
   const at = Date.parse(utcTimestampSchema.parse(update.evaluatedAt));
   if (at < Date.parse(current.updatedAt))
     throw new RangeError("Watch time moved backwards");
@@ -76,18 +94,7 @@ export function advanceDeploymentWatch(
   const final =
     at >=
     Date.parse(current.endsAt) + deploymentWatchReceiptGraceSeconds * 1000;
-  const streams = update.streams.map((stream) =>
-    evaluatedWatchStreamSchema.parse(stream),
-  );
-  for (const stream of streams)
-    if (
-      stream.evaluation.evaluatedAt !== update.evaluatedAt ||
-      stream.evaluation.final !== final
-    )
-      throw new RangeError("Watch evaluation cutoff differs");
-  streams.sort(
-    (a, b) => compareCodeUnits(a.kind, b.kind) || compareCodeUnits(a.id, b.id),
-  );
+  const streams = evaluatedStreams(update, final);
   const firstFailure =
     current.firstFailure ??
     streams.find((stream) => stream.evaluation.verdict === "FAIL") ??
