@@ -57,7 +57,8 @@ async function entry(outcome: DeploymentOutcome = "SUCCEEDED", late = false) {
   if (late) {
     const expired = timeoutDeployment(value.deployment, at(900));
     assert.equal(expired.state, "changed");
-    if (expired.state !== "changed") throw new Error();
+    if (expired.state !== "changed")
+      throw new Error("expected a changed result");
     value.deployment = expired.deployment;
   }
   const transition = finishDeployment(
@@ -74,7 +75,8 @@ async function entry(outcome: DeploymentOutcome = "SUCCEEDED", late = false) {
     at(late ? 1100 : 300),
   );
   assert.equal(transition.state, "changed");
-  if (transition.state !== "changed") throw new Error();
+  if (transition.state !== "changed")
+    throw new Error("expected a changed result");
   return { ...value, deployment: transition.deployment };
 }
 function window(

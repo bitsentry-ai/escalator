@@ -40,9 +40,9 @@ export const escalationPolicySchema = z
   })
   .superRefine((policy, ctx) => {
     if (
-      policy.steps[0]!.offsetMs !== 0 ||
+      policy.steps[0].offsetMs !== 0 ||
       policy.steps.some(
-        (step, i) => i > 0 && step.offsetMs <= policy.steps[i - 1]!.offsetMs,
+        (step, i) => i > 0 && step.offsetMs <= policy.steps[i - 1].offsetMs,
       ) ||
       new Set(policy.steps.map((step) => step.id)).size !==
         policy.steps.length ||

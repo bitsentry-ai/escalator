@@ -50,7 +50,11 @@ export function TargetSetup({
       )}
       {(mode === "new" || (mode === "edit" && target)) && (
         <TargetEditor
-          key={mode === "new" ? "new" : `${target!.id}:${target!.revision}`}
+          key={
+            mode === "edit" && target
+              ? `${target.id}:${target.revision}`
+              : "new"
+          }
           client={client}
           initial={mode === "edit" ? target : undefined}
           canActivate={canActivate}

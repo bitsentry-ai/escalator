@@ -210,7 +210,8 @@ test("an overlapping watch extends the first restoration deadline", async () => 
       },
       tx.now,
     );
-    if (result.state !== "changed") throw new Error();
+    if (result.state !== "changed")
+      throw new Error("expected a changed result");
     await tx.deployments.replace(entry.targetId, result.deployment, 1);
     return tx.watches.initialize(entry.targetId, "second");
   });
@@ -278,7 +279,8 @@ test("a later overlapping watch re-arms restoration after a terminal restore fai
       },
       tx.now,
     );
-    if (result.state !== "changed") throw new Error();
+    if (result.state !== "changed")
+      throw new Error("expected a changed result");
     await tx.deployments.replace(entry.targetId, result.deployment, 1);
     return tx.watches.initialize(entry.targetId, "later");
   });
@@ -394,7 +396,8 @@ test("cadence coordinator fans out in replay-safe batches of at most eight", asy
       },
       tx.now,
     );
-    if (change.state !== "changed") throw new Error();
+    if (change.state !== "changed")
+      throw new Error("expected a changed result");
     await tx.deployments.replace(entry.targetId, change.deployment, 1);
     return tx.watches.initialize(entry.targetId, entry.deployment.id);
   });
@@ -472,7 +475,8 @@ test("overlap cannot extend faster cadence after configured capacity is reduced"
       },
       tx.now,
     );
-    if (result.state !== "changed") throw new Error();
+    if (result.state !== "changed")
+      throw new Error("expected a changed result");
     await tx.deployments.replace(entry.targetId, result.deployment, 1);
     return tx.watches.initialize(entry.targetId, entry.deployment.id);
   });

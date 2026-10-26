@@ -39,9 +39,10 @@ const expression = z
   .max(1000)
   .refine(storableText, unicodeMessage)
   .refine((value) =>
-    Array.from(value).every(
-      (char) => char.codePointAt(0)! >= 32 && char.codePointAt(0) !== 127,
-    ),
+    Array.from(value).every((char) => {
+      const code = char.codePointAt(0) ?? 0;
+      return code >= 32 && code !== 127;
+    }),
   );
 /** Each expression must return one aggregate count series, not rates or cumulative counters. */
 export const metricsQuerySchema = z.strictObject({

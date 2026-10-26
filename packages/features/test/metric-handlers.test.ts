@@ -30,7 +30,7 @@ test("metric registration preserves independent monitoring and outbox handlers w
     () =>
       withMetricHandlers(combined, repository, {
         read: async () => {
-          throw new Error();
+          throw new Error("metrics read failed");
         },
       }),
     /already registered/,

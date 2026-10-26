@@ -180,7 +180,7 @@ export function ServicesScreen({ client, canCreate, t }: ServicesScreenProps) {
       )}
       {loading && <p role="status">{t("services.loading")}</p>}
       {!loading && !items.length && !error && <p>{t("services.empty")}</p>}
-      {!!items.length && (
+      {Boolean(items.length) && (
         <table
           style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}
         >

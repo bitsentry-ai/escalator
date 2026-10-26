@@ -142,12 +142,13 @@ export function probeTransaction(
             value.probeVersion !== probe.version ||
             (value.jobId !== null &&
               (!probe.enabled ||
+                value.dueAt === null ||
                 value.jobId !==
                   probeJobId(
                     base.workspaceId,
                     probe.id,
                     probe.version,
-                    value.dueAt!,
+                    value.dueAt,
                   )))
           )
             throw new ProbePersistenceError("invalid_schedule");

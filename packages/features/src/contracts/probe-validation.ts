@@ -25,8 +25,8 @@ export function boundedProbeJson(body: string): unknown {
     { value: root, depth: 0 },
   ];
   let nodes = 0;
-  while (stack.length) {
-    const { value, depth } = stack.pop()!;
+  for (let entry = stack.pop(); entry; entry = stack.pop()) {
+    const { value, depth } = entry;
     if (++nodes > 10000 || depth > 16) throw new Error("JSON bounds exceeded");
     if (value !== null && typeof value === "object")
       for (const child of Object.values(value)) {

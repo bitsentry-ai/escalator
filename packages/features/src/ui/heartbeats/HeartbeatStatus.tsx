@@ -58,7 +58,7 @@ export function HeartbeatStatus({
                 <dt>{t("heartbeats." + field)}</dt>
                 <dd>
                   {state?.[field] ? (
-                    <time dateTime={state[field]!}>{state[field]}</time>
+                    <time dateTime={state[field]}>{state[field]}</time>
                   ) : (
                     t("heartbeats.none")
                   )}

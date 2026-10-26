@@ -134,14 +134,14 @@ test("missing, disabled, revoked and expired source claims never release a secre
   ] as const) {
     const f = fixture();
     if (change === "missing") f.missing();
-    if (change === "disabled") f.row.disabled_at = new Date();
-    if (change === "revoked")
+    else if (change === "disabled") f.row.disabled_at = new Date();
+    else if (change === "revoked")
       f.row.grant.revokedAt = "2026-10-02T00:00:00.000Z";
-    if (change === "expired") f.expire();
-    if (change === "foreign")
+    else if (change === "expired") f.expire();
+    else if (change === "foreign")
       f.row.workspace_id = workspaceIdSchema.parse("foreign");
-    if (change === "version") f.row.source.version = 2;
-    if (change === "service") f.row.service_enabled = false;
+    else if (change === "version") f.row.source.version = 2;
+    else if (change === "service") f.row.service_enabled = false;
     let consumed = false;
     await assert.rejects(
       f.store.withSecret(f.use, () => {

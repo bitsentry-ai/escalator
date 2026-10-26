@@ -217,6 +217,7 @@ export function ProposalCard({
   onAdopt?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(t("rules.proposalDraftTitle"));
+  const { fullRunId, heldOutRunId } = proposal;
   const action = useRuleAction();
   return (
     <article style={styles.card}>
@@ -227,13 +228,13 @@ export function ProposalCard({
       {proposal.candidate && (
         <RuleDefinition definition={proposal.candidate.definition} t={t} />
       )}
-      {proposal.fullRunId && (
-        <button type="button" onClick={() => onRun(proposal.fullRunId!)}>
+      {fullRunId && (
+        <button type="button" onClick={() => onRun(fullRunId)}>
           {t("rules.fullReport")}
         </button>
       )}
-      {proposal.heldOutRunId && (
-        <button type="button" onClick={() => onRun(proposal.heldOutRunId!)}>
+      {heldOutRunId && (
+        <button type="button" onClick={() => onRun(heldOutRunId)}>
           {t("rules.heldOutReport")}
         </button>
       )}

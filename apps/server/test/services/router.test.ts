@@ -50,11 +50,13 @@ function fixture() {
     },
     async createService(actor: Actor) {
       actors.push(actor);
-      throw Object.assign(new Error(), { code: "already_exists" });
+      throw Object.assign(new Error("already_exists"), {
+        code: "already_exists",
+      });
     },
     async getService(actor: Actor) {
       actors.push(actor);
-      throw Object.assign(new Error(), { code: "not_found" });
+      throw Object.assign(new Error("not_found"), { code: "not_found" });
     },
   };
   const caller = servicesRouter.createCaller({

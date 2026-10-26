@@ -103,12 +103,13 @@ export function IncidentDetail({
     });
   }
   function loadAttempts(delivery: IncidentDelivery) {
-    if (!delivery.attempts.next) return;
+    const after = delivery.attempts.next;
+    if (!after) return;
     void run(async (current) => {
       const page = await client.attempts({
         incidentId: id,
         deliveryId: delivery.id,
-        after: delivery.attempts.next!,
+        after,
       });
       if (current === generation.current)
         setDeliveries((previous) =>

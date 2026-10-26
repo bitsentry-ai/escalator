@@ -10,9 +10,9 @@ export function isShellRequest(
   return (
     ["GET", "HEAD"].includes(method) &&
     path === "/" &&
-    !!accept
+    accept
       ?.split(",")
-      .some((value) => value.trim().split(";")[0] === "text/html")
+      .some((value) => value.trim().split(";")[0] === "text/html") === true
   );
 }
 export async function mountStaticWeb(

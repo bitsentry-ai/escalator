@@ -12,6 +12,7 @@ import type {
 import { acceptHeartbeat, HeartbeatError } from "./heartbeat.js";
 import { heartbeatReceiptId } from "./heartbeat-transaction.js";
 import { recordSignal } from "../signals/record.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 export class HeartbeatIngressError extends Error {
   constructor(readonly code: "invalid_token" | "invalid_input" | "stale_ping") {
     super(code);
@@ -112,7 +113,7 @@ export class HeartbeatIntake {
             observedAt: input.observedAt,
             acceptedAt: now,
             generation: next.generation,
-            deadlineAt: next.deadlineAt!,
+            deadlineAt: expectDefined(next.deadlineAt, "heartbeat deadline"),
           });
           await tx.heartbeats.putState(next);
           await writeHeartbeatDeadline(tx, next, old);
@@ -151,7 +152,7 @@ export class HeartbeatIntake {
           return {
             state: "accepted" as const,
             acceptedAt: now,
-            deadlineAt: next.deadlineAt!,
+            deadlineAt: expectDefined(next.deadlineAt, "heartbeat deadline"),
           };
         },
       );

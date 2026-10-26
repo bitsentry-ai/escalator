@@ -13,6 +13,7 @@ import {
 import type { WorkspaceId } from "../../contracts/identity.js";
 import type { Probe } from "../../contracts/probes.js";
 import type { MetricMonitor } from "../../contracts/metric-records.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 import { selectPeriodicCoverage } from "../retention/coverage.js";
 
 export function probeWatchCriteria(
@@ -89,43 +90,48 @@ function summarize(window: WatchEvidenceWindow, kind: WatchCriteria["kind"]) {
       return { ...receipt, usable };
     }),
   });
-  const summary: WatchEvidenceSummary = {
-    coverage: selected.report,
-    evidence: selected.samples,
-    requests: kind === "metric" ? 0 : null,
-    errors: kind === "metric" ? 0 : null,
-    failedProbes: kind === "probe" ? 0 : null,
-  };
+  let requests = 0,
+    errors = 0,
+    failedProbes = 0;
   let longestFailureRun = 0,
     run = 0;
   let previous: (typeof selected.samples)[number] | undefined;
   let overflow = false;
   for (const sample of selected.samples) {
-    const reading = readings.get(sample.id)!;
+    const reading = expectDefined(readings.get(sample.id), "watch reading");
     if (reading.kind === "metric") {
-      summary.requests! += reading.requests!;
-      summary.errors! += reading.errors!;
+      // An unusable reading has null counts, which add nothing.
+      requests += reading.requests ?? 0;
+      errors += reading.errors ?? 0;
       overflow ||=
-        !Number.isFinite(summary.requests) ||
-        summary.requests! > Number.MAX_SAFE_INTEGER ||
-        summary.errors! > Number.MAX_SAFE_INTEGER;
+        !Number.isFinite(requests) ||
+        requests > Number.MAX_SAFE_INTEGER ||
+        errors > Number.MAX_SAFE_INTEGER;
     } else {
       if (reading.state === "failed") {
-        summary.failedProbes!++;
+        failedProbes++;
+        const prior = previous;
         const interrupted =
-          previous &&
+          prior !== undefined &&
           selected.report.gaps.some(
             (gap) =>
               Date.parse(gap.startAt) < Date.parse(sample.slotAt) &&
-              Date.parse(gap.endAt) > Date.parse(previous!.slotAt),
+              Date.parse(gap.endAt) > Date.parse(prior.slotAt),
           );
-        run = previous && !interrupted ? run + 1 : 1;
+        run = prior !== undefined && !interrupted ? run + 1 : 1;
         longestFailureRun = Math.max(longestFailureRun, run);
       } else run = 0;
       previous = sample;
     }
   }
-  if (overflow) summary.requests = summary.errors = null;
+  const counted = kind === "metric" && !overflow;
+  const summary: WatchEvidenceSummary = {
+    coverage: selected.report,
+    evidence: selected.samples,
+    requests: counted ? requests : null,
+    errors: counted ? errors : null,
+    failedProbes: kind === "probe" ? failedProbes : null,
+  };
   return { summary, overflow, longestFailureRun };
 }
 function covered(summary: WatchEvidenceSummary, minimum: number) {
@@ -223,23 +229,26 @@ export function evaluateWatchStream(
     if (after.longestFailureRun >= criteria.failureThreshold)
       return finish("FAIL", "threshold_met");
     if (!complete) return finish("INSUFFICIENT_DATA", "watch_coverage");
-    if (after.summary.failedProbes! > 0) warning = "degraded";
-    else if (before.summary.failedProbes! > 0) warning = "baseline_unhealthy";
+    if ((after.summary.failedProbes ?? 0) > 0) warning = "degraded";
+    else if ((before.summary.failedProbes ?? 0) > 0)
+      warning = "baseline_unhealthy";
   } else {
     if (after.summary.evidence.length < criteria.watchMinimumSamples)
       return finish("INSUFFICIENT_DATA", "watch_coverage");
     if (before.overflow || after.overflow)
       return finish("INSUFFICIENT_DATA", "count_overflow");
+    const baselineRequests = before.summary.requests ?? 0,
+      watchRequests = after.summary.requests ?? 0;
     if (
-      before.summary.requests! < criteria.minimumRequests ||
-      after.summary.requests! < criteria.minimumRequests
+      baselineRequests < criteria.minimumRequests ||
+      watchRequests < criteria.minimumRequests
     )
       return finish(
         "INSUFFICIENT_DATA",
         complete ? "insufficient_requests" : "watch_coverage",
       );
-    const baselineRate = before.summary.errors! / before.summary.requests!,
-      watchRate = after.summary.errors! / after.summary.requests!;
+    const baselineRate = (before.summary.errors ?? 0) / baselineRequests,
+      watchRate = (after.summary.errors ?? 0) / watchRequests;
     const threshold = Math.min(
       1,
       Math.max(

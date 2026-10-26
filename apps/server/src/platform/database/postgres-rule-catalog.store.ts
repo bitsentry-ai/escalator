@@ -70,7 +70,7 @@ export function postgresRuleCatalogStore(
       const r = await db.query<{ now: string }>(
         `SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS now`,
       );
-      return r.rows[0]!.now;
+      return r.rows[0].now;
     },
     async lock(id) {
       const hint = await read(id);

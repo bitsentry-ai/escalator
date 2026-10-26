@@ -136,6 +136,10 @@ test("missing live authorization performs no provider request", async () => {
 });
 test("mismatched scope, source and time window are rejected before sending credentials", async () => {
   let calls = 0;
+  const read = async () => {
+    calls++;
+    return body();
+  };
   for (const changed of [
     { ...comparison(), sourceId: "other" },
     { ...comparison(), scope: { ...comparison().scope, incidentId: "other" } },
@@ -144,16 +148,7 @@ test("mismatched scope, source and time window are rejected before sending crede
     const bound: RepositoryEvidenceAccess = {
       use: async (_s, _q, _c, operation) => operation(changed, "test-secret"),
     };
-    const reader = new RepositoryEvidenceReader(
-      bound,
-      {
-        read: async () => {
-          calls++;
-          return body();
-        },
-      },
-      now,
-    );
+    const reader = new RepositoryEvidenceReader(bound, { read }, now);
     assertUnavailable(
       await reader.read(comparison().scope, query, context()),
       "not_authorized",

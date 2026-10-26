@@ -48,7 +48,7 @@ test("standalone configuration routes use current identity and reject injected s
     },
     writeSchedule: async (actor: Actor) => {
       actors.push(actor);
-      if (failure) throw Object.assign(new Error(), { code: failure });
+      if (failure) throw Object.assign(new Error(failure), { code: failure });
       return { id: "schedule", version: 1 };
     },
   } as unknown as ConfigurationUseCases;

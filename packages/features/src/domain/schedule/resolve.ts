@@ -9,6 +9,7 @@ import {
   type ScheduleAssignment,
   type SchedulePreviewInterval,
 } from "../../contracts/index.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 export class ScheduleError extends Error {
   constructor(
     readonly code:
@@ -65,7 +66,7 @@ export function validateSchedule(value: unknown): Schedule {
   }
   const approved = schedule.overrides.filter((entry) => entry.approved);
   for (let i = 0; i < approved.length; i++) {
-    const a = approved[i]!;
+    const a = approved[i];
     for (const b of approved.slice(i + 1))
       if (
         a.responderId !== b.responderId &&
@@ -110,7 +111,7 @@ function rotationAt(
   )
     end = instant(rotation.until);
   return {
-    responderId: rotation.responders[index % rotation.responders.length]!,
+    responderId: rotation.responders[index % rotation.responders.length],
     source: "rotation",
     sourceId: rotation.id,
     startsAt: iso(start),
@@ -230,7 +231,7 @@ export function previewSchedule(
         right = instant(rotation.until);
       add(
         {
-          responderId: rotation.responders[index % rotation.responders.length]!,
+          responderId: rotation.responders[index % rotation.responders.length],
           source: "rotation",
           sourceId: rotation.id,
           startsAt: iso(left),
@@ -244,9 +245,9 @@ export function previewSchedule(
   if (sorted.length > 2000) throw new ScheduleError("preview_limit");
   const active = new Map<number, Candidate>();
   return sorted.slice(0, -1).map((point, index) => {
-    const changes = events.get(point)!;
+    const changes = expectDefined(events.get(point), "schedule change");
     for (const id of changes.end) active.delete(id);
-    for (const id of changes.start) active.set(id, candidates[id]!);
+    for (const id of changes.start) active.set(id, candidates[id]);
     const chosen = [...active.values()].sort(
       (a, b) =>
         b.priority - a.priority ||
@@ -258,7 +259,7 @@ export function previewSchedule(
     )[0];
     return {
       startsAt: iso(Temporal.Instant.fromEpochMilliseconds(point)),
-      endsAt: iso(Temporal.Instant.fromEpochMilliseconds(sorted[index + 1]!)),
+      endsAt: iso(Temporal.Instant.fromEpochMilliseconds(sorted[index + 1])),
       assignment: chosen?.assignment ?? null,
     };
   });

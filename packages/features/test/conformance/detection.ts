@@ -226,7 +226,7 @@ export function detectionConformance(
             await tx.sources.get(sourceId);
             const existing = await tx.detection.lockGroup(group.id);
             return {
-              existing: !!existing,
+              existing: Boolean(existing),
               written: await tx.detection.putGroup(group, null),
             };
           }),

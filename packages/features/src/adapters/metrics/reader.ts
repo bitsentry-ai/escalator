@@ -119,7 +119,8 @@ export class PrometheusMetricsReader {
         },
         async (bytes) => {
           try {
-            if (bytes.length > 16384) throw new Error();
+            if (bytes.length > 16384)
+              throw new Error("credential exceeds 16 KiB");
             headers.authorization = credential.parse(
               JSON.parse(
                 new TextDecoder("utf-8", { fatal: true }).decode(bytes),

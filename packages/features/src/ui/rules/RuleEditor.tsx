@@ -128,7 +128,7 @@ export function RuleEditor({
             required
             maxLength={240}
             value={title}
-            readOnly={!!view}
+            readOnly={Boolean(view)}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
@@ -136,7 +136,7 @@ export function RuleEditor({
           {t("labels.kind")}
           <select
             value={kind}
-            disabled={!!view}
+            disabled={Boolean(view)}
             onChange={(e) => {
               const next = e.target.value as typeof kind;
               setKind(next);

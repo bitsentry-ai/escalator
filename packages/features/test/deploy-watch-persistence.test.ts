@@ -99,7 +99,8 @@ async function fixture(withEvidence = false) {
         at(seconds),
       );
       assert.equal(change.state, "changed");
-      if (change.state !== "changed") throw new Error();
+      if (change.state !== "changed")
+        throw new Error("expected a changed result");
       assert.equal(
         await tx.deployments.replace(entry.targetId, change.deployment, 1),
         true,
@@ -228,7 +229,8 @@ test("caught watch insertion failure rolls back the lifecycle completion", async
         },
         at(0),
       );
-      if (change.state !== "changed") throw new Error();
+      if (change.state !== "changed")
+        throw new Error("expected a changed result");
       await tx.deployments.replace(f.entry.targetId, change.deployment, 1);
       await assert.rejects(
         tx.watches.initialize(f.entry.targetId, f.entry.deployment.id),

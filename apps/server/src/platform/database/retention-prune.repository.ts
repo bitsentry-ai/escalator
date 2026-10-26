@@ -4,6 +4,7 @@ import {
   metricMonitorSchema,
   replayRetentionPolicySchema,
   type WorkspaceId,
+  expectDefined,
 } from "@bitsentry-escalator/features/contracts";
 import {
   PersistenceError,
@@ -82,7 +83,7 @@ export function postgresReplayPruneStore(
       [scope],
     );
     if (rows.length !== 1) throw new Error("Replay accounting row unavailable");
-    return Number(rows[0]!.bytes);
+    return Number(rows[0].bytes);
   };
   return {
     async snapshot(
@@ -103,10 +104,10 @@ export function postgresReplayPruneStore(
         'SELECT p.id AS "probeId",m.data AS "metricData" FROM (SELECT 1) one LEFT JOIN escalator_probe p ON p.workspace_id=$1 AND p.source_id=$2 LEFT JOIN escalator_metric_monitor m ON m.workspace_id=$1 AND m.source_id=$2',
         [scope, sourceId],
       );
-      probeId = config!.probeId;
-      const monitor = config!.metricData
+      probeId = config.probeId;
+      const monitor = config.metricData
         ? metricMonitorSchema.parse({
-            ...config!.metricData,
+            ...config.metricData,
             workspaceId: scope,
           })
         : null;
@@ -158,11 +159,11 @@ export function postgresReplayPruneStore(
       const protectedReceipt = replayReceiptProtection(
         scope,
         monitor,
-        clock!.now,
+        clock.now,
       );
       const byId = new Map(jobs.map((job) => [job.id, job]));
       return {
-        databaseNow: clock!.now,
+        databaseNow: clock.now,
         retainedBytes: await count(),
         policy,
         hasMore: rows.length > 1000,
@@ -180,7 +181,7 @@ export function postgresReplayPruneStore(
                 : {
                     kind: row.kind,
                     id: row.id,
-                    ownerId: row.ownerId!,
+                    ownerId: expectDefined(row.ownerId, "receipt owner"),
                     version: Number(row.version),
                   }),
               observedAt: row.observedAt,

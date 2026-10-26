@@ -19,7 +19,7 @@ export function RotationEditor({
     const target = index + delta;
     if (target < 0 || target >= value.responders.length) return;
     const next = [...value.responders];
-    [next[index], next[target]] = [next[target]!, next[index]!];
+    [next[index], next[target]] = [next[target], next[index]];
     onChange({ ...value, responders: next });
   }
   return (

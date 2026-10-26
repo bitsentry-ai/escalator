@@ -13,6 +13,7 @@ import { ruleWindowBounds, ruleSampleTime } from "../../domain/rules/time.js";
 import { PersistenceError } from "../ports/persistence.js";
 import { selectPeriodicCoverage } from "../retention/coverage.js";
 import { replayCoverageSegments } from "../retention/reader.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 
 /** Hosts must bind the expected measurement hash to the reviewed rule revision.
  * A current configuration cannot retroactively certify an old measurement.
@@ -139,7 +140,8 @@ export function ruleWindowFromHistory(
       ? "complete"
       : "unknown";
   window.samples = selection.samples.map(
-    (row) => selectedReceipts.get(row.id)!.sample,
+    (row) =>
+      expectDefined(selectedReceipts.get(row.id), "selected receipt").sample,
   );
   return window;
 }

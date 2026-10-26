@@ -43,13 +43,15 @@ const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 function decode(body: string, range: MetricsRange) {
   try {
-    if (Buffer.byteLength(body) > 262144) throw new Error();
+    if (Buffer.byteLength(body) > 262144)
+      throw new Error("metrics response exceeds 256 KiB");
     const parsed = matrix.parse(JSON.parse(body));
     const series = parsed.data.result[0];
     const points = new Map<number, number | null>();
     let previous = -Infinity;
     if (series) {
-      if (Object.keys(series.metric).length > 32) throw new Error();
+      if (Object.keys(series.metric).length > 32)
+        throw new Error("metric series has more than 32 labels");
       const start = Date.parse(range.startAt) / 1000,
         end = Date.parse(range.endAt) / 1000;
       for (const [timestamp, text] of series.values) {
@@ -60,12 +62,14 @@ function decode(body: string, range: MetricsRange) {
           timestamp <= previous ||
           (timestamp - start) % range.stepSeconds !== 0
         )
-          throw new Error();
+          throw new Error(
+            "metric timestamps are out of order or off the step grid",
+          );
         previous = timestamp;
         if (["NaN", "+Inf", "-Inf"].includes(text)) points.set(timestamp, null);
         else {
           if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))
-            throw new Error();
+            throw new Error("metric value is not a number");
           const value = Number(text);
           points.set(timestamp, Number.isFinite(value) ? value : null);
         }
@@ -73,7 +77,7 @@ function decode(body: string, range: MetricsRange) {
     }
     return {
       points,
-      annotated: !!(parsed.warnings?.length || parsed.infos?.length),
+      annotated: Boolean(parsed.warnings?.length || parsed.infos?.length),
       seriesHash: series
         ? hash(
             JSON.stringify(

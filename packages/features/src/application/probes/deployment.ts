@@ -38,7 +38,8 @@ export class ProbeDeployment {
   static fromJSON(value: string | undefined): ProbeDeployment {
     if (value === undefined || value === "") return new ProbeDeployment();
     try {
-      if (Buffer.byteLength(value) > 131072) throw new Error();
+      if (Buffer.byteLength(value) > 131072)
+        throw new Error("configuration exceeds 128 KiB");
       return new ProbeDeployment(JSON.parse(value));
     } catch {
       throw new Error("Invalid probe deployment configuration");

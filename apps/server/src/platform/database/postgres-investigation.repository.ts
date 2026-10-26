@@ -17,6 +17,7 @@ import {
   opaqueIdSchema,
   type WorkspaceId,
   type InvestigationScope,
+  expectDefined,
 } from "@bitsentry-escalator/features/contracts";
 import {
   captureInvestigation,
@@ -301,7 +302,10 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
       );
       return this.claimValue(
         input.workspaceId,
-        (await this.locked(db, input.workspaceId, row.id))!,
+        expectDefined(
+          await this.locked(db, input.workspaceId, row.id),
+          "claimed investigation",
+        ),
       );
     });
   }
@@ -429,14 +433,15 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
         return undefined;
       const id = binding.connection.secretId;
       if (id !== null && !captured.secretIds.includes(id)) return undefined;
-      const records =
-        id === null
-          ? undefined
-          : await db.query<{ envelope: SecretEnvelope }>(
-              "SELECT envelope FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND purpose='provider' AND disabled_at IS NULL FOR SHARE",
-              [claim.scope.workspaceId, id],
-            );
-      if (id !== null && !records?.rows[0]) return undefined;
+      let secret: { id: string; envelope: SecretEnvelope } | null = null;
+      if (id !== null) {
+        const records = await db.query<{ envelope: SecretEnvelope }>(
+          "SELECT envelope FROM escalator_secret WHERE workspace_id=$1 AND id=$2 AND purpose='provider' AND disabled_at IS NULL FOR SHARE",
+          [claim.scope.workspaceId, id],
+        );
+        if (!records.rows[0]) return undefined;
+        secret = { id, envelope: records.rows[0].envelope };
+      }
       const clock = await db.query<{ now: Date }>(
         "SELECT clock_timestamp() AS now",
         [],
@@ -463,13 +468,13 @@ export class PostgresInvestigationRepository implements InvestigationRepository 
       return {
         comparison,
         secret:
-          id === null
+          secret === null
             ? null
             : {
-                id,
+                id: secret.id,
                 workspaceId: claim.scope.workspaceId,
                 disabled: false,
-                envelope: records!.rows[0].envelope,
+                envelope: secret.envelope,
                 claim: {
                   workspaceId: claim.scope.workspaceId,
                   workId: claim.id,

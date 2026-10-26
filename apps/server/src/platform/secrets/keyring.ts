@@ -114,13 +114,19 @@ export class SecretKeyRing {
       Buffer.from(
         hkdfSync(
           "sha256",
-          this.keys.get(id)!,
+          this.key(id),
           Buffer.from(workspaceId),
           Buffer.from("bitsentry-escalator/session-signing/v1"),
           32,
         ),
       ).toString("base64url"),
     );
+  }
+  /** The active key and every listed key are loaded together, so a missing one means the ring is corrupt. */
+  private key(id: string): Buffer {
+    const key = this.keys.get(id);
+    if (!key) throw new Error("Required secret encryption key is unavailable");
+    return key;
   }
   private aad(identity: SecretIdentity, keyId: string): Buffer {
     if (!identity.workspaceId || !identity.id)
@@ -136,7 +142,7 @@ export class SecretKeyRing {
     const nonce = randomBytes(12);
     const cipher = createCipheriv(
       "aes-256-gcm",
-      this.keys.get(this.activeKeyId)!,
+      this.key(this.activeKeyId),
       nonce,
       { authTagLength: 16 },
     );
