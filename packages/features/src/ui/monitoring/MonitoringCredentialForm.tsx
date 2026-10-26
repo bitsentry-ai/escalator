@@ -44,12 +44,9 @@ export function MonitoringCredentialForm({
     setPending(true);
     setError(false);
     try {
-      const credentials =
-        kind === "http-probe"
-          ? { header, value }
-          : kind === "metrics"
-            ? { authorization: value }
-            : { key: value };
+      let credentials: Record<string, string> = { key: value };
+      if (kind === "http-probe") credentials = { header, value };
+      else if (kind === "metrics") credentials = { authorization: value };
       const result = await client.createMonitoringSecret(
         createMonitoringSecretSchema.parse({ name, kind, credentials }),
       );

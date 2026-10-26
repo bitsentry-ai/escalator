@@ -12,6 +12,17 @@ import { decodeRuleProposal } from "./proposal-storage.js";
 import { ruleReplayJobId } from "./replay-job.js";
 import { ruleBacktestJobId } from "./backtest-job.js";
 import { PersistenceError } from "../ports/persistence.js";
+/** A stored report wins; otherwise the run and its replay job together say how far the replay got. */
+function replayState(reported: boolean, runStatus: string, job: unknown) {
+  if (reported) return "completed";
+  if (runStatus === "cancelled") return "cancelled";
+  if (job === "failed") return "failed";
+  if (job === "cancelled") return "cancelled";
+  if (job !== "pending" && job !== "running") return "unknown";
+  if (runStatus === "completed") return "reporting";
+  if (job === "running" || runStatus === "running") return "replaying";
+  return "queued";
+}
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const object = z.record(z.string(), z.unknown());
 const snapshotSchema = z.strictObject({
@@ -86,21 +97,7 @@ export function projectRuleReplayResult(
       throw new PersistenceError("scope_violation");
     report = bound.summary;
   }
-  const state = report
-    ? "completed"
-    : run.status === "cancelled"
-      ? "cancelled"
-      : job === "failed"
-        ? "failed"
-        : job === "cancelled"
-          ? "cancelled"
-          : job !== "pending" && job !== "running"
-            ? "unknown"
-            : run.status === "completed"
-              ? "reporting"
-              : job === "running" || run.status === "running"
-                ? "replaying"
-                : "queued";
+  const state = replayState(report !== null, run.status, job);
   return ruleReplayResultSchema.parse({
     id: run.id,
     workspaceId: scope,

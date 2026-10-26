@@ -9,6 +9,11 @@ import {
   responderIdSchema,
   type Actor,
 } from "../src/contracts/index.js";
+function sourceKindFor(mode: string): "sentry" | "glitchtip" | "grafana" {
+  if (mode.startsWith("sentry")) return "sentry";
+  if (mode === "glitchtip") return "glitchtip";
+  return "grafana";
+}
 async function fixture() {
   const repository = new MemorySignalRepository();
   const actor: Actor = {
@@ -46,14 +51,7 @@ test("provider sources derive kind, scope and recovery from their validated conf
       intake,
       authSecretId: mode.endsWith("hmac") ? "fixture-secret" : null,
     });
-    assert.equal(
-      source.kind,
-      mode.startsWith("sentry")
-        ? "sentry"
-        : mode === "glitchtip"
-          ? "glitchtip"
-          : "grafana",
-    );
+    assert.equal(source.kind, sourceKindFor(mode));
     assert.equal(source.workspaceId, f.actor.workspaceId);
     assert.equal(
       source.recovery,

@@ -11,6 +11,7 @@ import type {
 } from "../../src/application/rules/label-ports.js";
 import { withIncidentLabels } from "../../src/application/rules/label-transaction.js";
 import { MemoryFoundationRepository } from "./memory.js";
+import { compareCodeUnits } from "../../src/contracts/ordering.js";
 
 export class MemoryRuleLabels implements IncidentLabelRepository {
   readonly foundation = new MemoryFoundationRepository({
@@ -84,7 +85,7 @@ export class MemoryRuleLabels implements IncidentLabelRepository {
                           row.stream.id === selection.stream.id)) &&
                       (!query.after || row.id > query.after),
                   )
-                  .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+                  .sort((a, b) => compareCodeUnits(a.id, b.id));
                 const items = found.slice(0, query.limit);
                 return structuredClone({
                   items,

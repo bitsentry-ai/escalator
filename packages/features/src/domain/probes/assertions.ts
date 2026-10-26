@@ -8,6 +8,14 @@ export {
   probeJsonValue,
   validateSyntheticProbe,
 } from "../../contracts/probe-validation.js";
+type JsonAssertion = HttpProbeConfig["assertions"]["json"][number];
+function jsonAssertionHolds(assertion: JsonAssertion, value: unknown): boolean {
+  if (assertion.operator === "equals") return Object.is(value, assertion.value);
+  if (typeof value !== "number" || !Number.isFinite(value)) return false;
+  return assertion.operator === "gte"
+    ? value >= assertion.value
+    : value <= assertion.value;
+}
 export function evaluateProbeResponse(
   config: HttpProbeConfig,
   status: number,
@@ -33,15 +41,7 @@ export function evaluateProbeResponse(
     }
     for (const assertion of config.assertions.json) {
       const value = probeJsonValue(parsed, assertion.path);
-      const ok =
-        assertion.operator === "equals"
-          ? Object.is(value, assertion.value)
-          : typeof value === "number" &&
-            Number.isFinite(value) &&
-            (assertion.operator === "gte"
-              ? value >= assertion.value
-              : value <= assertion.value);
-      if (!ok) return failed("json_mismatch");
+      if (!jsonAssertionHolds(assertion, value)) return failed("json_mismatch");
     }
   }
   return { outcome: "healthy", reason: "assertions_passed" };

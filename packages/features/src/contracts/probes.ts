@@ -134,6 +134,33 @@ export const probeSchema = z
   );
 export type HttpProbeConfig = z.infer<typeof httpProbeConfigSchema>;
 export type Probe = z.infer<typeof probeSchema>;
+const FAILED_PROBE_REASONS = [
+  "status_mismatch",
+  "body_mismatch",
+  "json_mismatch",
+  "invalid_json",
+  "network_error",
+  "timeout",
+];
+const UNAVAILABLE_PROBE_REASONS = [
+  "destination_denied",
+  "response_limit",
+  "invalid_configuration",
+  "secret_unavailable",
+  "cancelled",
+];
+/** A healthy result passed its assertions with a status; other outcomes carry a reason of their own kind. */
+function reasonMatchesOutcome(value: {
+  outcome: string;
+  reason: string;
+  statusCode: number | null;
+}): boolean {
+  if (value.outcome === "healthy")
+    return value.reason === "assertions_passed" && value.statusCode !== null;
+  if (value.outcome === "failed")
+    return FAILED_PROBE_REASONS.includes(value.reason);
+  return UNAVAILABLE_PROBE_REASONS.includes(value.reason);
+}
 export const probeResultSchema = z
   .strictObject({
     id: opaqueIdSchema,
@@ -159,26 +186,7 @@ export const probeResultSchema = z
     statusCode: z.number().int().min(100).max(599).nullable(),
     durationMs: z.number().int().min(0).max(60000),
   })
-  .refine((value) =>
-    value.outcome === "healthy"
-      ? value.reason === "assertions_passed" && value.statusCode !== null
-      : value.outcome === "failed"
-        ? [
-            "status_mismatch",
-            "body_mismatch",
-            "json_mismatch",
-            "invalid_json",
-            "network_error",
-            "timeout",
-          ].includes(value.reason)
-        : [
-            "destination_denied",
-            "response_limit",
-            "invalid_configuration",
-            "secret_unavailable",
-            "cancelled",
-          ].includes(value.reason),
-  );
+  .refine(reasonMatchesOutcome);
 export type ProbeResult = z.infer<typeof probeResultSchema>;
 export const probeStateSchema = z
   .strictObject({

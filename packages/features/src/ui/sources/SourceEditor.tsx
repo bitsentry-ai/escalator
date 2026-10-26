@@ -62,12 +62,11 @@ export function SourceEditor({
         result = await client.updateProvider(readProviderForm(form, initial));
       else {
         const command = readSourceForm(form, initial);
-        result =
-          command.kind === "update"
-            ? await client.update(command.input)
-            : command.kind === "generic"
-              ? await client.create(command.input)
-              : await client.createProvider(command.input);
+        if (command.kind === "update")
+          result = await client.update(command.input);
+        else if (command.kind === "generic")
+          result = await client.create(command.input);
+        else result = await client.createProvider(command.input);
       }
       if (alive.current) onSaved(result);
     } catch {

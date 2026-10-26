@@ -145,12 +145,16 @@ test("a binding unavailable at capture and claim keeps the investigation without
   // The deploy target was disabled after the profile was saved.
   const target = { id: "target", revision: "7", enabled: false };
   const db = {
-    query: async (sql: string) =>
-      sql.includes("FROM escalator_investigation_settings s")
-        ? { rows: [{ data: settings, sources: settings.sources }], rowCount: 1 }
-        : sql.includes("FROM escalator_deploy_target")
-          ? { rows: [target], rowCount: 1 }
-          : { rows: [{ id: "present" }], rowCount: 1 },
+    query: async (sql: string) => {
+      if (sql.includes("FROM escalator_investigation_settings s"))
+        return {
+          rows: [{ data: settings, sources: settings.sources }],
+          rowCount: 1,
+        };
+      if (sql.includes("FROM escalator_deploy_target"))
+        return { rows: [target], rowCount: 1 };
+      return { rows: [{ id: "present" }], rowCount: 1 };
+    },
   } as unknown as PoolClient;
   const connections = new RepositoryConnections([connection]);
   const captured = await captureRepositorySources(
@@ -210,17 +214,19 @@ test("disabled repository secrets and native sources remain unavailable without 
     createdAt: now,
     updatedAt: now,
   });
+  const captureRows = (sql: string, values: unknown[]): unknown[] => {
+    if (sql.includes("FROM escalator_investigation_settings s"))
+      return [{ data: settings, sources: settings.sources }];
+    if (sql.includes("FROM escalator_secret")) return [];
+    if (sql.includes("FROM escalator_signal_source"))
+      return [{ data: { enabled: values[1] === "healthy", version: 2 } }];
+    if (sql.includes("FROM escalator_deploy_target"))
+      return [{ enabled: true, revision: "7" }];
+    return [{ id: "present" }];
+  };
   const db = {
     query: async (sql: string, values: unknown[]) => {
-      const rows = sql.includes("FROM escalator_investigation_settings s")
-        ? [{ data: settings, sources: settings.sources }]
-        : sql.includes("FROM escalator_secret")
-          ? []
-          : sql.includes("FROM escalator_signal_source")
-            ? [{ data: { enabled: values[1] === "healthy", version: 2 } }]
-            : sql.includes("FROM escalator_deploy_target")
-              ? [{ enabled: true, revision: "7" }]
-              : [{ id: "present" }];
+      const rows = captureRows(sql, values);
       return { rows, rowCount: rows.length };
     },
   } as unknown as PoolClient;

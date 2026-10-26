@@ -32,6 +32,7 @@ import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import { PersistenceError } from "../ports/persistence.js";
 import { resolveRulePolicy } from "./policy.js";
 import type { RuleCatalogStore } from "./activation-ports.js";
+import { compareCodeUnits, compareBigInts } from "../../contracts/ordering.js";
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 /** Shared with report finalization; preserve the persisted label projection. */
@@ -39,7 +40,7 @@ export function ruleReviewedLabelHash(raw: readonly IncidentLabel[]) {
   const labels = z.array(incidentLabelSchema).max(1000).parse(raw);
   return hash(
     [...labels]
-      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .sort((a, b) => compareCodeUnits(a.id, b.id))
       .map((l) => ({
         id: l.id,
         revision: l.revision,
@@ -87,9 +88,7 @@ export function buildRuleReviewEvidence(
     measurementHash,
     coverageHash: hash({ history: "not_selected" }),
     policyHash: hash(
-      [...facts].sort((a, b) =>
-        BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0,
-      ),
+      [...facts].sort((a, b) => compareBigInts(BigInt(a.id), BigInt(b.id))),
     ),
     labelHash: ruleReviewedLabelHash([]),
     reportHash: null as string | null,

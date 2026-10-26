@@ -14,6 +14,58 @@ import { ServicesRoute } from "./services/ServicesRoute.js";
 import { IncidentsRoute } from "./incidents/IncidentsRoute.js";
 import { OnCallRoute } from "./oncall/OnCallRoute.js";
 import { SettingsRoute } from "./settings/SettingsRoute.js";
+type ShellView =
+  | "services"
+  | "incidents"
+  | "oncall"
+  | "contacts"
+  | "probes"
+  | "sources"
+  | "heartbeats"
+  | "metrics"
+  | "retention"
+  | "deployments"
+  | "investigation"
+  | "labels"
+  | "rules";
+function ShellRoute({
+  view,
+  client,
+  user,
+}: {
+  view: ShellView;
+  client: LocalAuthClient;
+  user: LocalUser;
+}) {
+  switch (view) {
+    case "services":
+      return <ServicesRoute client={client} user={user} />;
+    case "sources":
+      return <SourcesRoute client={client} user={user} />;
+    case "heartbeats":
+      return <HeartbeatsRoute client={client} user={user} />;
+    case "rules":
+      return <RulesRoute client={client} user={user} />;
+    case "labels":
+      return <LabelsRoute client={client} user={user} />;
+    case "investigation":
+      return <InvestigationSettingsRoute client={client} user={user} />;
+    case "deployments":
+      return <DeploymentsRoute client={client} user={user} />;
+    case "retention":
+      return <RetentionRoute client={client} user={user} />;
+    case "metrics":
+      return <MetricsRoute client={client} user={user} />;
+    case "probes":
+      return <ProbesRoute client={client} user={user} />;
+    case "contacts":
+      return <SettingsRoute client={client} user={user} />;
+    case "oncall":
+      return <OnCallRoute client={client} user={user} />;
+    default:
+      return <IncidentsRoute client={client} user={user} />;
+  }
+}
 export function EscalatorShell({
   client,
   user,
@@ -22,21 +74,7 @@ export function EscalatorShell({
   user: LocalUser;
 }) {
   const { t } = useTranslation("escalator");
-  const [view, setView] = useState<
-    | "services"
-    | "incidents"
-    | "oncall"
-    | "contacts"
-    | "probes"
-    | "sources"
-    | "heartbeats"
-    | "metrics"
-    | "retention"
-    | "deployments"
-    | "investigation"
-    | "labels"
-    | "rules"
-  >("services");
+  const [view, setView] = useState<ShellView>("services");
   return (
     <>
       <nav aria-label={t("title")}>
@@ -119,33 +157,7 @@ export function EscalatorShell({
           {t("rules.heading")}
         </button>
       </nav>
-      {view === "services" ? (
-        <ServicesRoute client={client} user={user} />
-      ) : view === "sources" ? (
-        <SourcesRoute client={client} user={user} />
-      ) : view === "heartbeats" ? (
-        <HeartbeatsRoute client={client} user={user} />
-      ) : view === "rules" ? (
-        <RulesRoute client={client} user={user} />
-      ) : view === "labels" ? (
-        <LabelsRoute client={client} user={user} />
-      ) : view === "investigation" ? (
-        <InvestigationSettingsRoute client={client} user={user} />
-      ) : view === "deployments" ? (
-        <DeploymentsRoute client={client} user={user} />
-      ) : view === "retention" ? (
-        <RetentionRoute client={client} user={user} />
-      ) : view === "metrics" ? (
-        <MetricsRoute client={client} user={user} />
-      ) : view === "probes" ? (
-        <ProbesRoute client={client} user={user} />
-      ) : view === "contacts" ? (
-        <SettingsRoute client={client} user={user} />
-      ) : view === "oncall" ? (
-        <OnCallRoute client={client} user={user} />
-      ) : (
-        <IncidentsRoute client={client} user={user} />
-      )}
+      <ShellRoute view={view} client={client} user={user} />
     </>
   );
 }

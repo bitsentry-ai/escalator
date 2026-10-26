@@ -10,11 +10,16 @@ import {
   type PeriodicCoverageReport,
   type EventCoverageReport,
 } from "../../contracts/replay-coverage.js";
-/** Orders ids by UTF-16 code units, the way `<` and `>` compare strings. */
-function compareIds(left: string, right: string): number {
-  if (left > right) return 1;
-  if (left < right) return -1;
-  return 0;
+import { compareCodeUnits } from "../../contracts/ordering.js";
+/** Why a slot has no usable receipt: one arrived unusable, without a receipt time, too late, or never. */
+function gapReason(
+  anyKnown: boolean,
+  receipts: readonly { receivedAt: string | null }[],
+): CoverageReason {
+  if (anyKnown) return "unusable";
+  if (receipts.some((row) => row.receivedAt === null)) return "retrospective";
+  if (receipts.length > 0) return "late";
+  return "missing";
 }
 const iso = (at: number) => new Date(at).toISOString();
 /** Half-open UTC windows. Coverage describes retained evidence, never service health.
@@ -140,7 +145,7 @@ function computePeriodicCoverage(
         .sort(
           (a, b) =>
             compareUtcTimestamps(b.receivedAt, a.receivedAt) ||
-            compareIds(b.id, a.id),
+            compareCodeUnits(b.id, a.id),
         );
       if (known[0]?.usable) {
         availableSlots++;
@@ -153,13 +158,7 @@ function computePeriodicCoverage(
           });
         continue;
       }
-      const reason: CoverageReason = known.length
-        ? "unusable"
-        : receipts.some((row) => row.receivedAt === null)
-          ? "retrospective"
-          : receipts.length
-            ? "late"
-            : "missing";
+      const reason = gapReason(known.length > 0, receipts);
       gap(slot, Math.min(to, slot + step), reason);
     }
   }

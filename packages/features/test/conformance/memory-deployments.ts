@@ -20,6 +20,7 @@ import {
   type PageRequest,
 } from "../../src/application/ports/persistence.js";
 import { MemoryConfigurationRepository } from "./memory-configuration.js";
+import { compareCodeUnits } from "../../src/contracts/ordering.js";
 type Rows = {
   targets: DeploymentTarget[];
   tokens: DeploymentToken[];
@@ -38,7 +39,7 @@ const copy = <T>(value: T): T => structuredClone(value);
 function page<T>(values: T[], input: PageRequest, id: (value: T) => string) {
   const sorted = values
     .filter((value) => !input.after || id(value) > input.after)
-    .sort((a, b) => (id(a) < id(b) ? -1 : id(a) === id(b) ? 0 : 1));
+    .sort((a, b) => compareCodeUnits(id(a), id(b)));
   return copy({
     items: sorted.slice(0, input.limit),
     next: sorted.length > input.limit ? id(sorted[input.limit - 1]) : null,

@@ -17,6 +17,11 @@ import type {
   MetricsRepository,
   SignalTransaction,
 } from "@bitsentry-escalator/features/application";
+function sourceKind(kind: string): "metrics" | "probe" | "generic" {
+  if (kind === "metric") return "metrics";
+  if (kind === "probe") return "probe";
+  return "generic";
+}
 
 /** Real configured streams, reused by both database conformance fixtures. */
 export async function seedRuleLabelStream(
@@ -35,12 +40,7 @@ export async function seedRuleLabelStream(
       serviceId: stream.serviceId,
       environmentId: stream.environmentId,
       name: "Label evidence",
-      kind:
-        stream.kind === "metric"
-          ? "metrics"
-          : stream.kind === "probe"
-            ? "probe"
-            : "generic",
+      kind: sourceKind(stream.kind),
       enabled: true,
       version: 1,
       grouping: "source-fingerprint",

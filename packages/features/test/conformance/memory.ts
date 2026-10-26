@@ -36,6 +36,7 @@ import {
   type Page,
   type PageRequest,
 } from "../../src/application/ports/persistence.js";
+import { compareCodeUnits } from "../../src/contracts/ordering.js";
 
 type State = {
   workspaces: Workspace[];
@@ -54,7 +55,7 @@ function page<T extends { id: string }>(
     throw new PersistenceError("invalid_page");
   const sorted = values
     .filter((value) => !query.after || value.id > query.after)
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    .sort((a, b) => compareCodeUnits(a.id, b.id));
   const items = sorted.slice(0, query.limit);
   return {
     items: structuredClone(items),

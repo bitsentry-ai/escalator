@@ -1,5 +1,10 @@
 import { raw, type RequestHandler } from "express";
 import { SIGNAL_INGRESS_MAX_BYTES } from "@bitsentry-escalator/features/contracts";
+function bodyErrorCode(status: number | undefined): string {
+  if (status === 413) return "body_too_large";
+  if (status === 415) return "unsupported_content_type";
+  return "invalid_input";
+}
 /** Install before any broad JSON parser. Raw bytes are bounded before parsing. */
 export function signalBodyParser(
   limit = SIGNAL_INGRESS_MAX_BYTES,
@@ -26,12 +31,7 @@ export function signalBodyParser(
       if (error) {
         if (res.headersSent || req.aborted) return;
         const status = (error as { status?: number }).status;
-        const code =
-          status === 413
-            ? "body_too_large"
-            : status === 415
-              ? "unsupported_content_type"
-              : "invalid_input";
+        const code = bodyErrorCode(status);
         res.setHeader("Cache-Control", "no-store");
         res
           .status(status === 413 || status === 415 ? status : 400)

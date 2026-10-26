@@ -10,6 +10,7 @@ import {
 import { utcTimestampSchema } from "../../contracts/entities.js";
 import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import { PersistenceError } from "../ports/persistence.js";
+import { compareBigInts } from "../../contracts/ordering.js";
 /** Resolve only recorded policy. Today's settings and unknown legacy intervals
  * never become historical enablement. No host currently exposes maintenance;
  * maintenance=false describes that actual policy, not a guessed past window.
@@ -38,11 +39,7 @@ export function resolveRulePolicy(
     .sort(
       (a, b) =>
         compareUtcTimestamps(b.recordedAt, a.recordedAt) ||
-        (BigInt(a.id) < BigInt(b.id)
-          ? 1
-          : BigInt(a.id) > BigInt(b.id)
-            ? -1
-            : 0),
+        compareBigInts(BigInt(b.id), BigInt(a.id)),
     );
   const find = (kind: RulePolicyFact["kind"], id?: string) =>
     visible.find(
@@ -51,12 +48,10 @@ export function resolveRulePolicy(
   const service = find("service", rule.serviceId),
     stream = find(rule.selector.kind, rule.selector.streamId),
     binding = find("binding");
-  const source =
-    rule.selector.kind === "signal"
-      ? stream
-      : stream?.sourceId
-        ? find("signal", stream.sourceId)
-        : undefined;
+  // A signal rule reads its stream directly; other rules read the stream's signal source.
+  let source = stream;
+  if (rule.selector.kind !== "signal")
+    source = stream?.sourceId ? find("signal", stream.sourceId) : undefined;
   const policy = binding?.policyId
     ? find("policy", binding.policyId)
     : undefined;

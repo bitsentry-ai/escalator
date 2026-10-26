@@ -118,17 +118,20 @@ export function heartbeatTransaction(
           scoped(value);
           const probe = owning(value.probeId);
           const old = await store.state(probe.id);
-          const expected = configured.has(probe.id)
-            ? configureHeartbeat(probe, old, base.now)
-            : (accepted.get(probe.id) ??
-              (old?.deadlineJobId
-                ? missHeartbeat(
-                    probe,
-                    old,
-                    old.deadlineJobId,
-                    await base.currentTime(),
-                  )
-                : undefined));
+          const expectedState = async () => {
+            if (configured.has(probe.id))
+              return configureHeartbeat(probe, old, base.now);
+            const acceptedState = accepted.get(probe.id);
+            if (acceptedState !== undefined) return acceptedState;
+            if (!old?.deadlineJobId) return undefined;
+            return missHeartbeat(
+              probe,
+              old,
+              old.deadlineJobId,
+              await base.currentTime(),
+            );
+          };
+          const expected = await expectedState();
           if (
             !expected ||
             JSON.stringify(value) !==

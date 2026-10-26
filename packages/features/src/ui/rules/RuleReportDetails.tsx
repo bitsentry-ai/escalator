@@ -11,6 +11,55 @@ const sections = {
   gaps: "rules.historyGaps",
   comparison: "rules.recordedComparison",
 } as const;
+function ReportRows({
+  page,
+  t,
+}: {
+  page: RuleReportDetail;
+  t: (key: string) => string;
+}) {
+  if (page.section === "episodes")
+    return (
+      <>
+        {page.items.map((row, n) => (
+          <li key={n}>
+            {row.startedAt} — {row.endedAt ?? t("rules.openEpisode")} ·{" "}
+            {t(`rules.episodeOutcomes.${row.outcome}`)}
+          </li>
+        ))}
+      </>
+    );
+  if (page.section === "gaps")
+    return (
+      <>
+        {page.items.map((row, n) => (
+          <li key={n}>
+            {row.range.firstDecisionAt} — {row.range.lastDecisionAt} ·{" "}
+            {row.range.decisions} · {row.reason}
+          </li>
+        ))}
+      </>
+    );
+  return (
+    <>
+      {page.items.map((row, n) => (
+        <li key={n}>
+          {row.observation.version.id} · {t("rules.version")}{" "}
+          {row.observation.version.revision} ·{" "}
+          {t(`rules.states.${row.observation.mode}`)}
+          <br />
+          {row.observation.firstObservedDecisionAt} —{" "}
+          {row.observation.lastObservedDecisionAt}
+          <br />
+          {t("rules.observedOpenings")}: {row.observation.opened} ·{" "}
+          {t("rules.coverage")}: {row.observation.evaluated}/
+          {row.expectedDecisions} · {t("rules.missingDecisions")}:{" "}
+          {row.missingDecisions}
+        </li>
+      ))}
+    </>
+  );
+}
 export function RuleReportDetails(props: Props) {
   const [section, setSection] =
     useState<RuleReportDetailInput["section"]>("episodes");
@@ -108,35 +157,7 @@ function DetailPage({
         )}
       {pages.map((page, index) => (
         <ul key={index}>
-          {page.section === "episodes"
-            ? page.items.map((row, n) => (
-                <li key={n}>
-                  {row.startedAt} — {row.endedAt ?? t("rules.openEpisode")} ·{" "}
-                  {t(`rules.episodeOutcomes.${row.outcome}`)}
-                </li>
-              ))
-            : page.section === "gaps"
-              ? page.items.map((row, n) => (
-                  <li key={n}>
-                    {row.range.firstDecisionAt} — {row.range.lastDecisionAt} ·{" "}
-                    {row.range.decisions} · {row.reason}
-                  </li>
-                ))
-              : page.items.map((row, n) => (
-                  <li key={n}>
-                    {row.observation.version.id} · {t("rules.version")}{" "}
-                    {row.observation.version.revision} ·{" "}
-                    {t(`rules.states.${row.observation.mode}`)}
-                    <br />
-                    {row.observation.firstObservedDecisionAt} —{" "}
-                    {row.observation.lastObservedDecisionAt}
-                    <br />
-                    {t("rules.observedOpenings")}: {row.observation.opened} ·{" "}
-                    {t("rules.coverage")}: {row.observation.evaluated}/
-                    {row.expectedDecisions} · {t("rules.missingDecisions")}:{" "}
-                    {row.missingDecisions}
-                  </li>
-                ))}
+          <ReportRows page={page} t={t} />
         </ul>
       ))}
       {next !== null && (

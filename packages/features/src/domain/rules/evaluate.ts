@@ -69,9 +69,7 @@ export function evaluateRuleWindow(
     rule.recovery.operator === "lt"
       ? aggregate.value < rule.recovery.value
       : aggregate.value <= rule.recovery.value;
-  return {
-    ...verdict,
-    state: trigger ? "trigger" : recovery ? "recovery" : "hold",
-    reason: trigger ? "trigger" : recovery ? "recovery" : "between_thresholds",
-  };
+  if (trigger) return { ...verdict, state: "trigger", reason: "trigger" };
+  if (recovery) return { ...verdict, state: "recovery", reason: "recovery" };
+  return { ...verdict, state: "hold", reason: "between_thresholds" };
 }

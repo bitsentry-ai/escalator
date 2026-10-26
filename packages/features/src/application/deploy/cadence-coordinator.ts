@@ -4,6 +4,7 @@ import type { WorkLease, WorkResult } from "../jobs/ports.js";
 import { pagingWorkId } from "../paging/work-ids.js";
 import type { DeploymentWatchRepository } from "./watch-persistence.js";
 import { deploymentWatchPayloadSchema } from "./watch-runtime.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 const batchSize = 8;
 export const watchCadenceBatchPayloadSchema =
   deploymentWatchPayloadSchema.extend({
@@ -55,7 +56,7 @@ export class WatchCadenceCoordinator {
         return { state: "completed" };
       const probes = baseline.streams
         .filter((stream) => stream.kind === "probe")
-        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        .sort((a, b) => compareCodeUnits(a.id, b.id));
       if (payload.offset > probes.length)
         throw new Error("Cadence batch exceeds captured inventory");
       for (const probe of probes.slice(

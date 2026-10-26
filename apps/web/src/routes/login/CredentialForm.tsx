@@ -6,6 +6,26 @@ export type CredentialField =
   | "token"
   | "displayName"
   | "timeZone";
+const MAX_LENGTHS: Record<CredentialField, number> = {
+  token: 43,
+  password: 1024,
+  factor: 64,
+  login: 200,
+  displayName: 200,
+  timeZone: 200,
+};
+function autoCompleteFor(name: CredentialField, newPassword?: boolean): string {
+  switch (name) {
+    case "password":
+      return newPassword ? "new-password" : "current-password";
+    case "login":
+      return "username";
+    case "factor":
+      return "one-time-code";
+    default:
+      return "off";
+  }
+}
 interface Props {
   fields: CredentialField[];
   action: string;
@@ -42,28 +62,10 @@ export function CredentialForm({
             type={name === "password" || name === "token" ? "password" : "text"}
             disabled={pending}
             required={name !== "factor"}
-            autoComplete={
-              name === "password"
-                ? newPassword
-                  ? "new-password"
-                  : "current-password"
-                : name === "login"
-                  ? "username"
-                  : name === "factor"
-                    ? "one-time-code"
-                    : "off"
-            }
+            autoComplete={autoCompleteFor(name, newPassword)}
             autoCapitalize="none"
             spellCheck={false}
-            maxLength={
-              name === "token"
-                ? 43
-                : name === "password"
-                  ? 1024
-                  : name === "factor"
-                    ? 64
-                    : 200
-            }
+            maxLength={MAX_LENGTHS[name]}
             minLength={name === "password" && newPassword ? 12 : undefined}
             defaultValue={
               name === "timeZone"

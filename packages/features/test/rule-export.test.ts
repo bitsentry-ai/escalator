@@ -50,14 +50,12 @@ for (const kind of ["probe", "metric"] as const) {
     const selector =
       kind === "probe"
         ? { kind, field: "failure", streamId: "old-stream" }
-        : kind === "metric"
-          ? {
-              kind,
-              field: "error_rate",
-              minimumRequests: 10,
-              streamId: "old-stream",
-            }
-          : { kind, field: "events", streamId: "old-stream" };
+        : {
+            kind,
+            field: "error_rate",
+            minimumRequests: 10,
+            streamId: "old-stream",
+          };
     const version = detectionRuleVersionSchema.parse({
       ...f.version,
       definition: {
