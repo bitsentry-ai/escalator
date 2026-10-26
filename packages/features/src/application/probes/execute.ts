@@ -131,7 +131,7 @@ export class ProbeExecutionJobs {
       probe,
       source,
       dueAt: payload.dueAt,
-      available: source.enabled && !!service?.enabled,
+      available: source.enabled && Boolean(service?.enabled),
     };
   }
   async execute(

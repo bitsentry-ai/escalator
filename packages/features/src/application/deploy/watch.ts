@@ -112,14 +112,15 @@ function summarize(window: WatchEvidenceWindow, kind: WatchCriteria["kind"]) {
     } else {
       if (reading.state === "failed") {
         summary.failedProbes!++;
+        const prior = previous;
         const interrupted =
-          previous &&
+          prior !== undefined &&
           selected.report.gaps.some(
             (gap) =>
               Date.parse(gap.startAt) < Date.parse(sample.slotAt) &&
-              Date.parse(gap.endAt) > Date.parse(previous!.slotAt),
+              Date.parse(gap.endAt) > Date.parse(prior.slotAt),
           );
-        run = previous && !interrupted ? run + 1 : 1;
+        run = prior !== undefined && !interrupted ? run + 1 : 1;
         longestFailureRun = Math.max(longestFailureRun, run);
       } else run = 0;
       previous = sample;

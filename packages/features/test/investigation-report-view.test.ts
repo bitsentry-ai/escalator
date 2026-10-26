@@ -90,12 +90,12 @@ test("human read projection rejects cross-scope rows, reports and snapshots", ()
     for (const target of ["row", "report", "evidence"]) {
       const f = fixture();
       if (target === "row") f.row.scope = { ...f.row.scope, [axis]: "other" };
-      if (target === "report")
+      else if (target === "report")
         f.row.report = {
           ...f.result.report,
           scope: { ...f.claim.scope, [axis]: "other" },
         };
-      if (target === "evidence")
+      else if (target === "evidence")
         f.row.evidence = [
           {
             ...f.result.evidence[0],

@@ -165,9 +165,8 @@ test("duplicate active claims cannot send twice or settle the active provider at
   await entered;
   assert.deepEqual(await sender.send(lease, signal()), { state: "stale" });
   assert.equal(
-    await f.repository.transaction(
-      f.scope,
-      async (tx) => !!(await tx.work.lockClaim(lease)),
+    await f.repository.transaction(f.scope, async (tx) =>
+      Boolean(await tx.work.lockClaim(lease)),
     ),
     true,
   );

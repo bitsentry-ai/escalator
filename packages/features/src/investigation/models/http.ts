@@ -82,7 +82,7 @@ export class BoundedModelHttp {
       let timedOut = false;
       const abort = () => controller.abort();
       const signals = [parent, init?.signal].filter(
-        (signal): signal is AbortSignal => !!signal,
+        (signal): signal is AbortSignal => Boolean(signal),
       );
       for (const signal of signals) {
         signal.addEventListener("abort", abort, { once: true });

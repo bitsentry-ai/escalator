@@ -163,8 +163,8 @@ test("grant revocation, expiry or source edits during secret resolution prevent 
       async withSecret(use, consume) {
         if (change === "revoke")
           await f.management.revokeToken(f.actor, { id: f.grant.id });
-        if (change === "expire") f.advance(31 * 86400_000);
-        if (change === "edit")
+        else if (change === "expire") f.advance(31 * 86400_000);
+        else if (change === "edit")
           await f.management.updateProvider(f.actor, {
             id: f.source.id,
             expectedVersion: 1,

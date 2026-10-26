@@ -127,12 +127,12 @@ test("foreign or misprojected records are rejected and cannot be committed after
     if (mode === "scope")
       f.rows[0]!.decision.binding.workspaceId =
         "other" as typeof f.binding.workspaceId;
-    if (mode === "id")
+    else if (mode === "id")
       f.store.get = async () => ({
         ...f.record,
         decision: { ...f.record.decision, id: "other" },
       });
-    if (mode === "key")
+    else if (mode === "key")
       f.store.find = async () => ({ ...f.record, key: "other" });
     await assert.rejects(
       mode === "key"
