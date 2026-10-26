@@ -18,15 +18,34 @@ export interface RuleCandidatePreparation {
   profileId: string;
   candidateId: string;
 }
-/** Prepare while the host owns a live claim. Withheld rows and raw text are
- * deliberately absent from the resulting message, including diagnostic counts. */
-export function prepareRuleCandidate(
-  input: RuleCandidatePreparation,
-): RuleCandidateInput {
-  const profileId = opaqueIdSchema.parse(input.profileId),
-    candidateId = opaqueIdSchema.parse(input.candidateId);
-  const source = storedRuleReplaySnapshotSchema.parse(input.source),
-    s = source.snapshot;
+type TrainingSample = ReturnType<
+  typeof trainingRuleEvidence
+>["samples"][number];
+interface DayBucket {
+  samples: number;
+  usable: number;
+  failures: number;
+  durationSum: number;
+  durationCount: number;
+  requests: number;
+  errors: number;
+  missingValues: number;
+}
+const emptyBucket = (): DayBucket => ({
+  samples: 0,
+  usable: 0,
+  failures: 0,
+  durationSum: 0,
+  durationCount: 0,
+  requests: 0,
+  errors: 0,
+  missingValues: 0,
+});
+function assertTrainingCapture(
+  source: StoredRuleReplaySnapshot,
+  candidateId: string,
+): void {
+  const s = source.snapshot;
   if (candidateId === s.version.id)
     throw new Error("Candidate requires a new rule ID");
   if (
@@ -36,56 +55,57 @@ export function prepareRuleCandidate(
       source.inputHash
   )
     throw new Error("Invalid training capture");
+}
+function addSample(bucket: DayBucket, sample: TrainingSample): void {
+  bucket.samples++;
+  if (sample.kind === "signal") {
+    bucket.usable++;
+    return;
+  }
+  if (!sample.usable) return;
+  bucket.usable++;
+  if (sample.kind === "probe") {
+    if (sample.success === null || sample.durationMs === null)
+      bucket.missingValues++;
+    if (sample.success === false) bucket.failures++;
+    if (sample.durationMs !== null) {
+      bucket.durationSum += sample.durationMs;
+      bucket.durationCount++;
+    }
+    return;
+  }
+  if (sample.requests === null || sample.errors === null)
+    bucket.missingValues++;
+  bucket.requests += sample.requests ?? 0;
+  bucket.errors += sample.errors ?? 0;
+}
+/** Daily scalar summaries keep provider context bounded and exclude raw text and IDs. */
+function dailyBuckets(
+  samples: readonly TrainingSample[],
+): Map<string, DayBucket> {
+  const buckets = new Map<string, DayBucket>();
+  for (const sample of samples) {
+    const day = sample.observedAt.slice(0, 10);
+    const bucket = buckets.get(day) ?? emptyBucket();
+    addSample(bucket, sample);
+    buckets.set(day, bucket);
+  }
+  return buckets;
+}
+/** Prepare while the host owns a live claim. Withheld rows and raw text are
+ * deliberately absent from the resulting message, including diagnostic counts. */
+export function prepareRuleCandidate(
+  input: RuleCandidatePreparation,
+): RuleCandidateInput {
+  const profileId = opaqueIdSchema.parse(input.profileId),
+    candidateId = opaqueIdSchema.parse(input.candidateId);
+  const source = storedRuleReplaySnapshotSchema.parse(input.source),
+    s = source.snapshot;
+  assertTrainingCapture(source, candidateId);
   const projected = trainingRuleEvidence(s, input.labels),
     rule = s.version.definition;
   // Do not serialize projection diagnostics: excluded counts include withheld data.
-  // Daily scalar summaries keep provider context bounded and exclude raw text/IDs.
-  const buckets = new Map<
-    string,
-    {
-      samples: number;
-      usable: number;
-      failures: number;
-      durationSum: number;
-      durationCount: number;
-      requests: number;
-      errors: number;
-      missingValues: number;
-    }
-  >();
-  for (const sample of projected.samples) {
-    const day = sample.observedAt.slice(0, 10),
-      b = buckets.get(day) ?? {
-        samples: 0,
-        usable: 0,
-        failures: 0,
-        durationSum: 0,
-        durationCount: 0,
-        requests: 0,
-        errors: 0,
-        missingValues: 0,
-      };
-    b.samples++;
-    if (sample.kind === "signal") b.usable++;
-    else if (sample.usable) {
-      b.usable++;
-      if (sample.kind === "probe") {
-        if (sample.success === null || sample.durationMs === null)
-          b.missingValues++;
-        if (sample.success === false) b.failures++;
-        if (sample.durationMs !== null) {
-          b.durationSum += sample.durationMs;
-          b.durationCount++;
-        }
-      } else {
-        if (sample.requests === null || sample.errors === null)
-          b.missingValues++;
-        b.requests += sample.requests ?? 0;
-        b.errors += sample.errors ?? 0;
-      }
-    }
-    buckets.set(day, b);
-  }
+  const buckets = dailyBuckets(projected.samples);
   if (
     [...buckets.values()].some((b) =>
       Object.values(b).some(
