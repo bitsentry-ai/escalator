@@ -26,35 +26,31 @@ function result(
   };
 }
 
-/** Pure restart-safe transition. The host must atomically compare the prior
- * state and commit the returned state with any incident/outbox writes.
- * Acknowledgement of an incident does not reset this detector's episode.
- */
-export function advanceRuleDecision(
-  versionInput: DetectionRuleVersion,
-  previousInput: RuleEvaluationState | null,
+type Rule = DetectionRuleVersion["definition"];
+type Verdict = ReturnType<typeof evaluateRuleWindow>;
+function assertDecisionInput(
   input: RuleDecisionInput,
-): RuleTransition {
-  const version = detectionRuleVersionSchema.parse(versionInput),
-    rule = version.definition;
-  const window = ruleWindowSchema.parse(input.window),
-    at = Date.parse(window.decisionAt);
+  decisionAt: string,
+  stepSeconds: number,
+): void {
   if (
     typeof input.enabled !== "boolean" ||
     typeof input.maintenance !== "boolean"
   )
     throw new Error("Rule decision requires explicit effective policy");
   if (
-    hasSubmillisecondTime(window.decisionAt) ||
-    at % (rule.stepSeconds * 1000) !== 0
+    hasSubmillisecondTime(decisionAt) ||
+    Date.parse(decisionAt) % (stepSeconds * 1000) !== 0
   )
     throw new Error("Rule decision is not step aligned");
-  const previous =
-    previousInput === null
-      ? null
-      : ruleEvaluationStateSchema.parse(previousInput);
+}
+/** Stored state must be step aligned and belong to this immutable rule version. */
+function assertStoredState(
+  previous: RuleEvaluationState,
+  version: DetectionRuleVersion,
+): void {
+  const rule = version.definition;
   if (
-    previous &&
     [
       previous.lastDecisionAt,
       previous.activeSince,
@@ -70,14 +66,97 @@ export function advanceRuleDecision(
   )
     throw new Error("Stored rule state is not step aligned");
   if (
-    previous &&
-    (previous.ruleId !== version.id ||
-      previous.revision !== version.revision ||
-      previous.workspaceId !== rule.workspaceId ||
-      previous.serviceId !== rule.serviceId ||
-      previous.environmentId !== rule.environmentId)
+    previous.ruleId !== version.id ||
+    previous.revision !== version.revision ||
+    previous.workspaceId !== rule.workspaceId ||
+    previous.serviceId !== rule.serviceId ||
+    previous.environmentId !== rule.environmentId
   )
     throw new Error("Rule state belongs to another immutable version");
+}
+function freshState(
+  version: DetectionRuleVersion,
+  decisionAt: string,
+): RuleEvaluationState {
+  const rule = version.definition;
+  return {
+    workspaceId: rule.workspaceId,
+    serviceId: rule.serviceId,
+    environmentId: rule.environmentId,
+    ruleId: version.id,
+    revision: version.revision,
+    evaluatorVersion: 1,
+    lastDecisionAt: decisionAt,
+    activeSince: null,
+    triggerSince: null,
+    recoverySince: null,
+    cooldownUntil: null,
+  };
+}
+/** An active episode recovers once recovery verdicts persist for the recovery period. */
+function advanceActive(
+  state: RuleEvaluationState,
+  verdict: Verdict,
+  rule: Rule,
+  decisionAt: string,
+): RuleTransition {
+  const at = Date.parse(decisionAt);
+  if (verdict.state !== "recovery") {
+    state.recoverySince = null;
+    return result(state, "evaluated", "none", verdict);
+  }
+  state.recoverySince ??= decisionAt;
+  if (at - Date.parse(state.recoverySince) < rule.recoverySeconds * 1000)
+    return result(state, "evaluated", "none", verdict);
+  const episode = state.activeSince;
+  state.activeSince = null;
+  state.recoverySince = null;
+  state.cooldownUntil =
+    rule.cooldownSeconds === 0
+      ? null
+      : new Date(at + rule.cooldownSeconds * 1000).toISOString();
+  return result(state, "evaluated", "recovered", verdict, episode);
+}
+/** Outside cooldown, an episode opens once trigger verdicts persist for the persistence period. */
+function advanceInactive(
+  state: RuleEvaluationState,
+  verdict: Verdict,
+  rule: Rule,
+  decisionAt: string,
+): RuleTransition {
+  if (verdict.state !== "trigger" || state.cooldownUntil !== null) {
+    state.triggerSince = null;
+    return result(state, "evaluated", "none", verdict);
+  }
+  state.triggerSince ??= decisionAt;
+  if (
+    Date.parse(decisionAt) - Date.parse(state.triggerSince) <
+    rule.persistenceSeconds * 1000
+  )
+    return result(state, "evaluated", "none", verdict);
+  state.activeSince = decisionAt;
+  state.triggerSince = null;
+  return result(state, "evaluated", "opened", verdict);
+}
+/** Pure restart-safe transition. The host must atomically compare the prior
+ * state and commit the returned state with any incident/outbox writes.
+ * Acknowledgement of an incident does not reset this detector's episode.
+ */
+export function advanceRuleDecision(
+  versionInput: DetectionRuleVersion,
+  previousInput: RuleEvaluationState | null,
+  input: RuleDecisionInput,
+): RuleTransition {
+  const version = detectionRuleVersionSchema.parse(versionInput),
+    rule = version.definition;
+  const window = ruleWindowSchema.parse(input.window),
+    at = Date.parse(window.decisionAt);
+  assertDecisionInput(input, window.decisionAt, rule.stepSeconds);
+  const previous =
+    previousInput === null
+      ? null
+      : ruleEvaluationStateSchema.parse(previousInput);
+  if (previous) assertStoredState(previous, version);
   if (previous && at <= Date.parse(previous.lastDecisionAt))
     return result(
       previous,
@@ -85,19 +164,7 @@ export function advanceRuleDecision(
     );
   const state: RuleEvaluationState = previous
     ? { ...previous, lastDecisionAt: window.decisionAt }
-    : {
-        workspaceId: rule.workspaceId,
-        serviceId: rule.serviceId,
-        environmentId: rule.environmentId,
-        ruleId: version.id,
-        revision: version.revision,
-        evaluatorVersion: 1,
-        lastDecisionAt: window.decisionAt,
-        activeSince: null,
-        triggerSince: null,
-        recoverySince: null,
-        cooldownUntil: null,
-      };
+    : freshState(version, window.decisionAt);
   if (
     previous &&
     at - Date.parse(previous.lastDecisionAt) !== rule.stepSeconds * 1000
@@ -113,28 +180,7 @@ export function advanceRuleDecision(
     return result(state, "suppressed");
   }
   const verdict = evaluateRuleWindow(rule, window);
-  if (state.activeSince !== null) {
-    if (verdict.state !== "recovery") state.recoverySince = null;
-    else {
-      state.recoverySince ??= window.decisionAt;
-      if (at - Date.parse(state.recoverySince) >= rule.recoverySeconds * 1000) {
-        const episode = state.activeSince;
-        state.activeSince = null;
-        state.recoverySince = null;
-        state.cooldownUntil =
-          rule.cooldownSeconds === 0
-            ? null
-            : new Date(at + rule.cooldownSeconds * 1000).toISOString();
-        return result(state, "evaluated", "recovered", verdict, episode);
-      }
-    }
-  } else if (verdict.state === "trigger" && state.cooldownUntil === null) {
-    state.triggerSince ??= window.decisionAt;
-    if (at - Date.parse(state.triggerSince) >= rule.persistenceSeconds * 1000) {
-      state.activeSince = window.decisionAt;
-      state.triggerSince = null;
-      return result(state, "evaluated", "opened", verdict);
-    }
-  } else state.triggerSince = null;
-  return result(state, "evaluated", "none", verdict);
+  return state.activeSince === null
+    ? advanceInactive(state, verdict, rule, window.decisionAt)
+    : advanceActive(state, verdict, rule, window.decisionAt);
 }
