@@ -141,6 +141,74 @@ function projection(row: NativeEvidenceRow) {
     }
   }
 }
+/** One native row as redacted evidence with a stable id; any provenance mismatch rejects the whole read. */
+function nativeEvidence(
+  raw: unknown,
+  scope: InvestigationScope,
+  query: EvidenceQuery,
+  collectedAt: string,
+): InvestigationEvidence {
+  const row = nativeEvidenceRowSchema.parse(raw);
+  const item = projection(row);
+  if (
+    row.kind !== query.kind ||
+    row.record.workspaceId !== scope.workspaceId ||
+    item.sourceId !== query.sourceId ||
+    item.serviceId !== scope.serviceId ||
+    item.environmentId !== scope.environmentId ||
+    Date.parse(item.observedAt) < Date.parse(query.window.from) ||
+    Date.parse(item.observedAt) > Date.parse(query.window.to) ||
+    Date.parse(item.observedAt) > Date.parse(collectedAt) ||
+    Date.parse(item.receivedAt) > Date.parse(collectedAt)
+  )
+    throw new Error("Evidence provenance mismatch");
+  const id = pagingWorkId(
+    scope.workspaceId,
+    "native-evidence",
+    row.kind,
+    item.sourceId,
+    item.id,
+    row.kind === "deployment" ? row.event : "observation",
+  );
+  const redacted = redactEvidence(JSON.stringify(item.facts));
+  return investigationEvidenceSchema.parse({
+    scope,
+    reference: {
+      id,
+      kind: row.kind,
+      sourceId: item.sourceId,
+      observedAt: item.observedAt,
+      receivedAt: item.receivedAt,
+    },
+    window: query.window,
+    collectedAt,
+    text: redacted.text,
+    truncated: redacted.truncated,
+  });
+}
+/** The leading items that fit the byte budget as a JSON array; truncated when anything was left out. */
+function withinBudget(
+  candidates: readonly InvestigationEvidence[],
+  limit: number,
+  maxBytes: number,
+  incomplete: boolean,
+): { items: InvestigationEvidence[]; truncated: boolean } {
+  const items: InvestigationEvidence[] = [];
+  let bytes = 2;
+  let truncated = incomplete || candidates.length > limit;
+  for (const item of candidates.slice(0, limit)) {
+    const size =
+      Buffer.byteLength(JSON.stringify(item), "utf8") + (items.length ? 1 : 0);
+    if (bytes + size > maxBytes) {
+      truncated = true;
+      break;
+    }
+    items.push(item);
+    bytes += size;
+    truncated ||= item.truncated;
+  }
+  return { items, truncated };
+}
 /** Projection/validation only, never authorization. Hosts must fence the live claim and
  * approved source before scoped SQL, bound rows before materialization, and release the
  * transaction before model I/O. Never serialize these input records into prompts. */
@@ -175,63 +243,17 @@ export function normalizeNativeEvidence(
     const candidates: InvestigationEvidence[] = [];
     const ids = new Set<string>();
     for (const raw of rowsInput) {
-      const row = nativeEvidenceRowSchema.parse(raw);
-      const item = projection(row);
-      if (
-        row.kind !== query.kind ||
-        row.record.workspaceId !== scope.workspaceId ||
-        item.sourceId !== query.sourceId ||
-        item.serviceId !== scope.serviceId ||
-        item.environmentId !== scope.environmentId ||
-        Date.parse(item.observedAt) < Date.parse(query.window.from) ||
-        Date.parse(item.observedAt) > Date.parse(query.window.to) ||
-        Date.parse(item.observedAt) > Date.parse(collectedAt) ||
-        Date.parse(item.receivedAt) > Date.parse(collectedAt)
-      )
-        throw new Error("Evidence provenance mismatch");
-      const id = pagingWorkId(
-        scope.workspaceId,
-        "native-evidence",
-        row.kind,
-        item.sourceId,
-        item.id,
-        row.kind === "deployment" ? row.event : "observation",
-      );
-      if (ids.has(id)) throw new Error("Duplicate evidence");
-      ids.add(id);
-      const redacted = redactEvidence(JSON.stringify(item.facts));
-      candidates.push(
-        investigationEvidenceSchema.parse({
-          scope,
-          reference: {
-            id,
-            kind: row.kind,
-            sourceId: item.sourceId,
-            observedAt: item.observedAt,
-            receivedAt: item.receivedAt,
-          },
-          window: query.window,
-          collectedAt,
-          text: redacted.text,
-          truncated: redacted.truncated,
-        }),
-      );
+      const evidence = nativeEvidence(raw, scope, query, collectedAt);
+      if (ids.has(evidence.reference.id)) throw new Error("Duplicate evidence");
+      ids.add(evidence.reference.id);
+      candidates.push(evidence);
     }
-    const items: InvestigationEvidence[] = [];
-    let bytes = 2;
-    let truncated = incomplete || candidates.length > query.limit;
-    for (const item of candidates.slice(0, query.limit)) {
-      const size =
-        Buffer.byteLength(JSON.stringify(item), "utf8") +
-        (items.length ? 1 : 0);
-      if (bytes + size > maxBytes) {
-        truncated = true;
-        break;
-      }
-      items.push(item);
-      bytes += size;
-      truncated ||= item.truncated;
-    }
+    const { items, truncated } = withinBudget(
+      candidates,
+      query.limit,
+      maxBytes,
+      incomplete,
+    );
     return items.length
       ? { status: "available", items, truncated }
       : unavailable("budget_exhausted");
