@@ -30,7 +30,7 @@ test("probe registration preserves independent monitoring and outbox handlers wi
     () =>
       withProbeHandlers(combined, repository, {
         run: async () => {
-          throw new Error();
+          throw new Error("probe failed");
         },
       }),
     /already registered/,

@@ -43,7 +43,7 @@ export function postgresWorkWriter(
       const row = result.rows[0];
       if (!row) return undefined;
       return {
-        workspaceId: workspaceId,
+        workspaceId,
         queue: lease.queue,
         id: row.id,
         kind: row.kind,

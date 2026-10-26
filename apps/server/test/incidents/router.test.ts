@@ -49,7 +49,9 @@ test("standalone incident routes require current identity, reject injected scope
     create: async (actor: Actor) => {
       actors.push(actor);
       if (unavailable)
-        throw Object.assign(new Error(), { code: "paging_unavailable" });
+        throw Object.assign(new Error("paging_unavailable"), {
+          code: "paging_unavailable",
+        });
       return { incidentId: "manual", pageId: "page" };
     },
   } as unknown as IncidentUseCases;

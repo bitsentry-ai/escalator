@@ -223,14 +223,14 @@ for (const mode of [
   test(`${mode} deployer uses the service fallback immediately`, async () => {
     const f = await fixture(mode === "unmapped" ? null : "primary");
     if (mode === "disabled") f.responder({ enabled: false });
-    if (mode === "viewer") f.responder({ role: "viewer" });
-    if (mode === "no-contact")
+    else if (mode === "viewer") f.responder({ role: "viewer" });
+    else if (mode === "no-contact")
       f.contacts(
         f
           .contactValues()
           .filter((contact) => contact.responderId !== "primary"),
       );
-    if (mode === "disabled-contact")
+    else if (mode === "disabled-contact")
       f.contacts(
         f
           .contactValues()

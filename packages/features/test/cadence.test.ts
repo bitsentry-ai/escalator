@@ -72,7 +72,7 @@ test("cadence plan preserves the full probe configuration and records exact rest
     original = structuredClone(f);
   const plan = planWatchCadence(f.watch, f.captured, f.probe, undefined, at(1));
   assert.equal(plan.state, "tighten");
-  if (plan.state !== "tighten") throw new Error();
+  if (plan.state !== "tighten") throw new Error("expected a tighten result");
   assert.equal(plan.probe.intervalSeconds, 60);
   assert.equal(plan.probe.version, 2);
   assert.deepEqual(plan.probe.config, f.probe.config);
@@ -84,7 +84,7 @@ test("cadence plan preserves the full probe configuration and records exact rest
 test("overlapping watch extends ownership without forgetting the original interval", async () => {
   const f = await fixture(),
     first = planWatchCadence(f.watch, f.captured, f.probe, undefined, at(1));
-  if (first.state !== "tighten") throw new Error();
+  if (first.state !== "tighten") throw new Error("expected a tighten result");
   const later = {
     ...f.watch,
     deploymentId: "second",
@@ -100,7 +100,7 @@ test("overlapping watch extends ownership without forgetting the original interv
     at(600),
   );
   assert.equal(plan.state, "join");
-  if (plan.state !== "join") throw new Error();
+  if (plan.state !== "join") throw new Error("expected a join result");
   assert.equal(plan.lease.generationId, first.lease.generationId);
   assert.equal(plan.lease.appliedProbeVersion, first.probe.version);
   assert.equal(plan.lease.originalIntervalSeconds, 300);
@@ -119,7 +119,7 @@ test("overlapping watch extends ownership without forgetting the original interv
 test("edits that preserve the interval retain renewal and restoration", async () => {
   const f = await fixture(),
     first = planWatchCadence(f.watch, f.captured, f.probe, undefined, at(1));
-  if (first.state !== "tighten") throw new Error();
+  if (first.state !== "tighten") throw new Error("expected a tighten result");
   const edited = {
     ...first.probe,
     version: 3,

@@ -37,7 +37,7 @@ export class StandaloneInvestigationDeployment {
   static fromJSON(raw: string | undefined) {
     try {
       if (raw !== undefined && Buffer.byteLength(raw, "utf8") > 262144)
-        throw new Error();
+        throw new Error("configuration exceeds 256 KiB");
       return new StandaloneInvestigationDeployment(
         raw === undefined ? {} : JSON.parse(raw),
       );

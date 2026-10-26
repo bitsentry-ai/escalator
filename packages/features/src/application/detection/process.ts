@@ -24,7 +24,7 @@ const payloadSchema = signalProcessingPayloadSchema;
 const actor = { kind: "system", component: "detection" } as const;
 /** A newer active observation after this alert recovered is a relapse, even if it predates resolution. */
 const relapses = (alert: AlertState | undefined, signal: SignalEvent) =>
-  !!alert &&
+  alert !== undefined &&
   !alert.active &&
   signal.status === "active" &&
   Date.parse(signal.observedAt) > Date.parse(alert.observedAt);
@@ -110,7 +110,7 @@ export class SignalProcessing {
       const decision = transitionAlert(
         current,
         signal,
-        { ...source, enabled: source.enabled && !!service?.enabled },
+        { ...source, enabled: source.enabled && Boolean(service?.enabled) },
         await tx.currentTime(),
       );
       if (decision.state === "ignored") {
@@ -192,7 +192,7 @@ export class SignalProcessing {
         incidentId: incident?.id ?? null,
       });
       if (incident)
-        group = await scheduleRecovery(
+        await scheduleRecovery(
           tx,
           group,
           await recoveryDeadline(tx, incident.id),

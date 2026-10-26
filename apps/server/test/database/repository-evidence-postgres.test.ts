@@ -544,12 +544,12 @@ for (const change of [
                 "UPDATE escalator_job SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE workspace_id=$1 AND id='repository_investigation'",
                 [f.a],
               );
-            if (change === "target")
+            else if (change === "target")
               await db.query(
                 "UPDATE escalator_deploy_target SET data=jsonb_set(data,'{enabled}','false'::jsonb) WHERE workspace_id=$1 AND id='target'",
                 [f.a],
               );
-            if (change === "revision")
+            else if (change === "revision")
               await db.query(
                 "UPDATE escalator_deploy_target SET revision=revision+1,data=jsonb_set(data,'{revision}',to_jsonb(revision+1)) WHERE workspace_id=$1 AND id='target'",
                 [f.a],
