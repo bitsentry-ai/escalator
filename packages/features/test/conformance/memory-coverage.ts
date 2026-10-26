@@ -10,6 +10,37 @@ import { PersistenceError } from "../../src/application/ports/persistence.js";
 import { MemoryDeploymentRepository } from "./memory-deployments.js";
 const copy = <T>(value: T): T => structuredClone(value);
 /** Test-only serializable storage sharing the deployment transaction's rollback boundary. */
+function addScheduleResponders(
+  candidates: Set<string>,
+  schedule: {
+    rotations: { responders: string[] }[];
+    overrides: { responderId: string }[];
+  },
+): void {
+  for (const rotation of schedule.rotations)
+    for (const id of rotation.responders) candidates.add(id);
+  for (const override of schedule.overrides)
+    candidates.add(override.responderId);
+}
+/** Iterates the serializable test snapshot only; production adapters use a bounded SQL statement. */
+async function contactsOf<C extends { responderId: string }>(
+  list: (page: {
+    limit: number;
+    after?: string;
+  }) => Promise<{ items: C[]; next: string | null }>,
+  responders: readonly { id: string }[],
+): Promise<C[]> {
+  const contacts: C[] = [];
+  let after: string | undefined;
+  do {
+    const page = await list({ limit: 100, after });
+    for (const contact of page.items)
+      if (responders.some((row) => row.id === contact.responderId))
+        contacts.push(contact);
+    after = page.next ?? undefined;
+  } while (after && contacts.length <= 2060);
+  return contacts;
+}
 export class MemoryCoverageRepository implements CoverageRepository {
   readonly deployments: MemoryDeploymentRepository;
   constructor(clock?: Clock) {
@@ -54,14 +85,10 @@ export class MemoryCoverageRepository implements CoverageRepository {
                 await configuration.configuration.schedules.get(id);
               if (!schedule) continue;
               schedules.push(schedule);
-              for (const rotation of schedule.rotations)
-                for (const id of rotation.responders) candidates.add(id);
-              for (const override of schedule.overrides)
-                candidates.add(override.responderId);
+              addScheduleResponders(candidates, schedule);
             }
             const responders = [],
-              availability = [],
-              contacts = [];
+              availability = [];
             let complete = candidates.size <= 103;
             for (const id of [...candidates].sort().slice(0, 103)) {
               const responder = await base.responders.get(id);
@@ -70,18 +97,10 @@ export class MemoryCoverageRepository implements CoverageRepository {
                 await configuration.configuration.availability.get(id);
               if (hours) availability.push(hours);
             }
-            // Iterate the serializable test snapshot only; production adapters use a bounded SQL statement.
-            let after: string | undefined;
-            do {
-              const page = await configuration.configuration.contacts.list({
-                limit: 100,
-                after,
-              });
-              for (const contact of page.items)
-                if (responders.some((row) => row.id === contact.responderId))
-                  contacts.push(contact);
-              after = page.next ?? undefined;
-            } while (after && contacts.length <= 2060);
+            const contacts = await contactsOf(
+              (page) => configuration.configuration.contacts.list(page),
+              responders,
+            );
             if (contacts.length > 2060) complete = false;
             return {
               complete,
