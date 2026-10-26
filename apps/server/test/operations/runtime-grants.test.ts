@@ -5,11 +5,8 @@ import path from "node:path";
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);
-    return entry.isDirectory()
-      ? sources(file)
-      : file.endsWith(".ts")
-        ? [file]
-        : [];
+    if (entry.isDirectory()) return sources(file);
+    return file.endsWith(".ts") ? [file] : [];
   });
 }
 // PostgreSQL rejects FOR UPDATE/FOR SHARE without UPDATE on at least one column.

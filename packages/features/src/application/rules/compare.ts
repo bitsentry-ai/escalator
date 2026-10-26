@@ -10,6 +10,22 @@ import {
   hasSubmillisecondTime,
 } from "../../contracts/timestamps.js";
 import { PersistenceError } from "../ports/persistence.js";
+function comparisonStatus(
+  capture: { complete: boolean; legacyUnknown: boolean },
+  groups: readonly {
+    missingDecisions: number;
+    observation: { unknown: number };
+  }[],
+): "no_recorded_comparison" | "available" | "partial" {
+  if (!groups.length) return "no_recorded_comparison";
+  const complete =
+    capture.complete &&
+    !capture.legacyUnknown &&
+    groups.every(
+      (g) => g.missingDecisions === 0 && g.observation.unknown === 0,
+    );
+  return complete ? "available" : "partial";
+}
 /** Actual recorded rule openings, not a counterfactual replay of current rules.
  * Missing recording time/mode and uncovered decisions remain explicit. */
 export function compareRecordedRules(
@@ -95,15 +111,7 @@ export function compareRecordedRules(
     basis: "recorded_rule_decisions",
     captureComplete: capture.complete,
     legacyUnknown: capture.legacyUnknown,
-    status: !groups.length
-      ? "no_recorded_comparison"
-      : capture.complete &&
-          !capture.legacyUnknown &&
-          groups.every(
-            (g) => g.missingDecisions === 0 && g.observation.unknown === 0,
-          )
-        ? "available"
-        : "partial",
+    status: comparisonStatus(capture, groups),
     candidatePredictedOpenings: report.episodes.length,
     candidateEvaluatedDecisions: report.coverage.evaluatedDecisions,
     groups,

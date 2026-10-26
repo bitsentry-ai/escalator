@@ -4,6 +4,7 @@ import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import { ruleSampleTime, ruleWindowBounds } from "../../domain/rules/time.js";
 import { ruleWindowFromHistory } from "./history-window.js";
 import { resolveRulePolicy } from "./policy.js";
+import { compareBigInts } from "../../contracts/ordering.js";
 /** Build the bounded index once per batch. Facts describe what was recorded at
  * the simulated decision, never current configuration or inferred source health. */
 export function retainedReplayReader(snapshot: RuleReplaySnapshot) {
@@ -29,11 +30,7 @@ export function retainedReplayReader(snapshot: RuleReplaySnapshot) {
     list.sort(
       (a, b) =>
         compareUtcTimestamps(a.recordedAt, b.recordedAt) ||
-        (BigInt(a.id) < BigInt(b.id)
-          ? -1
-          : BigInt(a.id) > BigInt(b.id)
-            ? 1
-            : 0),
+        compareBigInts(BigInt(a.id), BigInt(b.id)),
     );
   function factAt(kind: RulePolicyFact["kind"], id: string, at: string) {
     const rows = index.get(key(kind, id)) ?? [];

@@ -8,16 +8,17 @@ import {
 import type { WorkspaceId } from "@bitsentry-escalator/features/contracts";
 import type { SecretEnvelope } from "./keyring.js";
 import type { EncryptedSecretReader } from "./encrypted-secret.store.js";
+/** The work table a secret claim must belong to; anything else is refused. */
+function workRelation(queue: string): string | undefined {
+  if (queue === "job") return "escalator_job";
+  if (queue === "outbox") return "escalator_outbox";
+  return undefined;
+}
 
 export class PostgresSecretReader implements EncryptedSecretReader {
   constructor(private readonly pool: Pool) {}
   async load(request: SecretUse) {
-    const relation =
-      request.queue === "job"
-        ? "escalator_job"
-        : request.queue === "outbox"
-          ? "escalator_outbox"
-          : undefined;
+    const relation = workRelation(request.queue);
     if (!relation) throw new SecretAccessError();
     const client = await this.pool.connect();
     try {

@@ -89,11 +89,18 @@ export type EscalationDecision =
       exhausted: boolean;
     };
 
+const DEFAULT_LADDER = [
+  { minute: 0, target: "primary" },
+  { minute: 2, target: "primary" },
+  { minute: 7, target: "primary" },
+  { minute: 12, target: "peer" },
+  { minute: 17, target: "fallback" },
+] as const;
 /** One default ladder shared by policy creation and the configuration UI. */
 export function defaultEscalationSteps(): EscalationPolicy["steps"] {
-  return [0, 2, 7, 12, 17].map((minute, index) => ({
+  return DEFAULT_LADDER.map(({ minute, target }, index) => ({
     id: `step-${index}`,
     offsetMs: minute * 60_000,
-    target: index < 3 ? "primary" : index === 3 ? "peer" : "fallback",
+    target,
   }));
 }

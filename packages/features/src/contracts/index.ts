@@ -5,6 +5,7 @@ export interface EscalatorPackageInfo {
   contractVersion: typeof escalatorContractVersion;
 }
 
+export * from "./ordering.js";
 export * from "./expect-defined.js";
 export * from "./identity.js";
 export * from "./entities.js";

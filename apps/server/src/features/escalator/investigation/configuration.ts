@@ -102,15 +102,11 @@ export async function standaloneInvestigationConfiguration(
     const available =
       parentAvailable &&
       (!row || source.kind === "deployment" || row.data.enabled === true);
+    const revisionField = source.kind === "deployment" ? "revision" : "version";
     versions.push({
       kind: source.kind,
       sourceId: source.sourceId,
-      revision:
-        row && available
-          ? String(
-              row.data[source.kind === "deployment" ? "revision" : "version"],
-            )
-          : "missing",
+      revision: row && available ? String(row.data[revisionField]) : "missing",
     });
   }
   if (selected.profile.secretId) {

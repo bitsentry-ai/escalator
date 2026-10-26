@@ -31,12 +31,29 @@ const tables = {
     slot: "observed_at",
   },
 } as const;
+/** The kind-specific reading columns of a receipt record; a signal has none. */
+function readingFields(kind: RuleHistoryQuery["kind"]): string {
+  if (kind === "signal") return "";
+  if (kind === "probe")
+    return `,'slotAt',${timestamp("r.scheduled_at")},'usable',COALESCE(r.data->>'outcome' IN ('healthy','failed'),false),
+     'success',CASE WHEN r.data->>'outcome' IN ('healthy','failed') THEN r.data->>'outcome'='healthy' ELSE NULL END,
+     'durationMs',r.data->'durationMs'`;
+  const quality = "r.data->'sample'->>'quality'='complete'";
+  return `,'slotAt',${timestamp("r.observed_at")},'usable',COALESCE(${quality},false),
+     'requests',CASE WHEN ${quality} THEN r.data->'sample'->'requests' ELSE 'null'::jsonb END,
+     'errors',CASE WHEN ${quality} THEN r.data->'sample'->'errors' ELSE 'null'::jsonb END`;
+}
 /** A bounded scalar snapshot for one decision; never loads provider bodies or credentials.
  * PostgreSQL applies receipt cutoffs before converting timestamps to JSON so sub-ms
  * arrivals cannot become evidence for an earlier millisecond decision.
  */
 export function ruleHistorySql(kind: RuleHistoryQuery["kind"]): string {
   const row = tables[kind];
+  const anchorAt =
+    kind === "metric"
+      ? "'1970-01-01T00:00:00.000Z'::text"
+      : "data->>'updatedAt'";
+  const stepField = kind === "metric" ? "stepSeconds" : "intervalSeconds";
   const fields = kind === "signal" ? [] : watchMeasurementFields[kind];
   const hash = `encode(sha256(convert_to(jsonb_build_object(${fields.map((field) => `'${field}',data->'${field}'`).join(",")})::text,'UTF8')),'hex')`;
   const configurations = row.versions
@@ -44,23 +61,13 @@ export function ruleHistorySql(kind: RuleHistoryQuery["kind"]): string {
     'version',version,'effectiveAt',${timestamp("effective_at")},
     'recordedAt',CASE WHEN recorded_at<=$7::text::timestamptz AND data->>'serviceId'=$3 AND data->>'environmentId'=$4 THEN ${timestamp("recorded_at")} ELSE NULL END,
     'enabled',(data->>'enabled')::boolean,'measurementHash',${hash},
-    'anchorAt',${kind === "metric" ? "'1970-01-01T00:00:00.000Z'::text" : "data->>'updatedAt'"},
-    'stepSeconds',(data->>'${kind === "metric" ? "stepSeconds" : "intervalSeconds"}')::integer) AS record
+    'anchorAt',${anchorAt},
+    'stepSeconds',(data->>'${stepField}')::integer) AS record
     FROM ${row.versions} WHERE workspace_id=$1 AND ${row.key}=$2
     AND (effective_at IS NULL OR effective_at<=$6::text::timestamptz)
     ORDER BY version LIMIT 10001`
     : "SELECT NULL::bigint AS version,NULL::jsonb AS record WHERE false";
-  const quality = "r.data->'sample'->>'quality'='complete'";
-  const reading =
-    kind === "signal"
-      ? ""
-      : kind === "probe"
-        ? `,'slotAt',${timestamp("r.scheduled_at")},'usable',COALESCE(r.data->>'outcome' IN ('healthy','failed'),false),
-     'success',CASE WHEN r.data->>'outcome' IN ('healthy','failed') THEN r.data->>'outcome'='healthy' ELSE NULL END,
-     'durationMs',r.data->'durationMs'`
-        : `,'slotAt',${timestamp("r.observed_at")},'usable',COALESCE(${quality},false),
-     'requests',CASE WHEN ${quality} THEN r.data->'sample'->'requests' ELSE 'null'::jsonb END,
-     'errors',CASE WHEN ${quality} THEN r.data->'sample'->'errors' ELSE 'null'::jsonb END`;
+  const reading = readingFields(kind);
   return `WITH configurations AS MATERIALIZED (${configurations}),
   receipts AS MATERIALIZED (
     SELECT r.id,r.observed_at,jsonb_build_object('version',r.${row.version},'sample',jsonb_build_object(

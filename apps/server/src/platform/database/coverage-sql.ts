@@ -36,12 +36,17 @@ const projection = {
  */
 export function coverageSql(kind: ReplayCoverageQuery["kind"]): string {
   const row = projection[kind];
+  const anchorAt =
+    kind === "metric"
+      ? "'1970-01-01T00:00:00.000Z'::text"
+      : "data->>'updatedAt'";
+  const stepField = kind === "metric" ? "stepSeconds" : "intervalSeconds";
   const configs = row.versions
     ? `SELECT version, jsonb_build_object(
     'version',version,'effectiveAt',${timestamp("effective_at")},'recordedAt',${timestamp("recorded_at")},
     'enabled',(data->>'enabled')::boolean,
-    'anchorAt',${kind === "metric" ? "'1970-01-01T00:00:00.000Z'::text" : "data->>'updatedAt'"},
-    'stepSeconds',(data->>'${kind === "metric" ? "stepSeconds" : "intervalSeconds"}')::integer) AS metadata
+    'anchorAt',${anchorAt},
+    'stepSeconds',(data->>'${stepField}')::integer) AS metadata
     FROM ${row.versions} WHERE workspace_id=$1 AND ${row.key}=$2
       AND (effective_at IS NULL OR effective_at<$4::timestamptz)
     ORDER BY version LIMIT 10001`

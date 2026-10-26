@@ -154,15 +154,13 @@ function ProposalRequest({
   return (
     <fieldset disabled={action.pending}>
       <legend>{t("rules.requestProposal")}</legend>
-      {loading ? (
-        <p role="status">{t("sources.loading")}</p>
-      ) : profile ? (
+      {loading && <p role="status">{t("sources.loading")}</p>}
+      {!loading && profile && (
         <p>
           {t("rules.model")}: {profile.name}
         </p>
-      ) : (
-        <p>{t("rules.configureModel")}</p>
       )}
+      {!loading && !profile && <p>{t("rules.configureModel")}</p>}
       {error && (
         <>
           <p role="alert">{t("rules.loadError")}</p>

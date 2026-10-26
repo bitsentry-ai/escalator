@@ -50,12 +50,9 @@ for (const providerKey of keys) {
     assert.equal(new URL(calls[0].url).origin, "https://models.example.test");
     assert.equal(calls[0].headers.get("HTTP-Referer"), null);
     assert.equal(calls[0].headers.get("X-Title"), null);
-    const authHeader =
-      providerKey === "gemini"
-        ? "x-goog-api-key"
-        : providerKey === "anthropic"
-          ? "x-api-key"
-          : "authorization";
+    let authHeader = "authorization";
+    if (providerKey === "gemini") authHeader = "x-goog-api-key";
+    else if (providerKey === "anthropic") authHeader = "x-api-key";
     assert.equal(
       calls[0].headers.get(authHeader),
       authHeader === "authorization" ? "Bearer test-secret" : "test-secret",

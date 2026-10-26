@@ -14,6 +14,12 @@ import {
   type ProbeTransport,
 } from "../../application/probes/transport.js";
 import { MetricsReadError, normalizeMetricCounts } from "./normalize.js";
+function transportFailure(
+  reason: string,
+): "destination_denied" | "timeout" | "provider_unavailable" {
+  if (reason === "destination_denied" || reason === "timeout") return reason;
+  return "provider_unavailable";
+}
 const credential = z.strictObject({
   authorization: z
     .string()
@@ -143,13 +149,7 @@ export class PrometheusMetricsReader {
       if (timedOut) throw new MetricsReadError("timeout");
       if (error instanceof MetricsReadError) throw error;
       if (error instanceof ProbeTransportError)
-        throw new MetricsReadError(
-          error.reason === "destination_denied"
-            ? "destination_denied"
-            : error.reason === "timeout"
-              ? "timeout"
-              : "provider_unavailable",
-        );
+        throw new MetricsReadError(transportFailure(error.reason));
       throw new MetricsReadError(
         config.connection.authSecretId
           ? "secret_unavailable"

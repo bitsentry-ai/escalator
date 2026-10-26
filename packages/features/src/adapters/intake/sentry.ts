@@ -9,6 +9,11 @@ import {
   parseSignalBody,
   SignalIngressError,
 } from "../../application/signals/ingest.js";
+function sentrySeverity(level: unknown): "critical" | "high" | "warning" {
+  if (level === "fatal") return "critical";
+  if (level === "error") return "high";
+  return "warning";
+}
 
 /** Verify the received bytes, never JSON reserialization or unsigned headers. */
 export function verifySentrySignature(
@@ -66,12 +71,7 @@ export function normalizeSentryIssueAlert(body: Uint8Array): SignalInput {
     fingerprint: `sentry:issue:${key}`,
     observedAt: new Date(event.datetime).toISOString(),
     status: "active",
-    severity:
-      event.level === "fatal"
-        ? "critical"
-        : event.level === "error"
-          ? "high"
-          : "warning",
+    severity: sentrySeverity(event.level),
     title: `Sentry issue ${event.issue_id}`,
     evidence: {
       summary:

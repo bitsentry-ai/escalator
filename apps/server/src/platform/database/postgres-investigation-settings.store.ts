@@ -6,6 +6,7 @@ import {
   type WorkspaceId,
 } from "@bitsentry-escalator/features/contracts";
 import type { InvestigationSettingsStore } from "@bitsentry-escalator/features/application";
+import { compareCodeUnits } from "@bitsentry-escalator/features/contracts";
 /** Fixed SQL primitives on the surrounding scoped transaction; no network calls. */
 export function postgresInvestigationSettingsStore(
   db: PoolClient,
@@ -65,7 +66,7 @@ export function postgresInvestigationSettingsStore(
       const sorted = [...sources].sort((a, b) => {
         const left = `${a.kind}:${a.sourceId}`;
         const right = `${b.kind}:${b.sourceId}`;
-        return left < right ? -1 : left > right ? 1 : 0;
+        return compareCodeUnits(left, right);
       });
       for (const source of sorted) {
         const tables = {

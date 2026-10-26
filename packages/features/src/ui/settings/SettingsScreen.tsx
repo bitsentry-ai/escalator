@@ -3,6 +3,11 @@ import type { PagingSettingsClient } from "../settings-client.js";
 import { ContactsScreen } from "./ContactsScreen.js";
 import { ManagementScreen } from "./ManagementScreen.js";
 import { styles } from "../incidents/styles.js";
+const TAB_HEADINGS = {
+  contacts: "settings.contacts",
+  policies: "policy.heading",
+  availability: "availability.heading",
+} as const;
 export function SettingsScreen({
   client,
   canManage,
@@ -25,13 +30,7 @@ export function SettingsScreen({
             aria-pressed={view === tab}
             onClick={() => setView(tab)}
           >
-            {t(
-              tab === "contacts"
-                ? "settings.contacts"
-                : tab === "policies"
-                  ? "policy.heading"
-                  : "availability.heading",
-            )}
+            {t(TAB_HEADINGS[tab])}
           </button>
         ))}
       </nav>

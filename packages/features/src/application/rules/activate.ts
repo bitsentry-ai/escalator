@@ -251,12 +251,9 @@ export class ReviewRuleActivation {
         status: receipt.mode,
         updatedAt: now,
       });
-      const action =
-        version.revision < entry.versionRevision
-          ? "rolled_back"
-          : receipt.mode === "active"
-            ? "activated"
-            : "shadowed";
+      let action: "rolled_back" | "activated" | "shadowed" = "shadowed";
+      if (version.revision < entry.versionRevision) action = "rolled_back";
+      else if (receipt.mode === "active") action = "activated";
       await record(
         tx,
         actor,

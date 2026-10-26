@@ -68,15 +68,11 @@ function fixture() {
     connect: async () => ({
       query: async (sql: string, values: unknown[] = []) => {
         calls.push({ sql, values });
-        return {
-          rows: sql.startsWith("SELECT s.data")
-            ? missing
-              ? []
-              : [row]
-            : sql === "SELECT clock_timestamp() AS now"
-              ? [{ now }]
-              : [],
-        };
+        if (sql.startsWith("SELECT s.data"))
+          return { rows: missing ? [] : [row] };
+        if (sql === "SELECT clock_timestamp() AS now")
+          return { rows: [{ now }] };
+        return { rows: [] };
       },
       release: () => {
         released++;
