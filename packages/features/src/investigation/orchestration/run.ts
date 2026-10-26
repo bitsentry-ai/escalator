@@ -50,6 +50,164 @@ class Stop extends Error {
     super("Investigation stopped: " + reason);
   }
 }
+type Reason = InvestigationReport["reason"];
+/** Rethrows a stop or budget error as is; any other failure of a host port stops with `reason`. */
+function asStop(error: unknown, reason: Reason): never {
+  if (error instanceof Stop || error instanceof InvestigationBudgetError)
+    throw error;
+  throw new Stop(reason);
+}
+function missingEvidenceReason(
+  unavailable: readonly UnavailableEvidence[],
+): Reason {
+  return unavailable.some((item) => item.reason === "budget_exhausted")
+    ? "budget_exhausted"
+    : "evidence_unavailable";
+}
+/** Why a run that produced a diagnosis ended: a cut-off model, a model error, or missing evidence. */
+function completionReason(
+  completion: string,
+  incomplete: boolean,
+  unavailable: readonly UnavailableEvidence[],
+): Reason {
+  if (completion === "length") return "budget_exhausted";
+  if (completion !== "stop") return "invalid_model_output";
+  if (incomplete) return missingEvidenceReason(unavailable);
+  return "completed";
+}
+function failureReason(error: unknown, deadlineExpired: boolean): Reason {
+  if (error instanceof Stop) return error.reason;
+  if (error instanceof InvestigationBudgetError)
+    return deadlineExpired ? "budget_exhausted" : error.reason;
+  return "invalid_model_output";
+}
+/** Parses, cites and redacts the model's diagnosis; anything unexpected stops the run. */
+function decodeDiagnosis(
+  response: { text: unknown; completion: string },
+  evidence: readonly InvestigationEvidence[],
+): Pick<InvestigationReport, "summary" | "findings"> {
+  if (
+    typeof response.text !== "string" ||
+    Buffer.byteLength(response.text, "utf8") > 262144
+  )
+    throw new Stop("invalid_model_output");
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(response.text);
+  } catch {
+    throw new Stop(
+      response.completion === "length"
+        ? "budget_exhausted"
+        : "invalid_model_output",
+    );
+  }
+  const diagnosis = diagnosisSchema.safeParse(decoded);
+  if (!diagnosis.success) throw new Stop("invalid_model_output");
+  const ids = new Set(evidence.map((item) => item.reference.id));
+  if (
+    diagnosis.data.findings.some(
+      (finding) =>
+        new Set(finding.evidenceIds).size !== finding.evidenceIds.length ||
+        finding.evidenceIds.some((id) => !ids.has(id)),
+    )
+  )
+    throw new Stop("invalid_model_output");
+  const cleanSummary = redactEvidence(diagnosis.data.summary);
+  const cleanFindings = diagnosis.data.findings.map((finding) => ({
+    ...finding,
+    redacted: redactEvidence(finding.text),
+  }));
+  if (
+    cleanSummary.truncated ||
+    cleanFindings.some((finding) => finding.redacted.truncated)
+  )
+    throw new Stop("invalid_model_output");
+  const cleaned = diagnosisSchema.safeParse({
+    summary: cleanSummary.text,
+    findings: cleanFindings.map(({ redacted, evidenceIds }) => ({
+      text: redacted.text,
+      evidenceIds,
+    })),
+  });
+  if (!cleaned.success) throw new Stop("invalid_model_output");
+  return { summary: cleaned.data.summary, findings: cleaned.data.findings };
+}
+function monotonicTimestamp(startedAt: string, clock: InvestigationClock) {
+  try {
+    return new Date(
+      Math.max(Date.parse(startedAt), clock.now().getTime()),
+    ).toISOString();
+  } catch {
+    return startedAt;
+  }
+}
+/** A read that repeats evidence is invalid; one past 128 items exhausts the budget. */
+function rejectionReason(
+  evidence: readonly InvestigationEvidence[],
+  items: readonly InvestigationEvidence[],
+): "invalid_response" | "budget_exhausted" | null {
+  const ids = new Set(evidence.map((item) => item.reference.id));
+  if (items.some((item) => ids.has(item.reference.id)))
+    return "invalid_response";
+  if (evidence.length + items.length > 128) return "budget_exhausted";
+  return null;
+}
+/** Races a host port against cancellation and the remaining budget, even when the port ignores its signal. */
+async function raceOperation<T>(
+  operation: (context: OperationContext) => Promise<T>,
+  run: {
+    budget: InvestigationBudget;
+    controller: AbortController;
+    signal: AbortSignal;
+    checkpoint: () => void;
+  },
+): Promise<T> {
+  const { budget, controller, signal, checkpoint } = run;
+  checkpoint();
+  const timeoutMs = Math.max(
+    1,
+    Math.floor(Math.min(120000, budget.remainingMs())),
+  );
+  const local = new AbortController();
+  let rejectAbort: (error: Stop) => void = () => {};
+  const stopped = new Promise<never>((_, reject) => {
+    rejectAbort = reject;
+  });
+  const parentAbort = () => {
+    local.abort();
+    rejectAbort(new Stop(signal.aborted ? "cancelled" : "budget_exhausted"));
+  };
+  controller.signal.addEventListener("abort", parentAbort, { once: true });
+  const timeout = setTimeout(() => {
+    local.abort();
+    rejectAbort(new Stop("budget_exhausted"));
+  }, timeoutMs);
+  const pending = Promise.resolve().then(() => {
+    checkpoint();
+    if (local.signal.aborted) throw new Stop("budget_exhausted");
+    return operation({ signal: local.signal, timeoutMs });
+  });
+  try {
+    const value = await Promise.race([pending, stopped]);
+    checkpoint();
+    return value;
+  } finally {
+    clearTimeout(timeout);
+    controller.signal.removeEventListener("abort", parentAbort);
+    local.abort();
+  }
+}
+/** Sources a stopped run never read: lost to the budget, or cancelled with the run or its lease. */
+function skippedSources(
+  reason: Reason,
+  remaining: readonly UnavailableEvidence["query"][],
+): UnavailableEvidence[] {
+  if (reason === "budget_exhausted")
+    return remaining.map((query) => ({ query, reason: "budget_exhausted" }));
+  if (reason === "cancelled" || reason === "lease_lost")
+    return remaining.map((query) => ({ query, reason: "cancelled" }));
+  return [];
+}
 /** Fixed, bounded read-only plan. No model-selected tool, URL, SQL, shell or write port. */
 export async function runInvestigation(
   input: InvestigationClaim,
@@ -79,19 +237,11 @@ export async function runInvestigation(
   let destination: InvestigationReport["destination"] = null;
   let summary = "";
   let findings: InvestigationReport["findings"] = [];
-  let reason: InvestigationReport["reason"] = "completed";
+  let reason: InvestigationReport["reason"];
   let incomplete = false;
   let sequence = 0;
   let nextSource = 0;
-  const timestamp = () => {
-    try {
-      return new Date(
-        Math.max(Date.parse(startedAt), clock.now().getTime()),
-      ).toISOString();
-    } catch {
-      return startedAt;
-    }
-  };
+  const timestamp = () => monotonicTimestamp(startedAt, clock);
   const checkpoint = () => {
     if (signal.aborted) throw new Stop("cancelled");
     if (deadlineExpired) throw new Stop("budget_exhausted");
@@ -104,44 +254,8 @@ export async function runInvestigation(
     checkpoint();
     if (!budget.consume(resource, amount)) throw new Stop("budget_exhausted");
   };
-  // Race all host ports, including trace and resolver, even if they ignore cancellation.
-  const bounded = async <T>(
-    operation: (context: OperationContext) => Promise<T>,
-  ): Promise<T> => {
-    checkpoint();
-    const timeoutMs = Math.max(
-      1,
-      Math.floor(Math.min(120000, budget.remainingMs())),
-    );
-    const local = new AbortController();
-    let rejectAbort: (error: Stop) => void = () => {};
-    const stopped = new Promise<never>((_, reject) => {
-      rejectAbort = reject;
-    });
-    const parentAbort = () => {
-      local.abort();
-      rejectAbort(new Stop(signal.aborted ? "cancelled" : "budget_exhausted"));
-    };
-    controller.signal.addEventListener("abort", parentAbort, { once: true });
-    const timeout = setTimeout(() => {
-      local.abort();
-      rejectAbort(new Stop("budget_exhausted"));
-    }, timeoutMs);
-    const pending = Promise.resolve().then(() => {
-      checkpoint();
-      if (local.signal.aborted) throw new Stop("budget_exhausted");
-      return operation({ signal: local.signal, timeoutMs });
-    });
-    try {
-      const value = await Promise.race([pending, stopped]);
-      checkpoint();
-      return value;
-    } finally {
-      clearTimeout(timeout);
-      controller.signal.removeEventListener("abort", parentAbort);
-      local.abort();
-    }
-  };
+  const bounded = <T>(operation: (context: OperationContext) => Promise<T>) =>
+    raceOperation(operation, { budget, controller, signal, checkpoint });
   const trace = async (
     kind: InvestigationTraceEvent["kind"],
     ids: string[] = [],
@@ -162,9 +276,7 @@ export async function runInvestigation(
         dependencies.trace.append(structuredClone(claim), event),
       );
     } catch (error) {
-      if (error instanceof Stop || error instanceof InvestigationBudgetError)
-        throw error;
-      throw new Stop("lease_lost");
+      asStop(error, "lease_lost");
     }
     if (!accepted) throw new Stop("lease_lost");
   };
@@ -185,12 +297,7 @@ export async function runInvestigation(
         await trace("evidence_read", [], result.unavailable.reason);
         continue;
       }
-      const ids = new Set(evidence.map((item) => item.reference.id));
-      let rejectedReason: "invalid_response" | "budget_exhausted" | null = null;
-      if (result.items.some((item) => ids.has(item.reference.id)))
-        rejectedReason = "invalid_response";
-      else if (evidence.length + result.items.length > 128)
-        rejectedReason = "budget_exhausted";
+      const rejectedReason = rejectionReason(evidence, result.items);
       if (rejectedReason) {
         unavailable.push({ query, reason: rejectedReason });
         nextSource += 1;
@@ -210,12 +317,7 @@ export async function runInvestigation(
         result.items.map((item) => item.reference.id),
       );
     }
-    if (!evidence.length)
-      throw new Stop(
-        unavailable.some((item) => item.reason === "budget_exhausted")
-          ? "budget_exhausted"
-          : "evidence_unavailable",
-      );
+    if (!evidence.length) throw new Stop(missingEvidenceReason(unavailable));
     const modelInput = JSON.stringify({
       scope: claim.scope,
       evidence,
@@ -234,9 +336,7 @@ export async function runInvestigation(
         dependencies.models.resolve(scope, claim.profileId, context),
       );
     } catch (error) {
-      if (error instanceof Stop || error instanceof InvestigationBudgetError)
-        throw error;
-      throw new Stop("model_unavailable");
+      asStop(error, "model_unavailable");
     }
     const parsedDestination = modelDestinationSchema.safeParse(
       model.destination,
@@ -260,89 +360,23 @@ export async function runInvestigation(
         ),
       );
     } catch (error) {
-      if (error instanceof Stop || error instanceof InvestigationBudgetError)
-        throw error;
-      throw new Stop("model_unavailable");
+      asStop(error, "model_unavailable");
     }
-    if (
-      typeof response.text !== "string" ||
-      Buffer.byteLength(response.text, "utf8") > 262144
-    )
-      throw new Stop("invalid_model_output");
-    let decoded: unknown;
-    try {
-      decoded = JSON.parse(response.text);
-    } catch {
-      throw new Stop(
-        response.completion === "length"
-          ? "budget_exhausted"
-          : "invalid_model_output",
-      );
-    }
-    const diagnosis = diagnosisSchema.safeParse(decoded);
-    if (!diagnosis.success) throw new Stop("invalid_model_output");
-    const ids = new Set(evidence.map((item) => item.reference.id));
-    if (
-      diagnosis.data.findings.some(
-        (finding) =>
-          new Set(finding.evidenceIds).size !== finding.evidenceIds.length ||
-          finding.evidenceIds.some((id) => !ids.has(id)),
-      )
-    )
-      throw new Stop("invalid_model_output");
-    const cleanSummary = redactEvidence(diagnosis.data.summary);
-    const cleanFindings = diagnosis.data.findings.map((finding) => ({
-      ...finding,
-      redacted: redactEvidence(finding.text),
-    }));
-    if (
-      cleanSummary.truncated ||
-      cleanFindings.some((finding) => finding.redacted.truncated)
-    )
-      throw new Stop("invalid_model_output");
-    const cleaned = diagnosisSchema.safeParse({
-      summary: cleanSummary.text,
-      findings: cleanFindings.map(({ redacted, evidenceIds }) => ({
-        text: redacted.text,
-        evidenceIds,
-      })),
-    });
-    if (!cleaned.success) throw new Stop("invalid_model_output");
-    summary = cleaned.data.summary;
-    findings = cleaned.data.findings;
+    ({ summary, findings } = decodeDiagnosis(response, evidence));
     checkpoint();
-    if (response.completion === "length") reason = "budget_exhausted";
-    else if (response.completion !== "stop") reason = "invalid_model_output";
-    else if (incomplete)
-      reason = unavailable.some((item) => item.reason === "budget_exhausted")
-        ? "budget_exhausted"
-        : "evidence_unavailable";
+    reason = completionReason(response.completion, incomplete, unavailable);
     await trace(
       "finished",
       evidence.map((item) => item.reference.id),
     );
   } catch (error) {
-    if (error instanceof Stop) reason = error.reason;
-    else if (error instanceof InvestigationBudgetError)
-      reason = deadlineExpired ? "budget_exhausted" : error.reason;
-    else reason = "invalid_model_output";
+    reason = failureReason(error, deadlineExpired);
   } finally {
     clearTimeout(timer);
     signal.removeEventListener("abort", abort);
     controller.abort();
   }
-  if (
-    reason === "budget_exhausted" ||
-    reason === "cancelled" ||
-    reason === "lease_lost"
-  ) {
-    for (const query of claim.sources.slice(nextSource))
-      unavailable.push({
-        query,
-        reason:
-          reason === "budget_exhausted" ? "budget_exhausted" : "cancelled",
-      });
-  }
+  unavailable.push(...skippedSources(reason, claim.sources.slice(nextSource)));
   const status = reportStatus(reason, evidence.length > 0);
   const report = investigationReportSchema.parse({
     id: claim.id,
