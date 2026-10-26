@@ -308,6 +308,48 @@ export async function initializeRetentionMaintenance(
   });
 }
 
+function assertMaintenanceClaim(
+  claim: { queue: string; kind: string; id: string },
+  revision: number,
+  workspaceId: WorkspaceId,
+): void {
+  if (
+    claim.queue !== "job" ||
+    claim.kind !== retentionMaintenanceKind ||
+    claim.id !== retentionMaintenanceId(workspaceId, revision)
+  )
+    throw new Error("Invalid retention claim");
+}
+function assertMaintenanceState(
+  state: RetentionMaintenanceState,
+  selected: RetentionMaintenanceState,
+  input: { revision: number; sourceId: string | null },
+): void {
+  if (
+    state.revision !== selected.revision ||
+    state.sourceId !== selected.sourceId
+  )
+    throw new Error("Retention source hint changed");
+  if (input.revision !== state.revision || input.sourceId !== state.sourceId)
+    throw new Error("Retention payload mismatch");
+}
+async function recordRetiredWork(
+  tx: RetentionMaintenanceTransaction,
+  jobId: string,
+): Promise<void> {
+  const retiredWork = await tx.maintenance.retireWork();
+  if (retiredWork > 0)
+    await tx.audit.append({
+      id: `retention-work-audit:${jobId}`,
+      workspaceId: tx.workspaceId,
+      actor: { kind: "system", component: "retention" },
+      action: "retention.jobs.pruned",
+      subjectType: "workspace",
+      subjectId: tx.workspaceId,
+      recordedAt: tx.now,
+      metadata: { deletedRows: retiredWork },
+    });
+}
 export class RetentionMaintenanceJobs {
   private readonly limits: ReplayRetentionSettings;
   constructor(
@@ -327,6 +369,45 @@ export class RetentionMaintenanceJobs {
       throw new Error("Invalid retention cadence");
     this.limits = Object.freeze(replayRetentionSettingsSchema.parse(limits));
   }
+  /** Prunes the current source's next batch, or moves to the next source once it is done. */
+  private async sweep(
+    tx: RetentionMaintenanceTransaction,
+    state: RetentionMaintenanceState,
+  ): Promise<{
+    sourceId: string | null;
+    after: RetentionMaintenanceState["after"];
+    sweepStartedAt: RetentionMaintenanceState["sweepStartedAt"];
+  }> {
+    if (state.sourceId === null)
+      return {
+        sourceId: await nextSource(tx, null),
+        after: null,
+        sweepStartedAt: tx.now,
+      };
+    const result = await pruneReplayInTransaction(
+      tx,
+      state.sourceId,
+      state.after,
+      `retention-audit:${state.jobId}`,
+      this.limits,
+    );
+    if (result.complete)
+      return {
+        sourceId: await nextSource(tx, state.sourceId),
+        after: null,
+        sweepStartedAt: state.sweepStartedAt,
+      };
+    if (
+      !result.deletedRows &&
+      JSON.stringify(result.next) === JSON.stringify(state.after)
+    )
+      throw new Error("Retention traversal did not advance");
+    return {
+      sourceId: state.sourceId,
+      after: result.next,
+      sweepStartedAt: state.sweepStartedAt,
+    };
+  }
   async run(lease: WorkLease, signal: AbortSignal): Promise<WorkHandlerResult> {
     if (signal.aborted) return { state: "stale" };
     const hint = await this.repository.read(lease.workspaceId);
@@ -343,59 +424,11 @@ export class RetentionMaintenanceJobs {
         const claim = await tx.work.lockClaim(lease);
         if (!claim) return { state: "stale" };
         const input = retentionMaintenancePayloadSchema.parse(claim.payload);
-        if (
-          claim.queue !== "job" ||
-          claim.kind !== retentionMaintenanceKind ||
-          claim.id !== retentionMaintenanceId(tx.workspaceId, input.revision)
-        )
-          throw new Error("Invalid retention claim");
+        assertMaintenanceClaim(claim, input.revision, tx.workspaceId);
         if (state.jobId !== claim.id) return { state: "completed" };
-        if (
-          state.revision !== selected.revision ||
-          state.sourceId !== selected.sourceId
-        )
-          throw new Error("Retention source hint changed");
-        if (
-          input.revision !== state.revision ||
-          input.sourceId !== state.sourceId
-        )
-          throw new Error("Retention payload mismatch");
-        const retiredWork = await tx.maintenance.retireWork();
-        if (retiredWork > 0)
-          await tx.audit.append({
-            id: `retention-work-audit:${state.jobId}`,
-            workspaceId: tx.workspaceId,
-            actor: { kind: "system", component: "retention" },
-            action: "retention.jobs.pruned",
-            subjectType: "workspace",
-            subjectId: tx.workspaceId,
-            recordedAt: tx.now,
-            metadata: { deletedRows: retiredWork },
-          });
-        let sourceId: string | null,
-          after: RetentionMaintenanceState["after"] = null;
-        let sweepStartedAt = state.sweepStartedAt;
-        if (state.sourceId === null) {
-          sourceId = await nextSource(tx, null);
-          sweepStartedAt = tx.now;
-        } else {
-          const result = await pruneReplayInTransaction(
-            tx,
-            state.sourceId,
-            state.after,
-            `retention-audit:${state.jobId}`,
-            this.limits,
-          );
-          if (!result.complete) {
-            if (
-              !result.deletedRows &&
-              JSON.stringify(result.next) === JSON.stringify(state.after)
-            )
-              throw new Error("Retention traversal did not advance");
-            sourceId = state.sourceId;
-            after = result.next;
-          } else sourceId = await nextSource(tx, state.sourceId);
-        }
+        assertMaintenanceState(state, selected, input);
+        await recordRetiredWork(tx, state.jobId);
+        const { sourceId, after, sweepStartedAt } = await this.sweep(tx, state);
         checkAbort(signal);
         const revision = state.revision + 1;
         const next = checkedState(tx.workspaceId, {

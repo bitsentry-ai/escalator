@@ -37,6 +37,33 @@ export class InvalidInvestigationResult extends Error {
     super("Investigation result does not match its claim");
   }
 }
+const same = (a: unknown, b: unknown) =>
+  JSON.stringify(a) === JSON.stringify(b);
+/** An item is in the claim's scope, matches its reported reference, answers a claimed query, and is on time. */
+function evidenceItemValid(
+  item: InvestigationRunResult["evidence"][number],
+  claim: InvestigationClaim,
+  refs: Map<string, unknown>,
+): boolean {
+  const ref = item.reference;
+  return (
+    same(item.scope, claim.scope) &&
+    same(refs.get(ref.id), ref) &&
+    Boolean(item.text.trim()) &&
+    claim.sources.some(
+      (query) =>
+        query.kind === ref.kind &&
+        query.sourceId === ref.sourceId &&
+        same(query.window, item.window),
+    ) &&
+    !(
+      Date.parse(ref.observedAt) < Date.parse(item.window.from) ||
+      Date.parse(ref.observedAt) > Date.parse(item.window.to) ||
+      Date.parse(ref.receivedAt) > Date.parse(item.collectedAt) ||
+      Date.parse(ref.observedAt) > Date.parse(item.collectedAt)
+    )
+  );
+}
 /** Returns a detached snapshot; use the persisted claim, never request-body authority.
  * Bound HTTP/database materialization before calling. This checks shape/provenance,
  * not truth of a model's diagnosis or the host's configured destination authorization.
@@ -49,8 +76,6 @@ export function validateInvestigationResult(
   const parsed = resultSchema.safeParse(input);
   if (!parsed.success) throw new InvalidInvestigationResult();
   const result = parsed.data;
-  const same = (a: unknown, b: unknown) =>
-    JSON.stringify(a) === JSON.stringify(b);
   if (result.report.id !== claim.id || !same(result.report.scope, claim.scope))
     throw new InvalidInvestigationResult();
   const { usage } = result.report;
@@ -64,31 +89,9 @@ export function validateInvestigationResult(
     : 0;
   if (bytes > usage.evidenceBytes) throw new InvalidInvestigationResult();
   for (const item of result.evidence) {
-    const ref = item.reference;
-    if (
-      ids.has(ref.id) ||
-      !same(item.scope, claim.scope) ||
-      !same(refs.get(ref.id), ref) ||
-      !item.text.trim()
-    )
+    if (ids.has(item.reference.id) || !evidenceItemValid(item, claim, refs))
       throw new InvalidInvestigationResult();
-    ids.add(ref.id);
-    if (
-      !claim.sources.some(
-        (query) =>
-          query.kind === ref.kind &&
-          query.sourceId === ref.sourceId &&
-          same(query.window, item.window),
-      )
-    )
-      throw new InvalidInvestigationResult();
-    if (
-      Date.parse(ref.observedAt) < Date.parse(item.window.from) ||
-      Date.parse(ref.observedAt) > Date.parse(item.window.to) ||
-      Date.parse(ref.receivedAt) > Date.parse(item.collectedAt) ||
-      Date.parse(ref.observedAt) > Date.parse(item.collectedAt)
-    )
-      throw new InvalidInvestigationResult();
+    ids.add(item.reference.id);
   }
   for (const unavailable of result.report.unavailable)
     if (!claim.sources.some((query) => same(query, unavailable.query)))
