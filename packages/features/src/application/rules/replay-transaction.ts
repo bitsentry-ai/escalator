@@ -114,7 +114,7 @@ export function withRuleReplay<T extends FoundationTransaction>(
             row.decisionCount !==
               prior.decisionCount + chunk.decisions.length ||
             JSON.stringify(row.cursor?.state) !==
-              JSON.stringify(chunk.decisions.at(-1)!.state)
+              JSON.stringify(chunk.decisions[chunk.decisions.length - 1].state)
           )
             throw new Error("Replay revision conflict");
           const accepted = await store.save(row, expected);

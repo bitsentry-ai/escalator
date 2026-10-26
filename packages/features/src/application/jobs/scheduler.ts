@@ -7,6 +7,7 @@ import {
   type WorkHandler,
 } from "./runner.js";
 import { WorkPoller, type PollerOptions } from "./poller.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 export type WorkHandlers = Readonly<
   Record<WorkQueue, ReadonlyMap<string, WorkHandler>>
 >;
@@ -67,7 +68,13 @@ export class DurableWorkScheduler {
         Array.from({ length: counts[index] }, () => ({
           queue: "job" as const,
           handlers: {
-            job: new Map(lane.map((kind) => [kind, handlers.job.get(kind)!])),
+            // Lanes were checked above to partition the registered handlers.
+            job: new Map(
+              lane.map((kind) => [
+                kind,
+                expectDefined(handlers.job.get(kind), `${kind} job handler`),
+              ]),
+            ),
             outbox: new Map<string, WorkHandler>(),
           },
         })),

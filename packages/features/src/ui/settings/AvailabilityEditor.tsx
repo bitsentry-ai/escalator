@@ -11,7 +11,7 @@ const time = (minutes: number) =>
 const minute = (value: string) => {
   if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$|^24:00$/.test(value)) return NaN;
   const [hour, minutes] = value.split(":").map(Number);
-  return hour! * 60 + minutes!;
+  return hour * 60 + minutes;
 };
 export function AvailabilityEditor({
   initial,

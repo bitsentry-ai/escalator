@@ -41,7 +41,7 @@ export function retainedReplayReader(snapshot: RuleReplaySnapshot) {
       high = rows.length;
     while (low < high) {
       const mid = (low + high) >>> 1;
-      if (compareUtcTimestamps(rows[mid]!.recordedAt, at) <= 0) low = mid + 1;
+      if (compareUtcTimestamps(rows[mid].recordedAt, at) <= 0) low = mid + 1;
       else high = mid;
     }
     return rows[low - 1];

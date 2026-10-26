@@ -27,6 +27,9 @@ export function CoveragePreview({
   const [error, setError] = useState(false);
   const generation = useRef(0);
   const busy = useRef(false);
+  const responderName = (responderId: string) =>
+    responders.find((person) => person.id === responderId)?.displayName ??
+    responderId;
   useEffect(() => {
     generation.current++;
     busy.current = false;
@@ -157,10 +160,7 @@ export function CoveragePreview({
                     </td>
                     <td style={styles.cell}>
                       {row.assignment
-                        ? (responders.find(
-                            (person) =>
-                              person.id === row.assignment!.responderId,
-                          )?.displayName ?? row.assignment.responderId)
+                        ? responderName(row.assignment.responderId)
                         : t("oncall.uncovered")}
                     </td>
                   </tr>

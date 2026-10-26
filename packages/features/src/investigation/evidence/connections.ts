@@ -110,7 +110,7 @@ export class RepositoryConnections {
         name: value.name,
         enabled: value.enabled,
       })),
-      next: values.length > query.limit ? page.at(-1)!.sourceId : null,
+      next: values.length > query.limit ? page[page.length - 1].sourceId : null,
     };
   }
 }

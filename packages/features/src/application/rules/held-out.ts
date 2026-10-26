@@ -19,6 +19,7 @@ import { pagingWorkId } from "../paging/work-ids.js";
 import type { RuleReplayCaptureRepository } from "./replay-capture.js";
 import { planRuleTuning } from "./tuning.js";
 import { enqueueRuleReplay } from "./replay-job.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 /** Internal derivation from a server-loaded immutable capture. Never accept a
@@ -176,7 +177,10 @@ export class EvaluateHeldOutRule {
         metadata: {
           sourceSnapshotId,
           sourceInputHash: source.inputHash,
-          candidateHash: stored.snapshot.evaluation!.candidateHash,
+          candidateHash: expectDefined(
+            stored.snapshot.evaluation,
+            "held-out evaluation",
+          ).candidateHash,
           inputHash: stored.inputHash,
         },
       });

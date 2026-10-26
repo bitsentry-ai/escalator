@@ -139,7 +139,7 @@ export function evaluateDeploymentCoverage(
   const candidates = new Set<ResponderId>(policy.fallbackResponderIds);
   for (const id of required) {
     const assignment = resolveSchedule(
-      snapshot.schedules.find((row) => row.id === id)!,
+      snapshot.schedules.find((row) => row.id === id),
       at,
     );
     if (assignment) candidates.add(assignment.responderId);

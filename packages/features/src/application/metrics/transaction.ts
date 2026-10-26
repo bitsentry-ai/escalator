@@ -183,12 +183,13 @@ export function metricsTransaction(
             value.monitorVersion !== monitor.version ||
             (value.jobId !== null &&
               (!monitor.enabled ||
+                value.dueAt === null ||
                 value.jobId !==
                   metricJobId(
                     base.workspaceId,
                     monitor.id,
                     monitor.version,
-                    value.dueAt!,
+                    value.dueAt,
                   )))
           )
             throw new MetricPersistenceError("invalid_schedule");
@@ -236,8 +237,9 @@ export function metricsTransaction(
             return previous;
           }
           if (value.sample) {
-            const p = value.provenance!;
+            const p = value.provenance;
             if (
+              !p ||
               Date.parse(base.now) - Date.parse(value.observedAt) >
                 2 * monitor.stepSeconds * 1000 ||
               value.sample.observedAt !== value.observedAt ||

@@ -73,15 +73,17 @@ export function trainingRuleEvidence(
     )
   )
     throw new PersistenceError("scope_violation");
-  const configurations =
-    s.retained?.history.configurations.filter(
-      (c) =>
-        c.recordedAt !== null &&
-        c.effectiveAt !== null &&
-        compareUtcTimestamps(c.recordedAt, cutoff) <= 0 &&
-        compareUtcTimestamps(c.effectiveAt, cutoff) <= 0 &&
-        c.measurementHash === s.retained!.measurementHash,
-    ) ?? [];
+  const retained = s.retained;
+  const configurations = retained
+    ? retained.history.configurations.filter(
+        (c) =>
+          c.recordedAt !== null &&
+          c.effectiveAt !== null &&
+          compareUtcTimestamps(c.recordedAt, cutoff) <= 0 &&
+          compareUtcTimestamps(c.effectiveAt, cutoff) <= 0 &&
+          c.measurementHash === retained.measurementHash,
+      )
+    : [];
   const compatible = new Set(configurations.map((c) => c.version));
   const receipts =
     s.retained?.history.receipts

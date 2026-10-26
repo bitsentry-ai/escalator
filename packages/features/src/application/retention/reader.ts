@@ -34,7 +34,7 @@ export function replayCoverageSegments(
     knownSeen = false,
     historyCoherent = true;
   for (let i = 0; i < configurations.length; i++) {
-    const config = configurations[i]!;
+    const config = configurations[i];
     if (config.version <= priorVersion)
       throw new RangeError("Unordered configuration revisions");
     priorVersion = config.version;

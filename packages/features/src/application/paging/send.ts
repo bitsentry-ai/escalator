@@ -18,6 +18,7 @@ import type { PagingRepository, PagingTransaction } from "./persistence.js";
 import { pagingWorkId } from "./work-ids.js";
 import { acknowledgementDigest } from "./acknowledge.js";
 import { cancelDeliveryWork } from "./cancel.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 const payloadSchema = z.strictObject({
   pageId: opaqueIdSchema,
   deliveryId: opaqueIdSchema,
@@ -128,7 +129,7 @@ export class PageDelivery {
         throw new Error("Invalid delivery reference");
       const steps = escalationSteps(page.policy, page.createdAt);
       const index = steps.findIndex((entry) => entry.id === step.logicalStepId);
-      if (index < 0 || steps[index]!.dueAt !== step.dueAt)
+      if (index < 0 || steps[index].dueAt !== step.dueAt)
         throw new Error("Invalid delivery deadline");
       const nextAt = steps[index + 1]?.dueAt;
       if (
@@ -198,7 +199,10 @@ export class PageDelivery {
         pageId: page.id,
         recipientId: delivery.recipientId,
         attemptId: attempt.id,
-        tokenDigest: acknowledgementDigest(token)!,
+        tokenDigest: expectDefined(
+          acknowledgementDigest(token),
+          "token digest",
+        ),
         createdAt: tx.now,
         expiresAt: new Date(Date.parse(tx.now) + this.ackTtlMs).toISOString(),
       });

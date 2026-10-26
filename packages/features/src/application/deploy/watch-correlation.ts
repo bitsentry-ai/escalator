@@ -60,8 +60,8 @@ export function watchIncidentCorrelation(
         if (alert?.incidentId && !prior)
           throw new Error("Alert incident is missing");
         const key =
-          prior && !prior.resolvedAt
-            ? alert!.groupKey
+          alert && prior && !prior.resolvedAt
+            ? alert.groupKey
             : alertGroupKey(identity, source);
         const group = await tx.detection.lockGroup(key);
         if (

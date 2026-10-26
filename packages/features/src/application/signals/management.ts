@@ -34,6 +34,7 @@ import {
 import { PersistenceError } from "../ports/persistence.js";
 import type { SignalRepository, SignalTransaction } from "./ports.js";
 import { signalTokenDigest } from "./ingest.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 
 export class SignalManagementError extends Error {
   constructor(
@@ -175,7 +176,7 @@ export class SignalManagement {
     const { sourceId, ttlSeconds } = issueSignalTokenSchema.parse(input);
     // Cryptographic entropy is generated once; plaintext is returned only after commit.
     const token = `esi_${randomBytes(32).toString("base64url")}`;
-    const tokenHash = signalTokenDigest(token)!;
+    const tokenHash = expectDefined(signalTokenDigest(token), "token digest");
     const grant = await this.repository.transaction(
       actor.workspaceId,
       async (tx) => {
@@ -223,7 +224,10 @@ export class SignalManagement {
   /** Public routing reference; authentication still requires a valid provider MAC. */
   async issueReceiver(actor: Actor, input: IssueSignalTokenInput) {
     const { grant, token } = await this.issueGrant(actor, input, true);
-    return { ...grant, receiverId: signalTokenDigest(token)! };
+    return {
+      ...grant,
+      receiverId: expectDefined(signalTokenDigest(token), "token digest"),
+    };
   }
   async revokeToken(actor: Actor, input: { id: string }) {
     authorize(actor, true);

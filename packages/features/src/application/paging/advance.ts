@@ -18,6 +18,7 @@ import type { WorkLease, WorkResult } from "../jobs/ports.js";
 import type { DispatchRepository, DispatchTransaction } from "./routing.js";
 import { pagingWorkId } from "./work-ids.js";
 import { cancelDeliveryWork } from "./cancel.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 const payloadSchema = z.strictObject({
   pageId: opaqueIdSchema,
   logicalStepId: opaqueIdSchema,
@@ -62,7 +63,10 @@ export class PageAdvancement {
       if (decision.kind === "cancel") return { state: "completed" };
       const all = escalationSteps(page.policy, page.createdAt);
       for (const id of decision.skip) {
-        const skipped = all.find((step) => step.id === id)!;
+        const skipped = expectDefined(
+          all.find((step) => step.id === id),
+          "skipped escalation step",
+        );
         await tx.steps.insert({
           id: pagingWorkId(tx.workspaceId, "step-record", page.id, id),
           workspaceId: tx.workspaceId,

@@ -86,7 +86,7 @@ export function configurationTransaction(
     ] as const) {
       if (previewId === null) continue;
       const preview = required(await store.get("previews", previewId));
-      const schedule = schedules.get(scheduleId)!;
+      const schedule = required(schedules.get(scheduleId));
       if (
         preview.scheduleId !== scheduleId ||
         preview.serviceId !== value.serviceId
