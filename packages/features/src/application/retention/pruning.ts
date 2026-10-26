@@ -66,29 +66,25 @@ function compare(left: ReplayPruneCursor, right: ReplayPruneCursor) {
     y = rightFraction.padEnd(width, "0");
   return compareCodeUnits(x, y) || compareCodeUnits(a, b);
 }
-/** Internal use case; authenticated management and fenced jobs provide authorization.
- * A result is committed only after the repository transaction resolves successfully.
- */
-export async function pruneReplayInTransaction(
-  tx: ReplayPruneTransaction,
-  sourceId: string,
+type PruneSnapshot = Awaited<
+  ReturnType<ReplayPruneTransaction["retentionPrune"]["snapshot"]>
+>;
+function assertPruneCursor(after: ReplayPruneCursor): void {
+  opaqueIdSchema.parse(after.id);
+  utcTimestampSchema.parse(after.observedAt);
+  if (!["signal", "probe", "metric"].includes(after.kind))
+    throw new RangeError("Invalid retention cursor kind");
+}
+/** The snapshot's policy must be this workspace's, and its candidates a bounded page ordered after the cursor. */
+function assertPruneSnapshot(
+  snapshot: PruneSnapshot,
+  workspaceId: string,
   after: ReplayPruneCursor | null,
-  auditId: string,
-  ceilings: ReplayRetentionSettings = { ...defaultRetentionCeilings },
-) {
-  opaqueIdSchema.parse(sourceId);
-  opaqueIdSchema.parse(auditId);
-  if (after) {
-    opaqueIdSchema.parse(after.id);
-    utcTimestampSchema.parse(after.observedAt);
-    if (!["signal", "probe", "metric"].includes(after.kind))
-      throw new RangeError("Invalid retention cursor kind");
-  }
-  const snapshot = await tx.retentionPrune.snapshot(after);
+): void {
   utcTimestampSchema.parse(snapshot.databaseNow);
   if (snapshot.policy) {
     replayRetentionPolicySchema.parse(snapshot.policy);
-    if (snapshot.policy.workspaceId !== tx.workspaceId)
+    if (snapshot.policy.workspaceId !== workspaceId)
       throw new PersistenceError("scope_violation");
   }
   if (
@@ -104,6 +100,61 @@ export async function pruneReplayInTransaction(
       throw new RangeError("Unordered retention candidates");
     previous = row;
   }
+}
+/** Where the next sweep resumes, and whether this source's sweep is complete. */
+function pruneResumePoint(
+  snapshot: PruneSnapshot,
+  plan: ReturnType<typeof planSourceReplayPrune>,
+  after: ReplayPruneCursor | null,
+) {
+  const previous = snapshot.candidates.at(-1) ?? after;
+  // If the deletion limit was reached before the end of candidates, revisit the
+  // remaining candidates instead of advancing over eligible, undeleted records.
+  const selected = new Set(plan.selected.map((row) => `${row.kind}:${row.id}`));
+  const firstRemaining = snapshot.candidates.findIndex(
+    (row) =>
+      !row.protected &&
+      !selected.has(`${row.kind}:${row.id}`) &&
+      (Date.parse(row.observedAt) < Date.parse(plan.cutoffAt) ||
+        plan.budgetPressureAfterBatch > 0),
+  );
+  let lastExamined = previous;
+  if (firstRemaining === 0) lastExamined = after;
+  else if (firstRemaining > 0)
+    lastExamined = snapshot.candidates[firstRemaining - 1];
+  // Once pressure is relieved and this ordered page reaches the age cutoff,
+  // later records cannot be eligible in this sweep. Avoid walking recent history.
+  const last = snapshot.candidates.at(-1);
+  const laterEligible =
+    snapshot.hasMore &&
+    (plan.budgetPressureAfterBatch > 0 ||
+      !last ||
+      Date.parse(last.observedAt) < Date.parse(plan.cutoffAt));
+  const next =
+    firstRemaining >= 0 || laterEligible
+      ? lastExamined && {
+          observedAt: lastExamined.observedAt,
+          kind: lastExamined.kind,
+          id: lastExamined.id,
+        }
+      : null;
+  return { next, complete: firstRemaining < 0 && !laterEligible };
+}
+/** Internal use case; authenticated management and fenced jobs provide authorization.
+ * A result is committed only after the repository transaction resolves successfully.
+ */
+export async function pruneReplayInTransaction(
+  tx: ReplayPruneTransaction,
+  sourceId: string,
+  after: ReplayPruneCursor | null,
+  auditId: string,
+  ceilings: ReplayRetentionSettings = { ...defaultRetentionCeilings },
+) {
+  opaqueIdSchema.parse(sourceId);
+  opaqueIdSchema.parse(auditId);
+  if (after) assertPruneCursor(after);
+  const snapshot = await tx.retentionPrune.snapshot(after);
+  assertPruneSnapshot(snapshot, tx.workspaceId, after);
   const settings = effectiveRetention(
     snapshot.policy ?? defaultReplayRetention,
     ceilings,
@@ -149,39 +200,11 @@ export async function pruneReplayInTransaction(
         maxBytes: settings.maxBytes,
       },
     });
-  // If the deletion limit was reached before the end of candidates, revisit the
-  // remaining candidates instead of advancing over eligible, undeleted records.
-  const selected = new Set(plan.selected.map((row) => `${row.kind}:${row.id}`));
-  const firstRemaining = snapshot.candidates.findIndex(
-    (row) =>
-      !row.protected &&
-      !selected.has(`${row.kind}:${row.id}`) &&
-      (Date.parse(row.observedAt) < Date.parse(plan.cutoffAt) ||
-        plan.budgetPressureAfterBatch > 0),
-  );
-  let lastExamined = previous;
-  if (firstRemaining === 0) lastExamined = after;
-  else if (firstRemaining > 0)
-    lastExamined = snapshot.candidates[firstRemaining - 1];
-  // Once pressure is relieved and this ordered page reaches the age cutoff,
-  // later records cannot be eligible in this sweep. Avoid walking recent history.
-  const last = snapshot.candidates.at(-1);
-  const laterEligible =
-    snapshot.hasMore &&
-    (plan.budgetPressureAfterBatch > 0 ||
-      !last ||
-      Date.parse(last.observedAt) < Date.parse(plan.cutoffAt));
+  const { next, complete } = pruneResumePoint(snapshot, plan, after);
   return {
     ...result,
     overBudgetBytes: Math.max(0, result.retainedBytes - settings.maxBytes),
-    next:
-      firstRemaining >= 0 || laterEligible
-        ? lastExamined && {
-            observedAt: lastExamined.observedAt,
-            kind: lastExamined.kind,
-            id: lastExamined.id,
-          }
-        : null,
-    complete: firstRemaining < 0 && !laterEligible,
+    next,
+    complete,
   };
 }
