@@ -97,95 +97,104 @@ export const evaluatedWatchStreamSchema = z
       value.kind === value.evaluation.criteria.kind &&
       value.id === value.evaluation.streamId,
   );
-export const deploymentWatchRecordSchema = z
-  .strictObject({
-    formatVersion: z.literal(1),
-    workspaceId: workspaceIdSchema,
-    targetId: opaqueIdSchema,
-    deploymentId: opaqueIdSchema,
-    serviceId: serviceIdSchema,
-    environmentId: environmentIdSchema,
-    revision: integer.min(1),
-    startedAt: utcTimestampSchema,
-    endsAt: utcTimestampSchema,
-    updatedAt: utcTimestampSchema,
-    evaluatedAt: utcTimestampSchema.nullable(),
-    finalizedAt: utcTimestampSchema.nullable(),
-    verdict: deploymentWatchVerdictSchema,
-    inventoryComplete: z.boolean(),
-    streams: z.array(evaluatedWatchStreamSchema).max(128),
-    firstFailure: evaluatedWatchStreamSchema.nullable(),
-    incidentId: opaqueIdSchema.nullable(),
-    /** Overlap is correlation only. Missing inventory also prevents a certain attribution claim. */
-    overlappingDeploymentIds: z.array(opaqueIdSchema).max(128),
-    overlapInventoryComplete: z.boolean(),
-  })
-  .superRefine((value, ctx) => {
-    const at = Date.parse;
-    const invalid = (message: string) =>
-      ctx.addIssue({ code: "custom", message });
-    if (
-      at(value.endsAt) - at(value.startedAt) !==
-        deploymentWatchSeconds * 1000 ||
-      at(value.updatedAt) < at(value.startedAt)
-    )
-      invalid("Invalid watch window");
+const deploymentWatchRecordShape = z.strictObject({
+  formatVersion: z.literal(1),
+  workspaceId: workspaceIdSchema,
+  targetId: opaqueIdSchema,
+  deploymentId: opaqueIdSchema,
+  serviceId: serviceIdSchema,
+  environmentId: environmentIdSchema,
+  revision: integer.min(1),
+  startedAt: utcTimestampSchema,
+  endsAt: utcTimestampSchema,
+  updatedAt: utcTimestampSchema,
+  evaluatedAt: utcTimestampSchema.nullable(),
+  finalizedAt: utcTimestampSchema.nullable(),
+  verdict: deploymentWatchVerdictSchema,
+  inventoryComplete: z.boolean(),
+  streams: z.array(evaluatedWatchStreamSchema).max(128),
+  firstFailure: evaluatedWatchStreamSchema.nullable(),
+  incidentId: opaqueIdSchema.nullable(),
+  /** Overlap is correlation only. Missing inventory also prevents a certain attribution claim. */
+  overlappingDeploymentIds: z.array(opaqueIdSchema).max(128),
+  overlapInventoryComplete: z.boolean(),
+});
+type WatchRecordShape = z.infer<typeof deploymentWatchRecordShape>;
+type Invalid = (message: string) => void;
+const at = Date.parse;
+const graceEnd = (value: WatchRecordShape) =>
+  at(value.endsAt) + deploymentWatchReceiptGraceSeconds * 1000;
+function checkWatchTimes(value: WatchRecordShape, invalid: Invalid): void {
+  if (
+    at(value.endsAt) - at(value.startedAt) !== deploymentWatchSeconds * 1000 ||
+    at(value.updatedAt) < at(value.startedAt)
+  )
+    invalid("Invalid watch window");
+  if (
+    value.evaluatedAt !== null &&
+    (at(value.evaluatedAt) < at(value.startedAt) ||
+      at(value.evaluatedAt) > at(value.updatedAt))
+  )
+    invalid("Invalid evaluation time");
+  if (
+    value.finalizedAt !== null &&
+    (value.evaluatedAt === null ||
+      at(value.finalizedAt) !== at(value.evaluatedAt) ||
+      at(value.finalizedAt) < graceEnd(value) ||
+      value.verdict === "PENDING")
+  )
+    invalid("Invalid finalization");
+}
+function checkVerdictEvidence(value: WatchRecordShape, invalid: Invalid): void {
+  if ((value.verdict === "FAIL") !== (value.firstFailure !== null))
+    invalid("Failed watches preserve first evidence");
+  if (value.incidentId !== null && value.firstFailure === null)
+    invalid("Only failed watches link an incident");
+  if (
+    value.firstFailure &&
+    (value.firstFailure.evaluation.verdict !== "FAIL" ||
+      at(value.firstFailure.evaluation.evaluatedAt) > at(value.updatedAt) ||
+      at(value.firstFailure.evaluation.evaluatedAt) < at(value.startedAt))
+  )
+    invalid("Invalid first failure");
+  if (
+    value.evaluatedAt === null &&
+    (value.streams.length !== 0 ||
+      value.verdict !== "PENDING" ||
+      value.firstFailure !== null)
+  )
+    invalid("Unevaluated watch contains a verdict");
+  if (
+    (value.verdict === "PASS" || value.verdict === "WARN") &&
+    value.finalizedAt === null
+  )
+    invalid("Healthy verdict requires a complete watch");
+}
+function checkStreams(value: WatchRecordShape, invalid: Invalid): void {
+  const keys = new Set<string>(),
+    sources = new Set<string>();
+  for (const stream of value.streams) {
+    const key = stream.kind + ":" + stream.id;
+    if (keys.has(key) || sources.has(stream.sourceId))
+      invalid("Duplicate watch stream");
+    keys.add(key);
+    sources.add(stream.sourceId);
+    if (value.evaluatedAt !== stream.evaluation.evaluatedAt)
+      invalid("Mixed evaluation cutoffs");
     if (
       value.evaluatedAt !== null &&
-      (at(value.evaluatedAt) < at(value.startedAt) ||
-        at(value.evaluatedAt) > at(value.updatedAt))
+      stream.evaluation.final !== at(value.evaluatedAt) >= graceEnd(value)
     )
-      invalid("Invalid evaluation time");
-    if (
-      value.finalizedAt !== null &&
-      (value.evaluatedAt === null ||
-        at(value.finalizedAt) !== at(value.evaluatedAt) ||
-        at(value.finalizedAt) <
-          at(value.endsAt) + deploymentWatchReceiptGraceSeconds * 1000 ||
-        value.verdict === "PENDING")
-    )
-      invalid("Invalid finalization");
-    if ((value.verdict === "FAIL") !== (value.firstFailure !== null))
-      invalid("Failed watches preserve first evidence");
-    if (value.incidentId !== null && value.firstFailure === null)
-      invalid("Only failed watches link an incident");
-    if (
-      value.firstFailure &&
-      (value.firstFailure.evaluation.verdict !== "FAIL" ||
-        at(value.firstFailure.evaluation.evaluatedAt) > at(value.updatedAt) ||
-        at(value.firstFailure.evaluation.evaluatedAt) < at(value.startedAt))
-    )
-      invalid("Invalid first failure");
-    if (
-      value.evaluatedAt === null &&
-      (value.streams.length !== 0 ||
-        value.verdict !== "PENDING" ||
-        value.firstFailure !== null)
-    )
-      invalid("Unevaluated watch contains a verdict");
-    if (
-      (value.verdict === "PASS" || value.verdict === "WARN") &&
-      value.finalizedAt === null
-    )
-      invalid("Healthy verdict requires a complete watch");
-    const keys = new Set<string>(),
-      sources = new Set<string>();
-    for (const stream of value.streams) {
-      const key = stream.kind + ":" + stream.id;
-      if (keys.has(key) || sources.has(stream.sourceId))
-        invalid("Duplicate watch stream");
-      keys.add(key);
-      sources.add(stream.sourceId);
-      if (value.evaluatedAt !== stream.evaluation.evaluatedAt)
-        invalid("Mixed evaluation cutoffs");
-      if (
-        value.evaluatedAt !== null &&
-        stream.evaluation.final !==
-          at(value.evaluatedAt) >=
-            at(value.endsAt) + deploymentWatchReceiptGraceSeconds * 1000
-      )
-        invalid("Mixed finalization cutoffs");
-    }
+      invalid("Mixed finalization cutoffs");
+  }
+}
+export const deploymentWatchRecordSchema =
+  deploymentWatchRecordShape.superRefine((value, ctx) => {
+    const invalid = (message: string) =>
+      ctx.addIssue({ code: "custom", message });
+    checkWatchTimes(value, invalid);
+    checkVerdictEvidence(value, invalid);
+    checkStreams(value, invalid);
     if (
       new Set(value.overlappingDeploymentIds).size !==
         value.overlappingDeploymentIds.length ||
