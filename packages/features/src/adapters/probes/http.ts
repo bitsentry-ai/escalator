@@ -23,6 +23,63 @@ const headerNames = new Set([
   "x-idempotency-key",
 ]);
 /** Every redirect gets a new policy/DNS check; each connection uses only its validated peer. */
+function assertProbeRequest(input: ProbeRequest): void {
+  if (
+    !Number.isInteger(input.timeoutMs) ||
+    input.timeoutMs < 100 ||
+    input.timeoutMs > 10000 ||
+    !Number.isInteger(input.maxResponseBytes) ||
+    input.maxResponseBytes < 1 ||
+    input.maxResponseBytes > 262144 ||
+    !["GET", "HEAD", "POST"].includes(input.method) ||
+    Buffer.byteLength(input.body ?? "") > 65536 ||
+    (input.method !== "POST" && input.body !== null)
+  )
+    throw new ProbeTransportError("invalid_configuration");
+}
+/** Allowed, unique, printable headers in lowercase, with compression disabled. */
+function probeHeaders(input: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input)) {
+    const name = key.toLowerCase();
+    if (
+      !headerNames.has(name) ||
+      name in headers ||
+      value.length > 8192 ||
+      /[^\x20-\x7e]/.test(value)
+    )
+      throw new ProbeTransportError("invalid_configuration");
+    headers[name] = value;
+  }
+  headers["accept-encoding"] = "identity";
+  return headers;
+}
+/** Credentials go only over HTTPS and never follow a redirect to another origin. */
+function assertCredentialTarget(
+  headers: Record<string, string>,
+  target: URL,
+  credentialOrigin: string,
+): void {
+  const hasCredentials = "authorization" in headers || "x-api-key" in headers;
+  if (
+    hasCredentials &&
+    (target.protocol !== "https:" || target.origin !== credentialOrigin)
+  )
+    throw new ProbeDestinationError();
+}
+/** Never leak URLs, credentials, headers, DNS names or response bodies in an exception. */
+function transportError(
+  error: unknown,
+  cancelled: boolean,
+  timedOut: boolean,
+): ProbeTransportError {
+  if (cancelled) return new ProbeTransportError("cancelled");
+  if (timedOut) return new ProbeTransportError("timeout");
+  if (error instanceof ProbeTransportError) return error;
+  if (error instanceof ProbeDestinationError)
+    return new ProbeTransportError("destination_denied");
+  return new ProbeTransportError("network_error");
+}
 export class PolicyHttpProbeTransport implements ProbeTransport {
   constructor(
     private readonly policy: ProbeDestinationPolicy,
@@ -47,59 +104,15 @@ export class PolicyHttpProbeTransport implements ProbeTransport {
       abort();
     }, input.timeoutMs);
     try {
-      if (
-        !Number.isInteger(input.timeoutMs) ||
-        input.timeoutMs < 100 ||
-        input.timeoutMs > 10000 ||
-        !Number.isInteger(input.maxResponseBytes) ||
-        input.maxResponseBytes < 1 ||
-        input.maxResponseBytes > 262144 ||
-        !["GET", "HEAD", "POST"].includes(input.method) ||
-        Buffer.byteLength(input.body ?? "") > 65536 ||
-        (input.method !== "POST" && input.body !== null)
-      )
-        throw new ProbeTransportError("invalid_configuration");
-      const headers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(input.headers)) {
-        const name = key.toLowerCase();
-        if (
-          !headerNames.has(name) ||
-          name in headers ||
-          value.length > 8192 ||
-          /[^\x20-\x7e]/.test(value)
-        )
-          throw new ProbeTransportError("invalid_configuration");
-        headers[name] = value;
-      }
-      headers["accept-encoding"] = "identity";
+      assertProbeRequest(input);
+      const headers = probeHeaders(input.headers);
       let target = this.policy.target(input.url);
       const credentialOrigin = target.origin;
       for (let redirects = 0; redirects <= 3; redirects++) {
         controller.signal.throwIfAborted();
-        const hasCredentials =
-          "authorization" in headers || "x-api-key" in headers;
-        if (
-          hasCredentials &&
-          (target.protocol !== "https:" || target.origin !== credentialOrigin)
-        )
-          throw new ProbeDestinationError();
-        const hostname = target.hostname.replace(/^\[|\]$/g, "");
-        const family = isIP(hostname);
-        const addresses = family
-          ? [{ address: hostname, family }]
-          : await this.abortable(this.resolve(hostname), controller.signal);
-        if (
-          !addresses.length ||
-          addresses.length > 64 ||
-          addresses.some(
-            (peer) =>
-              isIP(peer.address) !== peer.family ||
-              !this.policy.address(peer.address),
-          )
-        )
-          throw new ProbeDestinationError();
+        assertCredentialTarget(headers, target, credentialOrigin);
+        const peer = await this.resolvePeer(target, controller.signal);
         controller.signal.throwIfAborted();
-        const peer = addresses[0];
         const options: RequestOptions & {
           rejectUnauthorized: boolean;
           autoSelectFamily: false;
@@ -129,17 +142,33 @@ export class PolicyHttpProbeTransport implements ProbeTransport {
       }
       throw new ProbeTransportError("destination_denied");
     } catch (error) {
-      if (signal.aborted) throw new ProbeTransportError("cancelled");
-      if (timedOut) throw new ProbeTransportError("timeout");
-      if (error instanceof ProbeTransportError) throw error;
-      if (error instanceof ProbeDestinationError)
-        throw new ProbeTransportError("destination_denied");
-      // Never leak URLs, credentials, headers, DNS names or response bodies in an exception.
-      throw new ProbeTransportError("network_error");
+      throw transportError(error, signal.aborted, timedOut);
     } finally {
       clearTimeout(timer);
       signal.removeEventListener("abort", abort);
     }
+  }
+  /** Resolves the target host and admits it only when every address passes the destination policy. */
+  private async resolvePeer(
+    target: URL,
+    signal: AbortSignal,
+  ): Promise<Address> {
+    const hostname = target.hostname.replace(/^\[|\]$/g, "");
+    const family = isIP(hostname);
+    const addresses = family
+      ? [{ address: hostname, family }]
+      : await this.abortable(this.resolve(hostname), signal);
+    if (
+      !addresses.length ||
+      addresses.length > 64 ||
+      addresses.some(
+        (peer) =>
+          isIP(peer.address) !== peer.family ||
+          !this.policy.address(peer.address),
+      )
+    )
+      throw new ProbeDestinationError();
+    return addresses[0];
   }
   private abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
     return new Promise((resolve, reject) => {

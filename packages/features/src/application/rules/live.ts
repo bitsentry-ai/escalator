@@ -58,6 +58,91 @@ export async function enqueueRuleEvaluation(
     },
   });
 }
+/** Locks the rule row, then its open incident's page, before the work claim. */
+async function lockRuleRow(tx: RuleLiveTransaction, ruleId: string) {
+  const raw = await tx.rules.lock(ruleId);
+  const row = raw ? ruleLiveRecordSchema.parse(raw) : undefined;
+  if (
+    row &&
+    (row.version.id !== ruleId ||
+      row.version.definition.workspaceId !== tx.workspaceId)
+  )
+    throw new PersistenceError("scope_violation");
+  if (row?.incidentId)
+    await tx.pages.lock(pagingWorkId(tx.workspaceId, "page", row.incidentId));
+  return row;
+}
+function assertRuleClaim(
+  claim: { workspaceId: string; queue: string; kind: string; id: string },
+  payload: { ruleId: string; generation: number; dueAt: string },
+  workspaceId: WorkspaceId,
+  ruleId: string,
+): void {
+  if (
+    claim.workspaceId !== workspaceId ||
+    claim.queue !== "job" ||
+    claim.kind !== "rules.evaluate" ||
+    payload.ruleId !== ruleId ||
+    claim.id !==
+      ruleEvaluationJobId(
+        workspaceId,
+        payload.ruleId,
+        payload.generation,
+        payload.dueAt,
+      )
+  )
+    throw new Error("Invalid rule evaluation claim");
+}
+/** Unknown policy history never suppresses; an active rule also needs paging enabled. */
+function effectivelyEnabled(
+  policy: { known: boolean; enabled: boolean; pagingEnabled?: boolean },
+  mode: RuleLiveRecord["mode"],
+): boolean {
+  if (!policy.known) return true;
+  return (
+    policy.enabled && (mode === "shadow" || policy.pagingEnabled !== false)
+  );
+}
+/** Opens the incident page of a newly opened episode under the service's enabled escalation policy. */
+async function openRuleIncident(
+  tx: RuleLiveTransaction,
+  row: RuleLiveRecord,
+  decisionAt: string,
+): Promise<string> {
+  const definition = row.version.definition;
+  const binding = await tx.detection.binding(
+    definition.serviceId,
+    definition.environmentId,
+  );
+  const paging =
+    binding?.enabled && binding.policyId
+      ? await tx.configuration.policies.get(binding.policyId)
+      : undefined;
+  if (!paging?.enabled || paging.serviceId !== definition.serviceId)
+    throw new Error("Rule paging policy is unavailable");
+  const incidentId = pagingWorkId(
+    tx.workspaceId,
+    "rule-incident",
+    row.version.id,
+    String(row.generation),
+    decisionAt,
+  );
+  await openPageInTransaction(
+    tx,
+    {
+      incident: {
+        id: incidentId,
+        serviceId: definition.serviceId,
+        environmentId: definition.environmentId,
+        title: row.title,
+        severity: definition.severity,
+      },
+      policy: policyDefinition(paging),
+    },
+    actor,
+  );
+  return incidentId;
+}
 /** No network I/O. Uses the replay transition function and existing atomic page
  * operations; a shadow evaluation never calls page or incident mutators. */
 export class LiveRuleEvaluation {
@@ -65,35 +150,11 @@ export class LiveRuleEvaluation {
   process(lease: WorkLease): Promise<WorkResult> {
     const hint = ruleEvaluationPayloadSchema.parse(lease.payload);
     return this.repository.transaction(lease.workspaceId, async (tx) => {
-      const raw = await tx.rules.lock(hint.ruleId);
-      const row = raw ? ruleLiveRecordSchema.parse(raw) : undefined;
-      if (
-        row &&
-        (row.version.id !== hint.ruleId ||
-          row.version.definition.workspaceId !== tx.workspaceId)
-      )
-        throw new PersistenceError("scope_violation");
-      if (row?.incidentId)
-        await tx.pages.lock(
-          pagingWorkId(tx.workspaceId, "page", row.incidentId),
-        );
+      const row = await lockRuleRow(tx, hint.ruleId);
       const claim = await tx.work.lockClaim(lease);
       if (!claim) return { state: "completed" };
       const payload = ruleEvaluationPayloadSchema.parse(claim.payload);
-      if (
-        claim.workspaceId !== tx.workspaceId ||
-        claim.queue !== "job" ||
-        claim.kind !== "rules.evaluate" ||
-        payload.ruleId !== hint.ruleId ||
-        claim.id !==
-          ruleEvaluationJobId(
-            tx.workspaceId,
-            payload.ruleId,
-            payload.generation,
-            payload.dueAt,
-          )
-      )
-        throw new Error("Invalid rule evaluation claim");
+      assertRuleClaim(claim, payload, tx.workspaceId, hint.ruleId);
       if (
         !row ||
         row.generation !== payload.generation ||
@@ -127,10 +188,7 @@ export class LiveRuleEvaluation {
       if (!policy.known) window.coverage = "unknown";
       const transition = advanceRuleDecision(row.version, row.state, {
         window,
-        enabled: policy.known
-          ? policy.enabled &&
-            (row.mode === "shadow" || policy.pagingEnabled !== false)
-          : true,
+        enabled: effectivelyEnabled(policy, row.mode),
         maintenance: policy.known && policy.maintenance,
       });
       if (transition.status === "duplicate" || transition.status === "stale")
@@ -139,37 +197,7 @@ export class LiveRuleEvaluation {
       if (row.mode === "active" && transition.action === "opened") {
         if (incidentId !== null)
           throw new Error("Rule episode already has an incident");
-        const binding = await tx.detection.binding(
-          definition.serviceId,
-          definition.environmentId,
-        );
-        const paging =
-          binding?.enabled && binding.policyId
-            ? await tx.configuration.policies.get(binding.policyId)
-            : undefined;
-        if (!paging?.enabled || paging.serviceId !== definition.serviceId)
-          throw new Error("Rule paging policy is unavailable");
-        incidentId = pagingWorkId(
-          tx.workspaceId,
-          "rule-incident",
-          row.version.id,
-          String(row.generation),
-          decisionAt,
-        );
-        await openPageInTransaction(
-          tx,
-          {
-            incident: {
-              id: incidentId,
-              serviceId: definition.serviceId,
-              environmentId: definition.environmentId,
-              title: row.title,
-              severity: definition.severity,
-            },
-            policy: policyDefinition(paging),
-          },
-          actor,
-        );
+        incidentId = await openRuleIncident(tx, row, decisionAt);
       }
       if (
         row.mode === "active" &&
