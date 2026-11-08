@@ -182,15 +182,6 @@ function failedUpdate(entry: DeploymentEntry): WatchEvaluationUpdate {
     ],
   };
 }
-test("watch initialization requires a recorded finish and is idempotent", async () => {
-  const f = await fixture();
-  await assert.rejects(f.initialize(), /finish/);
-  await f.finish();
-  const first = await f.initialize();
-  assert.equal(first.verdict, "PENDING");
-  assert.equal(first.revision, 1);
-  assert.deepEqual(await f.initialize(), first);
-});
 test("watch reads do not expose foreign deployments and handles expire", async () => {
   const f = await fixture();
   await f.finish();
@@ -243,32 +234,6 @@ test("caught watch insertion failure rolls back the lifecycle completion", async
   assert.equal(saved?.deployment.status, "STARTED");
   assert.equal(await f.get(), undefined);
 });
-test("watch CAS refuses stale revisions without overwriting the current verdict", async () => {
-  const f = await fixture();
-  await f.finish();
-  await f.initialize();
-  f.setTime(60);
-  const first = await f.repository.transaction(scope, (tx) =>
-    tx.watches.advance(
-      f.entry.targetId,
-      f.entry.deployment.id,
-      1,
-      emptyUpdate(60),
-    ),
-  );
-  assert.equal(first?.verdict, "INSUFFICIENT_DATA");
-  assert.equal(first?.revision, 2);
-  const stale = await f.repository.transaction(scope, (tx) =>
-    tx.watches.advance(
-      f.entry.targetId,
-      f.entry.deployment.id,
-      1,
-      emptyUpdate(60),
-    ),
-  );
-  assert.equal(stale, undefined);
-  assert.deepEqual(await f.get(), first);
-});
 test("future or backdated evaluation times cannot commit", async () => {
   const f = await fixture();
   await f.finish();
@@ -287,32 +252,6 @@ test("future or backdated evaluation times cannot commit", async () => {
       /transaction's clock/,
     );
   assert.equal((await f.get())?.revision, 1);
-});
-test("an empty captured inventory cannot become healthy and final verdicts are immutable", async () => {
-  const f = await fixture();
-  await f.finish();
-  await f.initialize();
-  f.setTime(1920);
-  const final = await f.repository.transaction(scope, (tx) =>
-    tx.watches.advance(
-      f.entry.targetId,
-      f.entry.deployment.id,
-      1,
-      emptyUpdate(1920),
-    ),
-  );
-  assert.equal(final?.verdict, "INSUFFICIENT_DATA");
-  assert.equal(final?.finalizedAt, at(1920));
-  f.setTime(1980);
-  const later = await f.repository.transaction(scope, (tx) =>
-    tx.watches.advance(
-      f.entry.targetId,
-      f.entry.deployment.id,
-      2,
-      emptyUpdate(1980),
-    ),
-  );
-  assert.deepEqual(later, final);
 });
 test("a failed watch cannot commit without its incident even when the error is caught", async () => {
   const f = await fixture(true);

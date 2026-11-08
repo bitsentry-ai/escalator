@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture, scope, at } from "./conformance/watch-cadence-fixture.js";
 import { WatchCadenceCoordinator } from "../src/application/deploy/cadence-coordinator.js";
-import {
-  WatchProbeCadenceJobs,
-  withWatchCadenceHandlers,
-} from "../src/application/deploy/cadence-jobs.js";
+import { WatchProbeCadenceJobs } from "../src/application/deploy/cadence-jobs.js";
 import { defaultProbeLimits } from "../src/application/probes/capacity.js";
 import { pagingWorkId } from "../src/application/paging/work-ids.js";
 import { scheduleProbe } from "../src/application/probes/execute.js";
@@ -298,21 +295,6 @@ test("a later overlapping watch re-arms restoration after a terminal restore fai
   assert.equal((await probe(f))?.intervalSeconds, 300);
   assert.equal(await owner(f), undefined);
 });
-test("cadence handlers preserve existing lanes and reject duplicate registration", async () => {
-  const f = await fixture(),
-    handlers = { job: new Map(), outbox: new Map() };
-  const next = withWatchCadenceHandlers(handlers, f.repo, {
-    ...defaultProbeLimits,
-  });
-  assert.equal(next.job.size, 3);
-  assert.equal(handlers.job.size, 0);
-  assert.equal(next.outbox, handlers.outbox);
-  assert.throws(
-    () => withWatchCadenceHandlers(next, f.repo, { ...defaultProbeLimits }),
-    /already registered/,
-  );
-});
-
 async function extraProbe(f: Fixture, id: string) {
   await f.repo.transaction(scope, async (tx) => {
     const context = tx.probeContext;

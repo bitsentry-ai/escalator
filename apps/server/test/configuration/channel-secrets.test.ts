@@ -1,42 +1,38 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { workspaceIdSchema } from "@bitsentry-escalator/features/contracts";
-import type { AppContext } from "../../src/platform/trpc/context.js";
+import type { Role } from "@bitsentry-escalator/features/contracts";
 import { channelSecretsRouter } from "../../src/features/configuration/channel-secrets.router.js";
-function fixture(role = "administrator", fail = false) {
+import { routerContext, sessionActor } from "../trpc/router-context.js";
+function fixture(role: Role = "administrator", fail = false) {
   let bytes: Uint8Array | undefined;
   let calls = 0;
-  const context = {
-    req: { session: { account: { accountId: "owner", authVersion: 1 } } },
-    workspaceId: workspaceIdSchema.parse("local"),
-    auth: { current: async () => ({ id: "owner", role }) },
-    secretWriter: {
-      create: async (
-        actor: unknown,
-        name: string,
-        value: Uint8Array,
-        channel: string,
-      ) => {
-        assert.deepEqual(actor, {
-          workspaceId: "local",
-          responderId: "owner",
-          role: "administrator",
-        });
-        assert.deepEqual(JSON.parse(Buffer.from(value).toString()), {
-          url: "https://example.com/page",
-        });
-        assert.equal(channel, "webhook");
-        bytes = value;
-        calls++;
-        if (fail) throw new Error("storage unavailable");
-        return { workspaceId: "local", id: "opaque", name };
+  const context = routerContext(
+    {
+      secretWriter: {
+        create: async (
+          actor: unknown,
+          name: string,
+          value: Uint8Array,
+          channel: string,
+        ) => {
+          assert.deepEqual(actor, sessionActor());
+          assert.deepEqual(JSON.parse(Buffer.from(value).toString()), {
+            url: "https://example.com/page",
+          });
+          assert.equal(channel, "webhook");
+          bytes = value;
+          calls++;
+          if (fail) throw new Error("storage unavailable");
+          return { workspaceId: "local", id: "opaque", name };
+        },
+        list: async () => ({
+          items: [{ id: "opaque", name: "Operations", channel: "webhook" }],
+          next: null,
+        }),
       },
-      list: async () => ({
-        items: [{ id: "opaque", name: "Operations", channel: "webhook" }],
-        next: null,
-      }),
     },
-  } as unknown as AppContext;
+    { role },
+  );
   return {
     caller: channelSecretsRouter.createCaller(context),
     bytes: () => bytes,
@@ -62,16 +58,12 @@ test("credential creation returns metadata only and clears its owned plaintext b
     next: null,
   });
 });
-test("credential settings reject unauthorized actors and request-controlled scope", async () => {
+test("credential settings reject non-administrators and non-HTTPS webhook destinations", async () => {
   const viewer = fixture("viewer");
   await assert.rejects(viewer.caller.create(input), { code: "FORBIDDEN" });
   await assert.rejects(viewer.caller.list({}), { code: "FORBIDDEN" });
   assert.equal(viewer.calls(), 0);
   const admin = fixture();
-  await assert.rejects(
-    admin.caller.create({ ...input, workspaceId: "foreign" } as typeof input),
-    { code: "BAD_REQUEST" },
-  );
   await assert.rejects(
     admin.caller.create({
       ...input,

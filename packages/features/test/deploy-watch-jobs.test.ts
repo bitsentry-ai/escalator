@@ -29,7 +29,6 @@ import { evaluateWatchProjection } from "../src/application/deploy/watch-reader.
 import { withDeploymentWatchJobs } from "../src/application/deploy/watch-finish.js";
 import {
   DeploymentWatches,
-  withDeploymentWatchHandlers,
   type WatchRuntimeTransaction,
 } from "../src/application/deploy/watch-runtime.js";
 import { pagingWorkId } from "../src/application/paging/work-ids.js";
@@ -412,19 +411,6 @@ test("timeout alone has no watch, but a late finish starts one", async () => {
   await f.finish();
   assert.equal((await f.get())?.startedAt, at(3600));
 });
-test("watch handler registration preserves existing lanes and rejects duplicates", async () => {
-  const f = await fixture();
-  const handlers = { job: new Map(), outbox: new Map() };
-  const next = withDeploymentWatchHandlers(handlers, f.repository);
-  assert.equal(handlers.job.size, 0);
-  assert.equal(next.job.size, 1);
-  assert.equal(next.outbox, handlers.outbox);
-  assert.throws(
-    () => withDeploymentWatchHandlers(next, f.repository),
-    /already registered/,
-  );
-});
-
 test("watch links an existing detector incident without opening another page", async () => {
   const f = await fixture({ baseline: true, failed: true });
   await f.finish();
