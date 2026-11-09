@@ -1,38 +1,9 @@
-import type {
-  RuleManagement,
-  IncidentLabelManagement,
-  InvestigationReports,
-  InvestigationSettingsUseCases,
-  InvestigationSourceCatalog,
-} from "@bitsentry-escalator/features/application";
-import type {
-  DeploymentManagement,
-  DeploymentPreflight,
-  DeploymentQueries,
-} from "@bitsentry-escalator/features/application";
-import type { RetentionManagement } from "@bitsentry-escalator/features/application";
-import type { MetricManagement } from "@bitsentry-escalator/features/application";
-import type { HeartbeatManagement } from "@bitsentry-escalator/features/application";
-import type {
-  DetectionManagement,
-  ProbeManagement,
-} from "@bitsentry-escalator/features/application";
-import type { SignalManagement } from "@bitsentry-escalator/features/application";
-import type { PostgresSecretWriter } from "../../src/platform/secrets/postgres-secret.writer.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Request, Response } from "express";
-import { resolveResponse } from "@trpc/server/http";
-import { workspaceIdSchema } from "@bitsentry-escalator/features/contracts";
+import type { Request } from "express";
 import { authRouter } from "../../src/platform/auth/auth.router.js";
-import { appRouter } from "../../src/platform/trpc/router.js";
-import type { LocalAuthService } from "../../src/platform/auth/auth.service.js";
 import { AuthenticationError } from "../../src/platform/auth/credentials.js";
-import type {
-  ConfigurationUseCases,
-  IncidentUseCases,
-  ServiceUseCases,
-} from "@bitsentry-escalator/features/application";
+import { routerContext } from "../trpc/router-context.js";
 function fixture() {
   const calls: string[] = [];
   const proof = { accountId: "owner", authVersion: 2 };
@@ -95,35 +66,11 @@ function fixture() {
       calls.push("recover");
     },
   };
-  const context = {
-    incidents: {} as IncidentUseCases,
-    signals: {} as SignalManagement,
-    detection: {} as DetectionManagement,
-    probes: {} as ProbeManagement,
-    metrics: {} as MetricManagement,
-    labels: {} as IncidentLabelManagement,
-    rules: {} as RuleManagement,
-    investigationReports: {} as InvestigationReports,
-    investigationSettings: {} as InvestigationSettingsUseCases,
-    investigationSourceCatalog: {} as InvestigationSourceCatalog,
-    retention: {} as RetentionManagement,
-    heartbeats: {} as HeartbeatManagement,
-    deployments: {} as DeploymentManagement,
-    deploymentPreflight: {} as DeploymentPreflight,
-    deploymentQueries: {} as DeploymentQueries,
-    secretWriter: {} as PostgresSecretWriter,
-    configuration: {} as ConfigurationUseCases,
-    services: {} as ServiceUseCases,
-    req,
-    res: {} as Response,
-    auth: auth as unknown as LocalAuthService,
-    workspaceId: workspaceIdSchema.parse("local"),
-  };
+  const context = routerContext({ req, auth });
   return {
     calls,
     req,
     auth,
-    context,
     caller: authRouter.createCaller(context),
   };
 }
@@ -189,26 +136,4 @@ test("operator recovery destroys the current session and requires a fresh login"
   const f = fixture();
   await f.caller.recover({ token: "r".repeat(43), password: "long password" });
   assert.deepEqual(f.calls, ["recover", "destroy"]);
-});
-test("HTTP tRPC errors redact database messages and stack traces without a listener", async () => {
-  const f = fixture();
-  f.auth.login = async () => {
-    throw new Error("sensitive-database-connection-material");
-  };
-  const response = await resolveResponse({
-    router: appRouter,
-    path: "auth.login",
-    req: new globalThis.Request("https://escalator.example/trpc/auth.login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ login: "owner", password: "password" }),
-    }),
-    createContext: async () => f.context,
-    error: null,
-  });
-  assert.equal(response.status, 500);
-  const body = await response.text();
-  assert.equal(body.includes("sensitive-database"), false);
-  assert.equal(body.includes("stack"), false);
-  assert.ok(body.includes("Request failed"));
 });

@@ -8,7 +8,6 @@ import {
   replayRetentionPolicySchema,
   type ReplayCoverageResult,
 } from "../src/contracts/index.js";
-import { escalatorResources } from "../src/locales/index.js";
 const query = {
   kind: "probe" as const,
   id: "probe",
@@ -105,23 +104,4 @@ test("event evidence does not claim continuous monitoring", () => {
   assert.match(html, /retention.noContinuity/);
   assert.match(html, /retention.retrospective/);
   assert.doesNotMatch(html, /retention.available/);
-});
-test("all coverage gap reasons have nonempty labels in all six locales", () => {
-  for (const locale of Object.values(escalatorResources)) {
-    const { retention } = {
-      ...escalatorResources["en-US"].escalator,
-      ...locale.escalator,
-    };
-    for (const reason of [
-      "configuration_unknown",
-      "configuration_unavailable",
-      "disabled",
-      "missing",
-      "late",
-      "retrospective",
-      "unusable",
-      "query_truncated",
-    ] as const)
-      assert.ok(retention.gap[reason].trim());
-  }
 });

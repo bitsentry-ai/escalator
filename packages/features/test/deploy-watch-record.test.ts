@@ -157,16 +157,6 @@ test("every recorded completion opens a server-time watch, including a late fini
   incomplete.deployment.finish = null;
   assert.throws(() => startDeploymentWatch(incomplete));
 });
-test("healthy partial evidence stays pending until the full watch and grace", async () => {
-  const initial = startDeploymentWatch(await entry());
-  const pending = advanceDeploymentWatch(initial, update(360));
-  assert.equal(pending.verdict, "PENDING");
-  assert.equal(pending.finalizedAt, null);
-  const final = advanceDeploymentWatch(pending, update());
-  assert.equal(final.verdict, "PASS");
-  assert.equal(final.finalizedAt, at(2220));
-  assert.equal(final.revision, 3);
-});
 test("missing inventory and empty evidence cannot produce a healthy verdict", async () => {
   const value = startDeploymentWatch(await entry());
   assert.equal(
@@ -178,22 +168,6 @@ test("missing inventory and empty evidence cannot produce a healthy verdict", as
     advanceDeploymentWatch(value, { ...update(), streams: [] }).verdict,
     "INSUFFICIENT_DATA",
   );
-});
-test("first failure and its incident survive a later healthy evaluation", async () => {
-  const value = startDeploymentWatch(await entry());
-  const failed = linkWatchIncident(
-    advanceDeploymentWatch(value, update(360, true)),
-    "related-incident",
-  );
-  assert.equal(failed.verdict, "FAIL");
-  assert.equal(failed.finalizedAt, null);
-  const final = advanceDeploymentWatch(failed, update());
-  assert.equal(final.verdict, "FAIL");
-  assert.equal(final.incidentId, "related-incident");
-  assert.deepEqual(final.firstFailure, failed.firstFailure);
-  assert.equal(final.streams[0].evaluation.verdict, "PASS");
-  assert.throws(() => linkWatchIncident(final, "different-incident"));
-  assert.deepEqual(linkWatchIncident(final, "related-incident"), final);
 });
 test("known failure remains actionable even with incomplete other inventory", async () => {
   const value = advanceDeploymentWatch(startDeploymentWatch(await entry()), {

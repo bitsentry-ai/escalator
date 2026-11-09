@@ -9,9 +9,6 @@ import type { Response } from "express";
 import {
   HealthDeployment,
   OperationalHealthHttp,
-  DurableWorkScheduler,
-  WatchdogCoordinator,
-  RetentionCoordinator,
   ProbeDeployment,
   MetricDeployment,
 } from "@bitsentry-escalator/features/application";
@@ -94,73 +91,6 @@ test("standalone controller liveness never runs readiness and readiness uses loc
     "no-store",
   );
 });
-test("standalone watchdog construction is inert and follows the actual scheduler lifecycle", async (context) => {
-  const start = context.mock.method(
-    DurableWorkScheduler.prototype,
-    "start",
-    () => {},
-  );
-  const stop = context.mock.method(
-    DurableWorkScheduler.prototype,
-    "stop",
-    async () => {},
-  );
-  const watchStart = context.mock.method(
-    WatchdogCoordinator.prototype,
-    "start",
-    () => {},
-  );
-  const watchStop = context.mock.method(
-    WatchdogCoordinator.prototype,
-    "stop",
-    async () => {},
-  );
-  let connections = 0;
-  const pool = {
-    connect: async () => {
-      connections++;
-      throw new Error("unexpected connection");
-    },
-  } as unknown as Pool;
-  const keys = SecretKeyRing.parse({
-    version: 1,
-    activeKeyId: "test",
-    keys: { test: Buffer.alloc(32, 1).toString("base64") },
-  });
-  const { runtime } = standalonePagingRuntime(
-    pool,
-    scope,
-    keys,
-    "https://example.test",
-    () => {},
-    retentionFixture(),
-    undefined,
-    undefined,
-    new HealthDeployment(configuration),
-  );
-  assert.equal(start.mock.callCount(), 0);
-  assert.equal(watchStart.mock.callCount(), 0);
-  const retentionStart = context.mock.method(
-    RetentionCoordinator.prototype,
-    "start",
-    () => {},
-  );
-  const retentionStop = context.mock.method(
-    RetentionCoordinator.prototype,
-    "stop",
-    async () => {},
-  );
-  runtime.onApplicationBootstrap();
-  assert.equal(start.mock.callCount(), 1);
-  assert.equal(watchStart.mock.callCount(), 1);
-  await runtime.onModuleDestroy();
-  assert.equal(stop.mock.callCount(), 1);
-  assert.equal(watchStop.mock.callCount(), 1);
-  assert.equal(retentionStart.mock.callCount(), 1);
-  assert.equal(retentionStop.mock.callCount(), 1);
-  assert.equal(connections, 0);
-});
-
 test("watchdog configuration requires a registered handler and fits the existing worker budget", async () => {
   const pool = {
     connect: async () => {

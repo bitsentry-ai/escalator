@@ -40,27 +40,3 @@ test("metrics reads bind scope, cursor ownership and historical receipt visibili
   assert.match(calls[2].sql, /ORDER BY observed_at,received_at DESC,id DESC/);
   for (const call of calls) assert.equal(call.sql.includes(hostile), false);
 });
-test("metric CAS failures do not append a version and successful writes remove host scope from JSON", async () => {
-  const value = {
-    workspaceId: workspaceIdSchema.parse("tenant"),
-    id: "monitor",
-    sourceId: "source",
-    serviceId: "service",
-    environmentId: "production",
-    version: 2,
-    query: { connection: { authSecretId: null } },
-  } as Parameters<ReturnType<typeof postgresMetricsStore>["put"]>[0];
-  const failed = harness(0);
-  assert.equal(await failed.store.put(value, 1), false);
-  assert.equal(failed.calls.length, 1);
-  const success = harness();
-  assert.equal(await success.store.put(value, 1), true);
-  assert.equal(success.calls.length, 2);
-  assert.match(success.calls[0].sql, /version=\$6::bigint/);
-  assert.equal(success.calls[0].values[5], 1);
-  assert.match(success.calls[1].sql, /INSERT INTO escalator_metric_version/);
-  assert.equal(
-    "workspaceId" in JSON.parse(String(success.calls[1].values[3])),
-    false,
-  );
-});

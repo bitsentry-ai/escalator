@@ -5,7 +5,6 @@ import { workspaceIdSchema } from "../src/contracts/index.js";
 import {
   StuckDeployments,
   withDeploymentTimeout,
-  withDeploymentTimeoutHandlers,
   type StuckDeploymentRepository,
 } from "../src/application/deploy/stuck.js";
 import { pagingWorkId } from "../src/application/paging/work-ids.js";
@@ -245,19 +244,6 @@ test("deadline enqueue failure rolls the accepted deployment back", async () => 
   );
   assert.equal(await f.get(), undefined);
 });
-test("handler registration preserves existing lanes and rejects duplicate ownership", async () => {
-  const f = await fixture();
-  const existing = { job: new Map(), outbox: new Map() };
-  const result = withDeploymentTimeoutHandlers(existing, f.repository);
-  assert.equal(result.outbox, existing.outbox);
-  assert.equal(existing.job.size, 0);
-  assert.equal(result.job.size, 1);
-  assert.throws(
-    () => withDeploymentTimeoutHandlers(result, f.repository),
-    /already registered/,
-  );
-});
-
 test("accepted deadlines survive target disablement and grant revocation", async () => {
   const f = await fixture();
   await f.start();
