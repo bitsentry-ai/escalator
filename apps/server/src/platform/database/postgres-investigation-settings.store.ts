@@ -7,7 +7,6 @@ import {
 } from "@bitsentry-escalator/features/contracts";
 import type { InvestigationSettingsStore } from "@bitsentry-escalator/features/application";
 import { compareCodeUnits } from "@bitsentry-escalator/features/contracts";
-/** Fixed SQL primitives on the surrounding scoped transaction; no network calls. */
 const sourceTables = {
   probe: "escalator_probe",
   alert: "escalator_signal_source",
@@ -53,6 +52,7 @@ async function authorizeNativeSource(
     )
   );
 }
+/** Fixed SQL primitives on the surrounding scoped transaction; no network calls. */
 export function postgresInvestigationSettingsStore(
   db: PoolClient,
   workspaceId: WorkspaceId,

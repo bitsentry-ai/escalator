@@ -42,7 +42,6 @@ interface Prepared {
   notification: ChannelNotification;
   expireSeconds: number;
 }
-/** Commits attempt and digest grant before I/O; provider results survive cancellation. */
 function validSendClaim(
   workspaceId: WorkspaceId,
   claimed: { queue: string; kind: string; id: string },
@@ -198,6 +197,7 @@ function finishedAttempt(
     completedAfterAcknowledgement: afterAcknowledgement,
   };
 }
+/** Commits attempt and digest grant before I/O; provider results survive cancellation. */
 export class PageDelivery {
   private readonly base: URL;
   constructor(

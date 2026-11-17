@@ -118,7 +118,7 @@ interface SlotScan {
   visibleAt: string;
   tally: { expectedSlots: number; availableSlots: number };
   selected: PeriodicCoverageSelection["samples"] | undefined;
-  gap: (from: number, to: number, reason: CoverageReason) => void;
+  gaps: CoverageGap[];
 }
 /** Counts each scheduled slot of a segment within [from, to) as available or as a gap. */
 function scanSlots(
@@ -145,7 +145,8 @@ function scanSlots(
       });
       continue;
     }
-    scan.gap(
+    addGap(
+      scan.gaps,
       slot,
       Math.min(to, slot + step),
       gapReason(known.length > 0, receipts),
@@ -193,7 +194,7 @@ function computePeriodicCoverage(
     visibleAt: input.visibleAt,
     tally: { expectedSlots: 0, availableSlots: 0 },
     selected: collect ? selected : undefined,
-    gap,
+    gaps,
   };
   for (const segment of input.segments) {
     const rawStart = Date.parse(segment.startAt),

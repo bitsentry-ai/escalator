@@ -29,7 +29,6 @@ export class InvestigationSettingsError extends Error {
     super(code);
   }
 }
-/** One validation path for both SQL adapters. The guard poisons caught failed operations. */
 type Settings = z.infer<typeof investigationSettingsSchema>;
 function assertSaveRequest(
   actor: { workspaceId: string; role: Parameters<typeof hasCapability>[0] },
@@ -79,6 +78,7 @@ function onlyEnabledChanged(
     }) === JSON.stringify(value)
   );
 }
+/** One validation path for both SQL adapters. The guard poisons caught failed operations. */
 export function investigationSettingsTransaction(
   base: FoundationTransaction,
   store: InvestigationSettingsStore,

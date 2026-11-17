@@ -22,7 +22,6 @@ const headerNames = new Set([
   "idempotency-key",
   "x-idempotency-key",
 ]);
-/** Every redirect gets a new policy/DNS check; each connection uses only its validated peer. */
 function assertProbeRequest(input: ProbeRequest): void {
   if (
     !Number.isInteger(input.timeoutMs) ||
@@ -80,6 +79,7 @@ function transportError(
     return new ProbeTransportError("destination_denied");
   return new ProbeTransportError("network_error");
 }
+/** Every redirect gets a new policy/DNS check; each connection uses only its validated peer. */
 export class PolicyHttpProbeTransport implements ProbeTransport {
   constructor(
     private readonly policy: ProbeDestinationPolicy,

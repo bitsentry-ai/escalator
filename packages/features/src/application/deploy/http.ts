@@ -37,7 +37,6 @@ export interface DeploymentHttpResponse {
     | DeploymentPreflightResult
     | { error: ErrorCode };
 }
-/** Bounded machine ingress; hosts apply the same byte limit while reading the stream. */
 function statusFor(state: string): 200 | 202 | 409 {
   if (state === "rejected") return 409;
   if (state === "accepted") return 202;
@@ -99,6 +98,7 @@ function failureResponse(error: unknown): DeploymentHttpResponse {
     return { status: 409, body: { error: error.code } };
   return { status: 503, body: { error: "unavailable" } };
 }
+/** Bounded machine ingress; hosts apply the same byte limit while reading the stream. */
 export class DeploymentHttp {
   private active = 0;
   constructor(

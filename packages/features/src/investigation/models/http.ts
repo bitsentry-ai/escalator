@@ -45,7 +45,6 @@ export interface ModelHttpLimits {
   requestBytes: number;
   responseBytes: number;
 }
-/** One approved endpoint, no redirects/proxy, bounded non-streaming JSON, pinned DNS. */
 /** Only a JSON POST with a string body within the request limit; returns that body. */
 function assertModelRequest(
   input: Parameters<typeof globalThis.fetch>[0],
@@ -99,6 +98,7 @@ function modelTransportError(
     return new ModelTransportError("destination_denied");
   return new ModelTransportError("network_error");
 }
+/** One approved endpoint, no redirects/proxy, bounded non-streaming JSON, pinned DNS. */
 export class BoundedModelHttp {
   constructor(
     private readonly policy: ModelDestinationPolicy,

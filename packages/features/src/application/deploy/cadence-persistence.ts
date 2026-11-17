@@ -64,10 +64,6 @@ export interface WatchCadenceRepository {
     run: (tx: WatchCadenceTransaction) => Promise<T>,
   ): Promise<T>;
 }
-/** All primitives use the same scoped physical transaction. Capacity precedes
- * target/source/probe locks; the probe row serializes its lease and receipts.
- * No provider I/O. Runtime must fence its work claim before calling writers.
- */
 type CadenceLease = z.infer<typeof watchCadenceLeaseSchema>;
 /** A new lease belongs to this deployment's generation, starts now, and restores when the watch ends. */
 function assertNewLease(
@@ -115,6 +111,10 @@ function assertLeaseExtension(
   )
     throw new RangeError("Invalid cadence extension");
 }
+/** All primitives use the same scoped physical transaction. Capacity precedes
+ * target/source/probe locks; the probe row serializes its lease and receipts.
+ * No provider I/O. Runtime must fence its work claim before calling writers.
+ */
 export function withWatchCadence<Tx extends DeploymentWatchTransaction>(
   base: Tx,
   probes: ProbeTransaction,

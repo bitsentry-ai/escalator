@@ -7,7 +7,6 @@ import type { EmailTransport } from "./email.js";
 import { isPublicChannelAddress } from "./public-address.js";
 type Resolve = (host: string) => Promise<{ address: string; family: number }[]>;
 const failure = () => new Error("Email submission failed");
-/** One public peer, verified implicit TLS, no pooling/proxy/fallback or URL content. */
 /** No control characters in the subject, bounded sizes, and an Escalator message id. */
 function assertSafeMessage(message: {
   subject: string;
@@ -69,6 +68,7 @@ function smtpFailureOutcome(error: unknown): "rejected" | "retry" | "unknown" {
   if (code >= 400 && code <= 499) return "retry";
   return "unknown";
 }
+/** One public peer, verified implicit TLS, no pooling/proxy/fallback or URL content. */
 export class PublicSmtpTransport implements EmailTransport {
   constructor(
     private readonly resolve: Resolve = (host) => lookup(host, { all: true }),

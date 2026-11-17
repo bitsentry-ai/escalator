@@ -9,7 +9,6 @@ import { coverageTransaction } from "../../src/application/deploy/coverage-trans
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import { MemoryDeploymentRepository } from "./memory-deployments.js";
 const copy = <T>(value: T): T => structuredClone(value);
-/** Test-only serializable storage sharing the deployment transaction's rollback boundary. */
 function addScheduleResponders(
   candidates: Set<string>,
   schedule: {
@@ -41,6 +40,7 @@ async function contactsOf<C extends { responderId: string }>(
   } while (after && contacts.length <= 2060);
   return contacts;
 }
+/** Test-only serializable storage sharing the deployment transaction's rollback boundary. */
 export class MemoryCoverageRepository implements CoverageRepository {
   readonly deployments: MemoryDeploymentRepository;
   constructor(clock?: Clock) {

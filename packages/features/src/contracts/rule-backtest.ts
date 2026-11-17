@@ -35,8 +35,6 @@ export const backtestEpisodeSchema = z
     "Invalid episode interval",
   );
 export type BacktestEpisode = z.infer<typeof backtestEpisodeSchema>;
-/** Strict, credential-free persisted report. Availability refers to decision
- * windows, not a claim of continuous source uptime between them. */
 const ruleBacktestReportShape = z.strictObject({
   version: z.literal(1),
   evaluatorVersion: z.literal(1),
@@ -183,6 +181,8 @@ function checkAvailability(
   )
     issue("Availability summary mismatch");
 }
+/** Strict, credential-free persisted report. Availability refers to decision
+ * windows, not a claim of continuous source uptime between them. */
 export const ruleBacktestReportSchema = ruleBacktestReportShape.superRefine(
   (r, c) => {
     if (
