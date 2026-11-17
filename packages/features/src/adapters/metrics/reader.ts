@@ -27,6 +27,62 @@ const credential = z.strictObject({
     .max(8192)
     .regex(/^[\x20-\x7e]+$/),
 });
+function parseReadInput(
+  input: MetricsQuery,
+  use: ProbeExecution,
+): MetricsQuery {
+  try {
+    const config = metricsQuerySchema.parse(input);
+    workspaceIdSchema.parse(use.workspaceId);
+    opaqueIdSchema.parse(use.workId);
+    return config;
+  } catch {
+    throw new MetricsReadError("invalid_configuration");
+  }
+}
+function parseRange(range: MetricsRange): MetricsRange {
+  try {
+    return metricsRangeSchema.parse(range);
+  } catch {
+    throw new MetricsReadError("invalid_configuration");
+  }
+}
+/** A query_range URL under the configured base, through the Grafana datasource proxy when configured. */
+function queryRangeUrl(
+  config: MetricsQuery,
+  range: MetricsRange,
+  expression: string,
+): URL {
+  const url = new URL(config.connection.baseUrl);
+  const base = url.pathname.replace(/\/$/, "");
+  const proxy =
+    config.connection.provider === "grafana-prometheus"
+      ? `/api/datasources/proxy/uid/${config.connection.datasourceUid}`
+      : "";
+  url.pathname = `${base}${proxy}/api/v1/query_range`;
+  url.search = new URLSearchParams({
+    query: expression,
+    start: String(Date.parse(range.startAt) / 1000),
+    end: String(Date.parse(range.endAt) / 1000),
+    step: String(range.stepSeconds),
+    timeout: "4s",
+    limit: "2",
+  }).toString();
+  if (url.href.length > 4096)
+    throw new MetricsReadError("invalid_configuration");
+  return url;
+}
+/** The authorization header stored in a monitoring credential; anything unreadable is an unavailable secret. */
+function credentialAuthorization(bytes: Uint8Array): string {
+  try {
+    if (bytes.length > 16384) throw new Error("credential exceeds 16 KiB");
+    return credential.parse(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+    ).authorization;
+  } catch {
+    throw new MetricsReadError("secret_unavailable");
+  }
+}
 /** Only the Prometheus query_range protocol, directly or through a configured Grafana datasource. */
 export class PrometheusMetricsReader {
   constructor(
@@ -38,15 +94,8 @@ export class PrometheusMetricsReader {
     range: MetricsRange,
     use: ProbeExecution,
   ): Promise<MetricsObservation> {
-    let config: MetricsQuery;
-    try {
-      config = metricsQuerySchema.parse(input);
-      range = metricsRangeSchema.parse(range);
-      workspaceIdSchema.parse(use.workspaceId);
-      opaqueIdSchema.parse(use.workId);
-    } catch {
-      throw new MetricsReadError("invalid_configuration");
-    }
+    const config = parseReadInput(input, use);
+    range = parseRange(range);
     if (use.signal.aborted) throw new MetricsReadError("cancelled");
     const abort = new AbortController();
     let timedOut = false;
@@ -64,24 +113,7 @@ export class PrometheusMetricsReader {
     };
     const query = async (expression: string) => {
       ensureActive();
-      const url = new URL(config.connection.baseUrl);
-      const base = url.pathname.replace(/\/$/, "");
-      url.pathname =
-        base +
-        (config.connection.provider === "grafana-prometheus"
-          ? `/api/datasources/proxy/uid/${config.connection.datasourceUid}`
-          : "") +
-        "/api/v1/query_range";
-      url.search = new URLSearchParams({
-        query: expression,
-        start: String(Date.parse(range.startAt) / 1000),
-        end: String(Date.parse(range.endAt) / 1000),
-        step: String(range.stepSeconds),
-        timeout: "4s",
-        limit: "2",
-      }).toString();
-      if (url.href.length > 4096)
-        throw new MetricsReadError("invalid_configuration");
+      const url = queryRangeUrl(config, range, expression);
       const response = await this.transport.exchange(
         {
           url: url.href,
@@ -124,17 +156,7 @@ export class PrometheusMetricsReader {
           signal: abort.signal,
         },
         async (bytes) => {
-          try {
-            if (bytes.length > 16384)
-              throw new Error("credential exceeds 16 KiB");
-            headers.authorization = credential.parse(
-              JSON.parse(
-                new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-              ),
-            ).authorization;
-          } catch {
-            throw new MetricsReadError("secret_unavailable");
-          }
+          headers.authorization = credentialAuthorization(bytes);
           try {
             return await run();
           } finally {
