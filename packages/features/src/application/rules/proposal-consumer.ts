@@ -81,6 +81,37 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
     if (signal.aborted) done();
   });
 }
+/** Renews the lease every 15 seconds until the signal aborts; a refused or failed renewal loses it. */
+async function renewLease(
+  port: RuleProposalExecutionPort,
+  claim: RuleProposalClaim,
+  signal: AbortSignal,
+  onLost: () => void,
+): Promise<void> {
+  while (!signal.aborted) {
+    await delay(15000, signal);
+    if (signal.aborted) return;
+    try {
+      if (!(await bounded(() => port.heartbeat(claim), signal, 10000)))
+        onLost();
+    } catch {
+      if (!signal.aborted) onLost();
+    }
+  }
+}
+async function reportFailure(
+  port: RuleProposalExecutionPort,
+  claim: RuleProposalClaim,
+  signal: AbortSignal,
+): Promise<RuleProposalExecutionOutcome> {
+  try {
+    return (await bounded(() => port.failed(claim), signal, 10000))
+      ? "failed"
+      : "lease_lost";
+  } catch {
+    return "unavailable";
+  }
+}
 /** One model operation, periodically renewed 60-second host lease. Shutdown and
  * uncertain publication never mark work failed after a possible successful commit. */
 export async function executeRuleProposalClaim(
@@ -103,23 +134,10 @@ export async function executeRuleProposalClaim(
     if (signal.aborted || performance.now() - started >= 60000)
       throw new Interrupted();
   };
-  const renewal = (async () => {
-    while (!signal.aborted) {
-      await delay(15000, signal);
-      if (signal.aborted) return;
-      try {
-        if (!(await bounded(() => port.heartbeat(claim), signal, 10000))) {
-          leaseLost = true;
-          abort();
-        }
-      } catch {
-        if (!signal.aborted) {
-          leaseLost = true;
-          abort();
-        }
-      }
-    }
-  })();
+  const renewal = renewLease(port, claim, signal, () => {
+    leaseLost = true;
+    abort();
+  });
   try {
     check();
     const rawInput = await bounded(() => port.prepare(claim), signal, 10000);
@@ -146,13 +164,7 @@ export async function executeRuleProposalClaim(
     if (leaseLost) return "lease_lost";
     if (signal.aborted || performance.now() - started >= 60000)
       return "unavailable";
-    try {
-      return (await bounded(() => port.failed(claim), signal, 10000))
-        ? "failed"
-        : "lease_lost";
-    } catch {
-      return "unavailable";
-    }
+    return await reportFailure(port, claim, signal);
   } finally {
     abort();
     clearTimeout(timer);

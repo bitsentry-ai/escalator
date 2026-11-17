@@ -25,83 +25,84 @@ export const ruleCandidateResultSchema = z.strictObject({
   reviewable: z.literal(false),
 });
 export type RuleCandidateResult = z.infer<typeof ruleCandidateResultSchema>;
-export const ruleProposalSchema = z
-  .strictObject({
-    id: opaqueIdSchema,
-    workspaceId: workspaceIdSchema,
-    requestedBy: responderIdSchema,
-    originLabelId: opaqueIdSchema,
-    sourceSnapshotId: opaqueIdSchema,
-    sourceInputHash: hash,
-    candidateId: opaqueIdSchema,
-    profileId: opaqueIdSchema,
-    profileRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    destination: modelDestinationSchema,
-    revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    status: z.enum([
-      "queued",
-      "generating",
-      "evaluating",
-      "ready",
-      "failed",
-      "cancelled",
-    ]),
-    generation: ruleCandidateResultSchema.nullable(),
-    failure: z
-      .enum([
-        "generation_failed",
-        "evaluation_failed",
-        "expired",
-        "authorization_changed",
-      ])
-      .nullable(),
-    fullRunId: opaqueIdSchema.nullable(),
-    heldOutRunId: opaqueIdSchema.nullable(),
-    heldOut: z.enum(["required", "insufficient_span"]),
-    createdAt: utcTimestampSchema,
-    updatedAt: utcTimestampSchema,
-    expiresAt: utcTimestampSchema,
-  })
-  .superRefine((r, c) => {
-    const invalid = (message: string) =>
-      c.addIssue({ code: "custom", message });
-    if (
-      compareUtcTimestamps(r.updatedAt, r.createdAt) < 0 ||
-      compareUtcTimestamps(r.expiresAt, r.createdAt) <= 0
-    )
-      invalid("Invalid proposal timestamps");
-    if (Date.parse(r.expiresAt) - Date.parse(r.createdAt) > 86400000)
-      invalid("Proposal lifetime exceeds one day");
-    if (r.fullRunId && r.fullRunId === r.heldOutRunId)
-      invalid("Evaluation runs must be distinct");
-    if ((r.status === "failed") !== (r.failure !== null))
-      invalid("Failure status mismatch");
-    if (
-      ["queued", "generating"].includes(r.status) &&
-      (r.generation || r.fullRunId || r.heldOutRunId)
-    )
-      invalid("Unfinished generation has evaluation results");
-    if (["evaluating", "ready"].includes(r.status) && !r.generation)
-      invalid("Candidate required");
-    if (
-      r.generation &&
-      (r.generation.candidate.id !== r.candidateId ||
-        r.generation.candidate.revision !== 1 ||
-        r.generation.candidate.definition.workspaceId !== r.workspaceId ||
-        r.generation.sourceSnapshotId !== r.sourceSnapshotId ||
-        r.generation.sourceInputHash !== r.sourceInputHash ||
-        JSON.stringify(r.generation.destination) !==
-          JSON.stringify(r.destination))
-    )
-      invalid("Candidate binding mismatch");
-    if (r.heldOut === "insufficient_span" && r.heldOutRunId)
-      invalid("Unexpected held-out evaluation");
-    if (
-      r.status === "ready" &&
-      (!r.fullRunId || (r.heldOut === "required" && !r.heldOutRunId))
-    )
-      invalid("Reports required before review");
-  });
+const ruleProposalShape = z.strictObject({
+  id: opaqueIdSchema,
+  workspaceId: workspaceIdSchema,
+  requestedBy: responderIdSchema,
+  originLabelId: opaqueIdSchema,
+  sourceSnapshotId: opaqueIdSchema,
+  sourceInputHash: hash,
+  candidateId: opaqueIdSchema,
+  profileId: opaqueIdSchema,
+  profileRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  destination: modelDestinationSchema,
+  revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  status: z.enum([
+    "queued",
+    "generating",
+    "evaluating",
+    "ready",
+    "failed",
+    "cancelled",
+  ]),
+  generation: ruleCandidateResultSchema.nullable(),
+  failure: z
+    .enum([
+      "generation_failed",
+      "evaluation_failed",
+      "expired",
+      "authorization_changed",
+    ])
+    .nullable(),
+  fullRunId: opaqueIdSchema.nullable(),
+  heldOutRunId: opaqueIdSchema.nullable(),
+  heldOut: z.enum(["required", "insufficient_span"]),
+  createdAt: utcTimestampSchema,
+  updatedAt: utcTimestampSchema,
+  expiresAt: utcTimestampSchema,
+});
+type ProposalShape = z.infer<typeof ruleProposalShape>;
+/** A generated candidate must be revision 1 of the proposal's candidate, from its source capture and destination. */
+function candidateBindingMismatch(r: ProposalShape): boolean {
+  if (!r.generation) return false;
+  return (
+    r.generation.candidate.id !== r.candidateId ||
+    r.generation.candidate.revision !== 1 ||
+    r.generation.candidate.definition.workspaceId !== r.workspaceId ||
+    r.generation.sourceSnapshotId !== r.sourceSnapshotId ||
+    r.generation.sourceInputHash !== r.sourceInputHash ||
+    JSON.stringify(r.generation.destination) !== JSON.stringify(r.destination)
+  );
+}
+export const ruleProposalSchema = ruleProposalShape.superRefine((r, c) => {
+  const invalid = (message: string) => c.addIssue({ code: "custom", message });
+  if (
+    compareUtcTimestamps(r.updatedAt, r.createdAt) < 0 ||
+    compareUtcTimestamps(r.expiresAt, r.createdAt) <= 0
+  )
+    invalid("Invalid proposal timestamps");
+  if (Date.parse(r.expiresAt) - Date.parse(r.createdAt) > 86400000)
+    invalid("Proposal lifetime exceeds one day");
+  if (r.fullRunId && r.fullRunId === r.heldOutRunId)
+    invalid("Evaluation runs must be distinct");
+  if ((r.status === "failed") !== (r.failure !== null))
+    invalid("Failure status mismatch");
+  if (
+    ["queued", "generating"].includes(r.status) &&
+    (r.generation || r.fullRunId || r.heldOutRunId)
+  )
+    invalid("Unfinished generation has evaluation results");
+  if (["evaluating", "ready"].includes(r.status) && !r.generation)
+    invalid("Candidate required");
+  if (candidateBindingMismatch(r)) invalid("Candidate binding mismatch");
+  if (r.heldOut === "insufficient_span" && r.heldOutRunId)
+    invalid("Unexpected held-out evaluation");
+  if (
+    r.status === "ready" &&
+    (!r.fullRunId || (r.heldOut === "required" && !r.heldOutRunId))
+  )
+    invalid("Reports required before review");
+});
 export type RuleProposal = z.infer<typeof ruleProposalSchema>;
 /** Request-body IDs are hints; only a matching live database claim authorizes work. */
 export const ruleProposalClaimSchema = z.strictObject({
