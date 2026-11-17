@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { ZodError, type z } from "zod";
 import {
   deploymentIdempotencyKeySchema,
   opaqueIdSchema,
@@ -43,6 +43,62 @@ function statusFor(state: string): 200 | 202 | 409 {
   if (state === "accepted") return 202;
   return 200;
 }
+type ParsedRequest =
+  | { rejected: DeploymentHttpResponse }
+  | {
+      token: string;
+      key: z.infer<typeof deploymentIdempotencyKeySchema>;
+      body: unknown;
+    };
+/** Checks size, media type, bearer token, idempotency key, deployment id and JSON body, in that order. */
+function parseDeploymentRequest(
+  action: "start" | "finish" | "preflight",
+  id: string | null,
+  request: DeploymentHttpRequest,
+): ParsedRequest {
+  if (request.body.byteLength > DEPLOYMENT_MAX_BYTES)
+    return { rejected: { status: 413, body: { error: "body_too_large" } } };
+  if (
+    !/^application\/json(?:\s*;\s*charset\s*=\s*utf-8)?\s*$/i.test(
+      request.contentType ?? "",
+    )
+  )
+    return {
+      rejected: { status: 415, body: { error: "unsupported_content_type" } },
+    };
+  const match = /^Bearer (.+)$/i.exec(request.authorization ?? "");
+  if (!match || !deploymentTokenDigest(match[1]))
+    return { rejected: { status: 401, body: { error: "invalid_token" } } };
+  const key = deploymentIdempotencyKeySchema.safeParse(request.idempotencyKey);
+  if (
+    !key.success ||
+    (action === "finish" && !opaqueIdSchema.safeParse(id).success)
+  )
+    return { rejected: { status: 400, body: { error: "invalid_input" } } };
+  try {
+    const body: unknown = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(request.body),
+    );
+    return { token: match[1], key: key.data, body };
+  } catch {
+    return { rejected: { status: 400, body: { error: "invalid_input" } } };
+  }
+}
+function failureResponse(error: unknown): DeploymentHttpResponse {
+  if (error instanceof DeploymentAccessError)
+    return { status: 401, body: { error: "invalid_token" } };
+  if (
+    error instanceof ZodError ||
+    (error instanceof DeploymentPreflightError &&
+      error.code === "scope_violation")
+  )
+    return { status: 400, body: { error: "invalid_input" } };
+  if (error instanceof DeploymentStartCoverageError)
+    return { status: 409, body: { error: "coverage_blocked" } };
+  if (error instanceof DeploymentCommandError)
+    return { status: 409, body: { error: error.code } };
+  return { status: 503, body: { error: "unavailable" } };
+}
 export class DeploymentHttp {
   private active = 0;
   constructor(
@@ -63,44 +119,23 @@ export class DeploymentHttp {
   finish(id: string, request: DeploymentHttpRequest) {
     return this.execute("finish", id, request);
   }
+  private isAvailable(): boolean {
+    try {
+      return this.available();
+    } catch {
+      return false;
+    }
+  }
   private async execute(
     action: "start" | "finish" | "preflight",
     id: string | null,
     request: DeploymentHttpRequest,
   ): Promise<DeploymentHttpResponse> {
-    try {
-      if (!this.available())
-        return { status: 503, body: { error: "unavailable" } };
-    } catch {
+    if (!this.isAvailable())
       return { status: 503, body: { error: "unavailable" } };
-    }
-    if (request.body.byteLength > DEPLOYMENT_MAX_BYTES)
-      return { status: 413, body: { error: "body_too_large" } };
-    if (
-      !/^application\/json(?:\s*;\s*charset\s*=\s*utf-8)?\s*$/i.test(
-        request.contentType ?? "",
-      )
-    )
-      return { status: 415, body: { error: "unsupported_content_type" } };
-    const match = /^Bearer (.+)$/i.exec(request.authorization ?? "");
-    if (!match || !deploymentTokenDigest(match[1]))
-      return { status: 401, body: { error: "invalid_token" } };
-    const key = deploymentIdempotencyKeySchema.safeParse(
-      request.idempotencyKey,
-    );
-    if (
-      !key.success ||
-      (action === "finish" && !opaqueIdSchema.safeParse(id).success)
-    )
-      return { status: 400, body: { error: "invalid_input" } };
-    let body: unknown;
-    try {
-      body = JSON.parse(
-        new TextDecoder("utf-8", { fatal: true }).decode(request.body),
-      );
-    } catch {
-      return { status: 400, body: { error: "invalid_input" } };
-    }
+    const parsed = parseDeploymentRequest(action, id, request);
+    if ("rejected" in parsed) return parsed.rejected;
+    const { token, key, body } = parsed;
     if (this.active >= this.maxInFlight)
       return { status: 429, body: { error: "busy" } };
     this.active++;
@@ -110,34 +145,22 @@ export class DeploymentHttp {
           return { status: 503, body: { error: "unavailable" } };
         return {
           status: 200,
-          body: await this.commands.preflight(match[1], key.data, body),
+          body: await this.commands.preflight(token, key, body),
         };
       }
       const result =
         action === "start"
-          ? await this.commands.start(match[1], key.data, body)
+          ? await this.commands.start(token, key, body)
           : await this.commands.finish(
-              match[1],
+              token,
               // Validated as an opaque id above.
               expectDefined(id, "deployment id"),
-              key.data,
+              key,
               body,
             );
       return { status: statusFor(result.state), body: result };
     } catch (error) {
-      if (error instanceof DeploymentAccessError)
-        return { status: 401, body: { error: "invalid_token" } };
-      if (
-        error instanceof ZodError ||
-        (error instanceof DeploymentPreflightError &&
-          error.code === "scope_violation")
-      )
-        return { status: 400, body: { error: "invalid_input" } };
-      if (error instanceof DeploymentStartCoverageError)
-        return { status: 409, body: { error: "coverage_blocked" } };
-      if (error instanceof DeploymentCommandError)
-        return { status: 409, body: { error: error.code } };
-      return { status: 503, body: { error: "unavailable" } };
+      return failureResponse(error);
     } finally {
       // No queued work and no early slot release: the actual database operation has settled.
       this.active--;

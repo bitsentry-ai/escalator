@@ -52,6 +52,84 @@ export interface WatchRuntimeRepository {
 const actor = { kind: "system", component: "deployment-watch" } as const;
 const incidentIdFor = (scope: WorkspaceId, deploymentId: string) =>
   pagingWorkId(scope, "deployment-watch-incident", deploymentId);
+/** Reads the watch's evidence, advances it, and locks incident correlation for a newly failed watch. */
+async function readWatchProgress(
+  tx: WatchRuntimeTransaction,
+  targetId: string,
+  entry: DeploymentEntry,
+  watch: DeploymentWatchRecord,
+) {
+  const evidence = await tx.watchEvidence.read(
+    entry,
+    watch,
+    await tx.baselines.get(targetId, entry.deployment.id),
+  );
+  const next = advanceDeploymentWatch(watch, evidence);
+  const binding =
+    next.verdict === "FAIL" && watch.incidentId === null
+      ? await tx.watchIncidents.lock(next)
+      : undefined;
+  return { evidence, next, binding };
+}
+async function loadWatch(
+  tx: WatchRuntimeTransaction,
+  hint: { targetId: string; deploymentId: string },
+) {
+  const target = await tx.targets.get(hint.targetId);
+  if (!target) throw new Error("Watch target is missing");
+  const entry = await tx.deployments.get(target.id, hint.deploymentId);
+  const watch = await tx.watches.get(target.id, hint.deploymentId);
+  if (!entry || !watch) throw new Error("Watch job references missing state");
+  return { target, entry, watch };
+}
+function assertWatchClaim(
+  workspaceId: WorkspaceId,
+  claim: {
+    workspaceId: string;
+    queue: string;
+    kind: string;
+    id: string;
+    payload: unknown;
+  },
+  targetId: string,
+  entry: DeploymentEntry,
+  watch: DeploymentWatchRecord,
+): void {
+  const payload = deploymentWatchPayloadSchema.parse(claim.payload);
+  if (
+    claim.workspaceId !== workspaceId ||
+    claim.queue !== "job" ||
+    claim.kind !== "deployment.watch" ||
+    claim.id !==
+      pagingWorkId(
+        workspaceId,
+        "deployment.watch",
+        targetId,
+        entry.deployment.id,
+      ) ||
+    payload.targetId !== targetId ||
+    payload.deploymentId !== entry.deployment.id ||
+    payload.startedAt !== watch.startedAt
+  )
+    throw new Error("Invalid deployment watch claim");
+}
+async function assertLinkedIncident(
+  tx: WatchRuntimeTransaction,
+  watch: DeploymentWatchRecord,
+  linked: string,
+): Promise<void> {
+  const incident = await tx.incidents.get(linked);
+  const page = await tx.pages.get(pagingWorkId(tx.workspaceId, "page", linked));
+  if (
+    !incident ||
+    !page ||
+    incident.workspaceId !== tx.workspaceId ||
+    incident.serviceId !== watch.serviceId ||
+    incident.environmentId !== watch.environmentId ||
+    page.incidentId !== incident.id
+  )
+    throw new Error("Failed watch is missing its scoped incident and page");
+}
 /** One persisted watch per accepted finish. Evaluation, incident/page, audit and
  * work fencing share one transaction. Provider delivery happens through the outbox.
  */
@@ -60,30 +138,14 @@ export class DeploymentWatches {
   run(lease: WorkLease): Promise<WorkResult> {
     const hint = deploymentWatchPayloadSchema.parse(lease.payload);
     return this.repository.transaction(lease.workspaceId, async (tx) => {
-      const target = await tx.targets.get(hint.targetId);
-      if (!target) throw new Error("Watch target is missing");
-      const entry = await tx.deployments.get(target.id, hint.deploymentId);
-      const watch = await tx.watches.get(target.id, hint.deploymentId);
-      if (!entry || !watch)
-        throw new Error("Watch job references missing state");
+      const { target, entry, watch } = await loadWatch(tx, hint);
       const at = utcTimestampSchema.parse(await tx.currentTime());
       // A mis-scheduled job waits rather than interpreting a zero-length window.
       const firstPoll = Date.parse(watch.startedAt) + 60_000;
-      const evidence =
+      const { evidence, next, binding } =
         watch.finalizedAt === null && Date.parse(at) >= firstPoll
-          ? await tx.watchEvidence.read(
-              entry,
-              watch,
-              await tx.baselines.get(target.id, entry.deployment.id),
-            )
-          : undefined;
-      const next = evidence
-        ? advanceDeploymentWatch(watch, evidence)
-        : undefined;
-      const binding =
-        next?.verdict === "FAIL" && watch.incidentId === null
-          ? await tx.watchIncidents.lock(next)
-          : undefined;
+          ? await readWatchProgress(tx, target.id, entry, watch)
+          : {};
       const incidentId =
         watch.incidentId ??
         binding?.incidentId ??
@@ -93,23 +155,7 @@ export class DeploymentWatches {
       await tx.pages.lock(pagingWorkId(tx.workspaceId, "page", incidentId));
       const claim = await tx.work.lockClaim(lease);
       if (!claim) return { state: "completed" };
-      const payload = deploymentWatchPayloadSchema.parse(claim.payload);
-      if (
-        claim.workspaceId !== tx.workspaceId ||
-        claim.queue !== "job" ||
-        claim.kind !== "deployment.watch" ||
-        claim.id !==
-          pagingWorkId(
-            tx.workspaceId,
-            "deployment.watch",
-            target.id,
-            entry.deployment.id,
-          ) ||
-        payload.targetId !== target.id ||
-        payload.deploymentId !== entry.deployment.id ||
-        payload.startedAt !== watch.startedAt
-      )
-        throw new Error("Invalid deployment watch claim");
+      assertWatchClaim(tx.workspaceId, claim, target.id, entry, watch);
       if (watch.finalizedAt !== null) return { state: "completed" };
       if (!evidence || !next)
         return {
@@ -119,22 +165,8 @@ export class DeploymentWatches {
       let linked = watch.incidentId ?? binding?.incidentId ?? undefined;
       if (next.verdict === "FAIL") {
         if (linked) {
-          const incident = await tx.incidents.get(linked);
-          const page = await tx.pages.get(
-            pagingWorkId(tx.workspaceId, "page", linked),
-          );
-          if (
-            !incident ||
-            !page ||
-            incident.workspaceId !== tx.workspaceId ||
-            incident.serviceId !== watch.serviceId ||
-            incident.environmentId !== watch.environmentId ||
-            page.incidentId !== incident.id
-          )
-            throw new Error(
-              "Failed watch is missing its scoped incident and page",
-            );
           // Acknowledgement/resolution never causes a subsequent sample to repage.
+          await assertLinkedIncident(tx, watch, linked);
         } else {
           await openPageInTransaction(
             { ...tx, now: evidence.evaluatedAt },

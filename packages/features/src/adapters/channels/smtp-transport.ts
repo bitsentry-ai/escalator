@@ -8,6 +8,67 @@ import { isPublicChannelAddress } from "./public-address.js";
 type Resolve = (host: string) => Promise<{ address: string; family: number }[]>;
 const failure = () => new Error("Email submission failed");
 /** One public peer, verified implicit TLS, no pooling/proxy/fallback or URL content. */
+/** No control characters in the subject, bounded sizes, and an Escalator message id. */
+function assertSafeMessage(message: {
+  subject: string;
+  text: string;
+  messageId: string;
+}) {
+  if (
+    Array.from(message.subject).some(
+      (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
+    ) ||
+    message.subject.length > 500 ||
+    Buffer.byteLength(message.text) > 24576 ||
+    !/^<[a-f0-9]{64}@escalator\.invalid>$/.test(message.messageId)
+  )
+    throw failure();
+}
+/** Every resolved address must be a public address of its stated family. */
+function assertPublicAddresses(
+  addresses: readonly { address: string; family: number }[],
+) {
+  if (
+    !addresses.length ||
+    addresses.length > 64 ||
+    addresses.some(
+      (a) => isIP(a.address) !== a.family || !isPublicChannelAddress(a.address),
+    )
+  )
+    throw failure();
+}
+/** Resolves once the TLS handshake succeeds with a verified certificate. */
+function secureConnected(socket: TLSSocket): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    socket.once("secureConnect", () =>
+      socket.authorized ? resolve() : reject(failure()),
+    );
+    socket.once("error", () => reject(failure()));
+    socket.once("close", () => reject(failure()));
+  });
+}
+/** Accepted only when the server accepted exactly the one recipient and rejected none. */
+function submissionOutcome(
+  result: { accepted?: unknown[]; rejected?: unknown[] },
+  to: string,
+): "accepted" | "unknown" {
+  return result.accepted?.length === 1 &&
+    result.accepted[0] === to &&
+    !result.rejected?.length
+    ? "accepted"
+    : "unknown";
+}
+/** Only explicit SMTP negative replies prove refusal; lost replies are ambiguous. */
+function smtpFailureOutcome(error: unknown): "rejected" | "retry" | "unknown" {
+  const code =
+    error && typeof error === "object" && "responseCode" in error
+      ? error.responseCode
+      : undefined;
+  if (typeof code !== "number" || !Number.isInteger(code)) return "unknown";
+  if (code >= 500 && code <= 599) return "rejected";
+  if (code >= 400 && code <= 499) return "retry";
+  return "unknown";
+}
 export class PublicSmtpTransport implements EmailTransport {
   constructor(
     private readonly resolve: Resolve = (host) => lookup(host, { all: true }),
@@ -24,15 +85,7 @@ export class PublicSmtpTransport implements EmailTransport {
     const parsed = emailCredentialsSchema.safeParse(credentials);
     if (!parsed.success) throw failure();
     const c = parsed.data;
-    if (
-      Array.from(message.subject).some(
-        (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
-      ) ||
-      message.subject.length > 500 ||
-      Buffer.byteLength(message.text) > 24576 ||
-      !/^<[a-f0-9]{64}@escalator\.invalid>$/.test(message.messageId)
-    )
-      throw failure();
+    assertSafeMessage(message);
     const controller = new AbortController();
     let peer: TLSSocket | undefined;
     let mail: ReturnType<typeof createTransport> | undefined;
@@ -49,15 +102,7 @@ export class PublicSmtpTransport implements EmailTransport {
         this.resolve(c.host),
         controller.signal,
       );
-      if (
-        !addresses.length ||
-        addresses.length > 64 ||
-        addresses.some(
-          (a) =>
-            isIP(a.address) !== a.family || !isPublicChannelAddress(a.address),
-        )
-      )
-        throw failure();
+      assertPublicAddresses(addresses);
       controller.signal.throwIfAborted();
       const address = addresses[0];
       const socket = this.socket({
@@ -72,14 +117,7 @@ export class PublicSmtpTransport implements EmailTransport {
       socket.on("error", () => {
         /* Error details deliberately discarded. */
       });
-      const connected = new Promise<void>((resolve, reject) => {
-        socket.once("secureConnect", () =>
-          socket.authorized ? resolve() : reject(failure()),
-        );
-        socket.once("error", () => reject(failure()));
-        socket.once("close", () => reject(failure()));
-      });
-      await this.bounded(connected, controller.signal);
+      await this.bounded(secureConnected(socket), controller.signal);
       controller.signal.throwIfAborted();
       mail = this.mailer({
         host: c.host,
@@ -121,23 +159,10 @@ export class PublicSmtpTransport implements EmailTransport {
         controller.signal,
       );
       controller.signal.throwIfAborted();
-      return result.accepted?.length === 1 &&
-        result.accepted[0] === c.to &&
-        !result.rejected?.length
-        ? "accepted"
-        : "unknown";
+      return submissionOutcome(result, c.to);
     } catch (error) {
       if (controller.signal.aborted) return "unknown";
-      // Only explicit SMTP negative replies prove refusal; lost replies are ambiguous.
-      const code =
-        error && typeof error === "object" && "responseCode" in error
-          ? error.responseCode
-          : undefined;
-      if (typeof code === "number" && Number.isInteger(code)) {
-        if (code >= 500 && code <= 599) return "rejected";
-        if (code >= 400 && code <= 499) return "retry";
-      }
-      return "unknown";
+      return smtpFailureOutcome(error);
     } finally {
       clearTimeout(timer);
       signal.removeEventListener("abort", abort);
