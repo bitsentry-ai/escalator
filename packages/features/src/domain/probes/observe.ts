@@ -6,6 +6,34 @@ import {
   type ProbeResult,
   type ProbeState,
 } from "../../contracts/probes.js";
+function assertProbeScope(
+  probe: Probe,
+  current: ProbeState | undefined,
+  result: ProbeResult,
+): void {
+  probeSchema.parse(probe);
+  probeResultSchema.parse(result);
+  if (probe.workspaceId !== result.workspaceId || probe.id !== result.probeId)
+    throw new Error("Probe result scope differs");
+  if (!current) return;
+  probeStateSchema.parse(current);
+  if (current.workspaceId !== probe.workspaceId || current.probeId !== probe.id)
+    throw new Error("Probe state scope differs");
+}
+/** A disabled probe, another configuration version, a replayed result or an older observation changes nothing. */
+function ignoredResult(
+  probe: Probe,
+  current: ProbeState | undefined,
+  result: ProbeResult,
+): boolean {
+  if (!probe.enabled || result.probeVersion !== probe.version) return true;
+  if (!current) return false;
+  return (
+    current.probeVersion > probe.version ||
+    current.lastResultId === result.id ||
+    Date.parse(result.observedAt) <= Date.parse(current.lastObservedAt)
+  );
+}
 /** Unknown telemetry can never clear an active failure. Results are fenced by version and time. */
 export function observeProbe(
   probe: Probe,
@@ -14,27 +42,8 @@ export function observeProbe(
 ):
   | { state: ProbeState; signal: "active" | "recovered" | null }
   | { ignored: true } {
-  probeSchema.parse(probe);
-  probeResultSchema.parse(result);
-  if (probe.workspaceId !== result.workspaceId || probe.id !== result.probeId)
-    throw new Error("Probe result scope differs");
-  if (current) {
-    probeStateSchema.parse(current);
-    if (
-      current.workspaceId !== probe.workspaceId ||
-      current.probeId !== probe.id
-    )
-      throw new Error("Probe state scope differs");
-  }
-  if (
-    !probe.enabled ||
-    result.probeVersion !== probe.version ||
-    (current &&
-      (current.probeVersion > probe.version ||
-        current.lastResultId === result.id ||
-        Date.parse(result.observedAt) <= Date.parse(current.lastObservedAt)))
-  )
-    return { ignored: true };
+  assertProbeScope(probe, current, result);
+  if (ignoredResult(probe, current, result)) return { ignored: true };
   // A configuration edit restarts consecutive counters but does not manufacture recovery.
   const previous =
     current?.probeVersion === probe.version ? current : undefined;
