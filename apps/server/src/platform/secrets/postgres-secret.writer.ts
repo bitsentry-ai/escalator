@@ -132,7 +132,7 @@ export class PostgresSecretWriter {
         );
       return {
         items,
-        next: result.rows.length > limit ? items.at(-1)!.id : null,
+        next: result.rows.length > limit ? items[items.length - 1].id : null,
       };
     });
   }

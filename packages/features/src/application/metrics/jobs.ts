@@ -14,6 +14,14 @@ import type { WorkHandlerResult } from "../jobs/runner.js";
 import { recordSignal } from "../signals/record.js";
 import type { MetricsRepository, MetricsTransaction } from "./ports.js";
 import { metricJobId, metricPointAt, nextMetricDueAt } from "./schedule.js";
+function unavailableReason(
+  sourceEnabled: boolean,
+  serviceEnabled: boolean | undefined,
+): "source_disabled" | "service_disabled" | null {
+  if (!sourceEnabled) return "source_disabled";
+  if (!serviceEnabled) return "service_disabled";
+  return null;
+}
 export const metricJobPayloadSchema = z.strictObject({
   monitorId: opaqueIdSchema,
   monitorVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
@@ -132,11 +140,7 @@ export class MetricPollingJobs {
       source,
       dueAt: payload.dueAt,
       point: metricPointAt(now, monitor.stepSeconds),
-      unavailable: !source.enabled
-        ? "source_disabled"
-        : !service?.enabled
-          ? "service_disabled"
-          : null,
+      unavailable: unavailableReason(source.enabled, service?.enabled),
     };
   }
   async poll(
@@ -189,6 +193,7 @@ export class MetricPollingJobs {
         (!observation || observation.samples.length !== 1)
       )
         throw new Error("Invalid metric observation");
+      const sampled = reason === "sampled" ? observation : undefined;
       const record = await tx.metrics.observe({
         id: lease.id,
         workspaceId: tx.workspaceId,
@@ -197,8 +202,8 @@ export class MetricPollingJobs {
         observedAt: ready.point,
         receivedAt: tx.now,
         reason,
-        sample: reason === "sampled" ? observation!.samples[0] : null,
-        provenance: reason === "sampled" ? observation!.provenance : null,
+        sample: sampled ? sampled.samples[0] : null,
+        provenance: sampled ? sampled.provenance : null,
       });
       const previousActive =
         (await tx.metrics.schedule(monitor.id))?.active ?? false;

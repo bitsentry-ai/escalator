@@ -80,6 +80,16 @@ export const deploymentFinishSchema = z.strictObject({
   occurredAt: timestamp,
   receivedAt: timestamp,
 });
+/** A started deployment has neither finish nor timeout, a timed-out one has a timeout, and a finished one matches its finish. */
+function statusMatchesState(
+  status: string,
+  finish: { outcome: string } | null,
+  timedOutAt: string | null,
+): boolean {
+  if (status === "STARTED") return finish === null && timedOutAt === null;
+  if (status === "TIMED_OUT") return timedOutAt !== null;
+  return finish?.outcome === status && timedOutAt === null;
+}
 export const deploymentSchema = z
   .strictObject({
     id: opaqueIdSchema,
@@ -106,12 +116,11 @@ export const deploymentSchema = z
   .superRefine((value, ctx) => {
     const at = Date.parse;
     const finish = value.finish;
-    const stateValid =
-      value.status === "STARTED"
-        ? finish === null && value.timedOutAt === null
-        : value.status === "TIMED_OUT"
-          ? value.timedOutAt !== null
-          : finish?.outcome === value.status && value.timedOutAt === null;
+    const stateValid = statusMatchesState(
+      value.status,
+      finish,
+      value.timedOutAt,
+    );
     if (!stateValid || (value.commit === null && value.artifact === null))
       ctx.addIssue({ code: "custom", message: "Invalid deployment state" });
     if (

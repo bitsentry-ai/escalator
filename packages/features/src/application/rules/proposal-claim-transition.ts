@@ -6,6 +6,11 @@ import { utcTimestampSchema } from "../../contracts/entities.js";
 import { compareUtcTimestamps } from "../../contracts/timestamps.js";
 import type { AuditEvent } from "../ports/audit.js";
 import { pagingWorkId } from "../paging/work-ids.js";
+function claimFailure(outcome: string): "expired" | "generation_failed" | null {
+  if (outcome === "claimed") return null;
+  if (outcome === "expired") return "expired";
+  return "generation_failed";
+}
 /** Shared status/audit policy for host-owned committed lease adapters. All times
  * come from a fresh database clock after locking the proposal and its job. */
 export function transitionRuleProposalClaim(
@@ -29,12 +34,7 @@ export function transitionRuleProposalClaim(
     revision: row.revision + 1,
     updatedAt: now,
     status: outcome === "claimed" ? "generating" : "failed",
-    failure:
-      outcome === "claimed"
-        ? null
-        : outcome === "expired"
-          ? "expired"
-          : "generation_failed",
+    failure: claimFailure(outcome),
   });
   const audit: AuditEvent = {
     id: pagingWorkId(

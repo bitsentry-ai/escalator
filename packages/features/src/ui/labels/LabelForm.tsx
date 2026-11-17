@@ -6,6 +6,10 @@ import {
 } from "../../contracts/index.js";
 import type { LabelsClient } from "./client.js";
 import { styles } from "../incidents/styles.js";
+function labelHeading(editing: boolean, missed: boolean): string {
+  if (editing) return "labels.edit";
+  return missed ? "labels.missed" : "labels.incidentReview";
+}
 type Scope = {
   serviceId: string;
   environmentId: string;
@@ -88,13 +92,7 @@ export function LabelForm({
       }}
       style={styles.card}
     >
-      <h3>
-        {value
-          ? t("labels.edit")
-          : incidentId === null
-            ? t("labels.missed")
-            : t("labels.incidentReview")}
-      </h3>
+      <h3>{t(labelHeading(Boolean(value), incidentId === null))}</h3>
       <fieldset disabled={pending} style={styles.form}>
         <label style={styles.label}>
           {t("labels.startedAt")}

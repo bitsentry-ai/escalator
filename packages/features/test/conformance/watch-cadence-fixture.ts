@@ -118,7 +118,8 @@ export async function fixture() {
       },
       tx.now,
     );
-    if (change.state !== "changed") throw new Error();
+    if (change.state !== "changed")
+      throw new Error("expected a changed result");
     await tx.deployments.replace(entry.targetId, change.deployment, 1);
     await tx.watches.initialize(entry.targetId, entry.deployment.id);
     return entry;

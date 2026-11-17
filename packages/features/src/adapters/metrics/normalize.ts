@@ -8,6 +8,22 @@ import {
   type MetricsObservation,
   type MetricCountSample,
 } from "../../contracts/metrics.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
+function countQuality(
+  count: number | null | undefined,
+  failed: number | null | undefined,
+): MetricCountSample["quality"] {
+  if (count === undefined || failed === undefined) return "missing";
+  if (count === null || failed === null) return "nonfinite";
+  if (
+    count < 0 ||
+    failed < 0 ||
+    count > Number.MAX_SAFE_INTEGER ||
+    failed > count
+  )
+    return "invalid_counts";
+  return "complete";
+}
 export class MetricsReadError extends Error {
   constructor(
     readonly code:
@@ -41,44 +57,57 @@ const matrix = z.object({
 });
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
+/** One value per step-aligned timestamp in the range, in order; NaN and infinities are kept as null. */
+function seriesPoints(
+  series: { metric: Record<string, string>; values: [number, string][] },
+  range: MetricsRange,
+): Map<number, number | null> {
+  if (Object.keys(series.metric).length > 32)
+    throw new Error("metric series has more than 32 labels");
+  const points = new Map<number, number | null>();
+  const start = Date.parse(range.startAt) / 1000,
+    end = Date.parse(range.endAt) / 1000;
+  let previous = -Infinity;
+  for (const [timestamp, text] of series.values) {
+    if (
+      !Number.isInteger(timestamp) ||
+      timestamp < start ||
+      timestamp > end ||
+      timestamp <= previous ||
+      (timestamp - start) % range.stepSeconds !== 0
+    )
+      throw new Error(
+        "metric timestamps are out of order or off the step grid",
+      );
+    previous = timestamp;
+    points.set(timestamp, sampleValue(text));
+  }
+  return points;
+}
+function sampleValue(text: string): number | null {
+  if (["NaN", "+Inf", "-Inf"].includes(text)) return null;
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))
+    throw new Error("metric value is not a number");
+  const value = Number(text);
+  return Number.isFinite(value) ? value : null;
+}
 function decode(body: string, range: MetricsRange) {
   try {
-    if (Buffer.byteLength(body) > 262144) throw new Error();
+    if (Buffer.byteLength(body) > 262144)
+      throw new Error("metrics response exceeds 256 KiB");
     const parsed = matrix.parse(JSON.parse(body));
     const series = parsed.data.result[0];
-    const points = new Map<number, number | null>();
-    let previous = -Infinity;
-    if (series) {
-      if (Object.keys(series.metric).length > 32) throw new Error();
-      const start = Date.parse(range.startAt) / 1000,
-        end = Date.parse(range.endAt) / 1000;
-      for (const [timestamp, text] of series.values) {
-        if (
-          !Number.isInteger(timestamp) ||
-          timestamp < start ||
-          timestamp > end ||
-          timestamp <= previous ||
-          (timestamp - start) % range.stepSeconds !== 0
-        )
-          throw new Error();
-        previous = timestamp;
-        if (["NaN", "+Inf", "-Inf"].includes(text)) points.set(timestamp, null);
-        else {
-          if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))
-            throw new Error();
-          const value = Number(text);
-          points.set(timestamp, Number.isFinite(value) ? value : null);
-        }
-      }
-    }
+    const points = series
+      ? seriesPoints(series, range)
+      : new Map<number, number | null>();
     return {
       points,
-      annotated: !!(parsed.warnings?.length || parsed.infos?.length),
+      annotated: Boolean(parsed.warnings?.length || parsed.infos?.length),
       seriesHash: series
         ? hash(
             JSON.stringify(
               Object.entries(series.metric).sort(([a], [b]) =>
-                a < b ? -1 : a > b ? 1 : 0,
+                compareCodeUnits(a, b),
               ),
             ),
           )
@@ -107,19 +136,10 @@ export function normalizeMetricCounts(
   ) {
     const count = requests.points.get(at),
       failed = errors.points.get(at);
-    const quality: MetricCountSample["quality"] =
+    const quality =
       requests.annotated || errors.annotated
         ? "provider_annotation"
-        : count === undefined || failed === undefined
-          ? "missing"
-          : count === null || failed === null
-            ? "nonfinite"
-            : count < 0 ||
-                failed < 0 ||
-                count > Number.MAX_SAFE_INTEGER ||
-                failed > count
-              ? "invalid_counts"
-              : "complete";
+        : countQuality(count, failed);
     samples.push({
       observedAt: new Date(at * 1000).toISOString(),
       requests: count ?? null,

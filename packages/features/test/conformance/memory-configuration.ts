@@ -10,6 +10,12 @@ import type {
 } from "../../src/application/configuration/ports.js";
 import { PersistenceError } from "../../src/application/ports/persistence.js";
 import { MemoryPagingRepository } from "./memory-paging.js";
+/** The schedule or responder a child record belongs to. */
+function parentOf(row: object): unknown {
+  if ("scheduleId" in row) return row.scheduleId;
+  if ("responderId" in row) return row.responderId;
+  return undefined;
+}
 export class MemoryConfigurationRepository implements ConfigurationRepository {
   readonly paging: MemoryPagingRepository;
   constructor(
@@ -54,15 +60,7 @@ export class MemoryConfigurationRepository implements ConfigurationRepository {
         list: async (kind, input, parent) => {
           const values = rows(kind)
             .filter((r) => !input.after || r.id > input.after)
-            .filter(
-              (r) =>
-                parent === undefined ||
-                ("scheduleId" in r
-                  ? r.scheduleId
-                  : "responderId" in r
-                    ? r.responderId
-                    : undefined) === parent,
-            )
+            .filter((r) => parent === undefined || parentOf(r) === parent)
             .sort((a, b) => (a.id < b.id ? -1 : 1));
           return structuredClone({
             items: values.slice(0, input.limit),

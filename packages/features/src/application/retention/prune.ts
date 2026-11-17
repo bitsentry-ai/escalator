@@ -10,6 +10,7 @@ import {
   replayUsageSchema,
   type ReplayUsage,
 } from "./policy.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 const candidateSchema = z.strictObject({
   workspaceId: workspaceIdSchema,
   sourceId: opaqueIdSchema,
@@ -68,7 +69,7 @@ export function planReplayPrune(
       right = `${b.kind}:${b.id}`;
     return (
       Date.parse(a.observedAt) - Date.parse(b.observedAt) ||
-      (left < right ? -1 : left > right ? 1 : 0)
+      compareCodeUnits(left, right)
     );
   });
   const selected: { kind: "signal" | "probe" | "metric"; id: string }[] = [];

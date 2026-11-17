@@ -324,8 +324,9 @@ export function foundationConformance(
     const ids: string[] = [];
     let after: string | undefined;
     do {
+      const cursor = after;
       const page = await repo.transaction(a, (tx) =>
-        tx.services.list({ limit: 1, after }),
+        tx.services.list({ limit: 1, after: cursor }),
       );
       assert.equal(page.items.length, 1);
       ids.push(page.items[0].id);

@@ -10,6 +10,7 @@ import {
   type DeploymentWatchRecord,
   type EvaluatedWatchStream,
 } from "../../contracts/index.js";
+import { compareCodeUnits } from "../../contracts/ordering.js";
 /** A finish records a separate server-time watch, including failure/cancellation and a late finish after timeout. */
 export function startDeploymentWatch(
   raw: DeploymentEntry,
@@ -50,6 +51,28 @@ export interface WatchEvaluationUpdate {
   overlappingDeploymentIds: string[];
   overlapInventoryComplete: boolean;
 }
+function assertWatchUpdate(update: WatchEvaluationUpdate): void {
+  if (
+    typeof update.inventoryComplete !== "boolean" ||
+    typeof update.overlapInventoryComplete !== "boolean"
+  )
+    throw new RangeError("Invalid inventory completeness");
+}
+/** The update's streams, all evaluated at its cutoff with the same finality, in kind and id order. */
+function evaluatedStreams(update: WatchEvaluationUpdate, final: boolean) {
+  const streams = update.streams.map((stream) =>
+    evaluatedWatchStreamSchema.parse(stream),
+  );
+  for (const stream of streams)
+    if (
+      stream.evaluation.evaluatedAt !== update.evaluatedAt ||
+      stream.evaluation.final !== final
+    )
+      throw new RangeError("Watch evaluation cutoff differs");
+  return streams.sort(
+    (a, b) => compareCodeUnits(a.kind, b.kind) || compareCodeUnits(a.id, b.id),
+  );
+}
 /** Orchestration must produce these evaluations with evaluateWatchStream and the immutable baseline.
  * Persist and link a newly failed watch's incident atomically; later health never erases its first failure.
  */
@@ -58,11 +81,7 @@ export function advanceDeploymentWatch(
   update: WatchEvaluationUpdate,
 ): DeploymentWatchRecord {
   const current = deploymentWatchRecordSchema.parse(raw);
-  if (
-    typeof update.inventoryComplete !== "boolean" ||
-    typeof update.overlapInventoryComplete !== "boolean"
-  )
-    throw new RangeError("Invalid inventory completeness");
+  assertWatchUpdate(update);
   const at = Date.parse(utcTimestampSchema.parse(update.evaluatedAt));
   if (at < Date.parse(current.updatedAt))
     throw new RangeError("Watch time moved backwards");
@@ -75,20 +94,7 @@ export function advanceDeploymentWatch(
   const final =
     at >=
     Date.parse(current.endsAt) + deploymentWatchReceiptGraceSeconds * 1000;
-  const streams = update.streams.map((stream) =>
-    evaluatedWatchStreamSchema.parse(stream),
-  );
-  for (const stream of streams)
-    if (
-      stream.evaluation.evaluatedAt !== update.evaluatedAt ||
-      stream.evaluation.final !== final
-    )
-      throw new RangeError("Watch evaluation cutoff differs");
-  streams.sort(
-    (a, b) =>
-      (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  );
+  const streams = evaluatedStreams(update, final);
   const firstFailure =
     current.firstFailure ??
     streams.find((stream) => stream.evaluation.verdict === "FAIL") ??
@@ -97,17 +103,15 @@ export function advanceDeploymentWatch(
     !update.inventoryComplete ||
     streams.length === 0 ||
     streams.some((stream) => stream.evaluation.verdict === "INSUFFICIENT_DATA");
-  const verdict = firstFailure
-    ? "FAIL"
-    : incomplete
-      ? "INSUFFICIENT_DATA"
-      : !final
-        ? "PENDING"
-        : streams.some((stream) => stream.evaluation.verdict === "WARN")
-          ? "WARN"
-          : streams.every((stream) => stream.evaluation.verdict === "PASS")
-            ? "PASS"
-            : "INSUFFICIENT_DATA";
+  let verdict: "FAIL" | "INSUFFICIENT_DATA" | "PENDING" | "WARN" | "PASS";
+  if (firstFailure) verdict = "FAIL";
+  else if (incomplete) verdict = "INSUFFICIENT_DATA";
+  else if (!final) verdict = "PENDING";
+  else if (streams.some((stream) => stream.evaluation.verdict === "WARN"))
+    verdict = "WARN";
+  else if (streams.every((stream) => stream.evaluation.verdict === "PASS"))
+    verdict = "PASS";
+  else verdict = "INSUFFICIENT_DATA";
   const overlaps = [
     ...new Set([
       ...current.overlappingDeploymentIds,

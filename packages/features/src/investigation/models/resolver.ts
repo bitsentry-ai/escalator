@@ -21,6 +21,10 @@ import {
   type ModelProfileReader,
 } from "./profiles.js";
 import { ModelTransportError, type BoundedModelHttp } from "./http.js";
+function completionOf(reason: string): "stop" | "length" | "unknown" {
+  if (reason === "stop" || reason === "length") return reason;
+  return "unknown";
+}
 export type ModelFailure =
   | "profile_unavailable"
   | "profile_changed"
@@ -239,12 +243,7 @@ export class ScopedModelResolver implements ModelResolver {
       throw new ModelExecutionError("invalid_response");
     if (!["stop", "length", "unknown"].includes(result.finishReason))
       throw new ModelExecutionError("invalid_response");
-    const completion =
-      result.finishReason === "stop"
-        ? "stop"
-        : result.finishReason === "length"
-          ? "length"
-          : "unknown";
+    const completion = completionOf(result.finishReason);
     const count = result.usage.outputTokens;
     if (count !== undefined && (!Number.isSafeInteger(count) || count < 0))
       throw new ModelExecutionError("invalid_response");

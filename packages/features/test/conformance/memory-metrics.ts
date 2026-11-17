@@ -15,6 +15,7 @@ import {
   type PageRequest,
 } from "../../src/application/ports/persistence.js";
 import { MemorySignalRepository } from "./memory-signals.js";
+import { compareCodeUnits } from "../../src/contracts/ordering.js";
 type Rows = {
   monitors: MetricMonitor[];
   versions: MetricMonitor[];
@@ -23,7 +24,7 @@ type Rows = {
 };
 const byReceipt = (a: MetricObservationRecord, b: MetricObservationRecord) =>
   Date.parse(a.receivedAt) - Date.parse(b.receivedAt) ||
-  (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  compareCodeUnits(a.id, b.id);
 export class MemoryMetricsRepository implements MetricsRepository {
   readonly signals: MemorySignalRepository;
   constructor(
@@ -113,14 +114,13 @@ export class MemoryMetricsRepository implements MetricsRepository {
             const cursor = page.after
               ? rows.find((row) => row.id === page.after)
               : undefined;
-            return paged(
-              page.after
-                ? cursor
-                  ? rows.filter((row) => byReceipt(row, cursor) < 0)
-                  : []
-                : rows,
-              page,
-            );
+            // An unknown cursor pages past the end.
+            let remaining = rows;
+            if (page.after)
+              remaining = cursor
+                ? rows.filter((row) => byReceipt(row, cursor) < 0)
+                : [];
+            return paged(remaining, page);
           },
           window: async (query) => {
             const selected = new Map<string, MetricObservationRecord>();

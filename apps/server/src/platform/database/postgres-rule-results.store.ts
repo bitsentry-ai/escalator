@@ -11,6 +11,11 @@ import {
   ruleResultsJobStateSchema,
   type RuleResultsStore,
 } from "@bitsentry-escalator/features/application";
+function sectionExpression(section: string): string {
+  if (section === "episodes") return "b.data->'report'->'episodes'";
+  if (section === "gaps") return "b.data->'report'->'availability'->'gaps'";
+  return "b.data->'report'->'comparison'->'groups'";
+}
 type ReplayRow = { run: unknown; snapshot: unknown; report: unknown };
 const replayProjection = `SELECT r.data AS run,
  jsonb_build_object('snapshotId',s.id,'inputHash',s.input_hash,'originalRetained',(s.data ? 'retained' AND NOT(s.data ? 'evaluation') AND NOT(s.data ? 'candidateEvaluation')),'version',s.data->'version','firstDecisionAt',s.data->'firstDecisionAt','lastDecisionAt',s.data->'lastDecisionAt') AS snapshot,
@@ -76,12 +81,7 @@ export function postgresRuleResultsStore(
   }
   return {
     async detail(input) {
-      const expression =
-        input.section === "episodes"
-          ? "b.data->'report'->'episodes'"
-          : input.section === "gaps"
-            ? "b.data->'report'->'availability'->'gaps'"
-            : "b.data->'report'->'comparison'->'groups'";
+      const expression = sectionExpression(input.section);
       const rows = await query<{ items: unknown; comparison: unknown }>(
         `SELECT (SELECT coalesce(jsonb_agg(part.value ORDER BY part.ordinality),'[]'::jsonb) FROM
          (SELECT value,ordinality FROM jsonb_array_elements(coalesce(${expression},'[]'::jsonb)) WITH ORDINALITY

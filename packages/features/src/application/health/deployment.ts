@@ -48,7 +48,8 @@ export class HealthDeployment {
   static fromJSON(value?: string): HealthDeployment {
     if (!value) return new HealthDeployment();
     try {
-      if (Buffer.byteLength(value) > 8192) throw new Error();
+      if (Buffer.byteLength(value) > 8192)
+        throw new Error("configuration exceeds 8 KiB");
       return new HealthDeployment(JSON.parse(value));
     } catch {
       throw new Error("Invalid operational health configuration");

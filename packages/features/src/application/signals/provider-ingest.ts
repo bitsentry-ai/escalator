@@ -17,6 +17,15 @@ import { SignalIngressError, signalTokenDigest } from "./ingest.js";
 import { recordSignal } from "./record.js";
 import type { SignalRepository, SignalTransaction } from "./ports.js";
 import type { SourceVerificationSecrets } from "./source-secrets.js";
+/** A signed delivery names its grant by digest; a bearer delivery carries the token itself. */
+function deliveryHash(
+  signed: boolean,
+  reference: string,
+  token: string | undefined,
+): string | undefined {
+  if (signed) return /^[a-f0-9]{64}$/.test(reference) ? reference : undefined;
+  return token ? signalTokenDigest(token) : undefined;
+}
 export type ProviderRoute =
   | "sentry"
   | "glitchtip"
@@ -100,13 +109,7 @@ export class ProviderIntake {
         : /^Bearer (esi_[A-Za-z0-9_-]{43})$/i.exec(
             request.authorization ?? "",
           )?.[1];
-    const hash = signed
-      ? /^[a-f0-9]{64}$/.test(request.reference)
-        ? request.reference
-        : undefined
-      : token
-        ? signalTokenDigest(token)
-        : undefined;
+    const hash = deliveryHash(signed, request.reference, token);
     if (!hash) throw new SignalIngressError("invalid_token");
     const context = await this.repository.findTokenContext(hash);
     if (
@@ -120,18 +123,20 @@ export class ProviderIntake {
       (tx) => this.authorized(tx, hash, context, request),
     );
     const receiptId = this.newId();
-    const normalized = signed
-      ? await this.verifySigned(request, prepared, hash)
-      : request.provider === "grafana"
-        ? normalizeGrafanaAlerts(request.body)
-        : normalizeGlitchTipAlert(request.body, {
-            deliveryId: receiptId,
-            receivedAt: prepared.now,
-            trackerOrigin:
-              prepared.source.intake?.mode === "glitchtip"
-                ? prepared.source.intake.trackerOrigin
-                : "",
-          });
+    const normalize = async () => {
+      if (signed) return this.verifySigned(request, prepared, hash);
+      if (request.provider === "grafana")
+        return normalizeGrafanaAlerts(request.body);
+      return normalizeGlitchTipAlert(request.body, {
+        deliveryId: receiptId,
+        receivedAt: prepared.now,
+        trackerOrigin:
+          prepared.source.intake?.mode === "glitchtip"
+            ? prepared.source.intake.trackerOrigin
+            : "",
+      });
+    };
+    const normalized = await normalize();
     request.signal.throwIfAborted();
     // No network or secret reads inside the acceptance transaction.
     return this.repository.transaction(context.workspaceId, async (tx) => {

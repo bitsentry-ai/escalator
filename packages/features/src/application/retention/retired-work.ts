@@ -36,14 +36,15 @@ export function retiredRetentionWorkIds(
     if (row.workspaceId !== scope)
       throw new Error("Foreign retention work candidate");
     const payload = retentionMaintenancePayloadSchema.safeParse(row.payload);
+    const completedAt = utcTimestampSchema.safeParse(row.completedAt);
     if (
       row.kind !== retentionMaintenanceKind ||
       row.id === current.jobId ||
       !["completed", "cancelled", "failed"].includes(row.state) ||
       row.leaseToken !== null ||
       row.leaseExpiresAt !== null ||
-      !utcTimestampSchema.safeParse(row.completedAt).success ||
-      Date.parse(row.completedAt!) > cutoff ||
+      !completedAt.success ||
+      Date.parse(completedAt.data) > cutoff ||
       !payload.success ||
       payload.data.revision >= current.revision ||
       row.id !== retentionMaintenanceId(scope, payload.data.revision)

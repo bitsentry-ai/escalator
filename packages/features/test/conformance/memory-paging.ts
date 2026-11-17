@@ -22,6 +22,12 @@ import type { Page } from "../../src/application/ports/persistence.js";
 import { MemoryFoundationRepository } from "./memory.js";
 
 import type { TransactionGuard } from "../../src/application/ports/transaction-guard.js";
+/** The delivery or page a child record belongs to. */
+function parentOf(row: object): unknown {
+  if ("deliveryId" in row) return row.deliveryId;
+  if ("pageId" in row) return row.pageId;
+  return undefined;
+}
 
 type Stored = PagingRecordMap[PagingRecordKind];
 type Rows = Record<PagingRecordKind, Stored[]>;
@@ -126,13 +132,7 @@ export class MemoryPagingRepository implements PagingRepository {
             }
             const values = rows(kind)
               .filter(
-                (row) =>
-                  parentId === undefined ||
-                  ("deliveryId" in row
-                    ? row.deliveryId
-                    : "pageId" in row
-                      ? row.pageId
-                      : undefined) === parentId,
+                (row) => parentId === undefined || parentOf(row) === parentId,
               )
               .filter((row) => !query.after || row.id > query.after)
               .sort((a, b) => (a.id < b.id ? -1 : 1));

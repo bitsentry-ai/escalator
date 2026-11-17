@@ -7,6 +7,46 @@ import {
 } from "../../contracts/index.js";
 import type { PagingSettingsClient } from "../settings-client.js";
 import { styles } from "../incidents/styles.js";
+import { channelLabel } from "./channel-label.js";
+const CHANNEL_FIELDS: Record<PagingChannel, readonly string[]> = {
+  email: ["host", "username", "password", "from", "to"],
+  pushover: ["token", "user", "device"],
+  ntfy: ["url", "topic", "bearerToken"],
+  webhook: ["url", "bearerToken"],
+  slack: ["url"],
+  discord: ["url"],
+};
+function channelCredentials(
+  channel: PagingChannel,
+  fields: Record<string, string>,
+): Record<string, unknown> {
+  switch (channel) {
+    case "email":
+      return {
+        host: fields.host ?? "",
+        port: 465,
+        username: fields.username ?? "",
+        password: fields.password ?? "",
+        from: fields.from ?? "",
+        to: fields.to ?? "",
+      };
+    case "pushover":
+      return {
+        token: fields.token ?? "",
+        user: fields.user ?? "",
+        ...(fields.device ? { device: fields.device } : {}),
+      };
+    case "slack":
+    case "discord":
+      return { url: fields.url ?? "" };
+    default:
+      return {
+        url: fields.url ?? "",
+        ...(channel === "ntfy" ? { topic: fields.topic ?? "" } : {}),
+        ...(fields.bearerToken ? { bearerToken: fields.bearerToken } : {}),
+      };
+  }
+}
 export function CredentialForm({
   client,
   onCreated,
@@ -42,31 +82,7 @@ export function CredentialForm({
     setPending(true);
     setError(false);
     try {
-      const credentials =
-        channel === "email"
-          ? {
-              host: fields.host ?? "",
-              port: 465,
-              username: fields.username ?? "",
-              password: fields.password ?? "",
-              from: fields.from ?? "",
-              to: fields.to ?? "",
-            }
-          : channel === "pushover"
-            ? {
-                token: fields.token ?? "",
-                user: fields.user ?? "",
-                ...(fields.device ? { device: fields.device } : {}),
-              }
-            : channel === "slack" || channel === "discord"
-              ? { url: fields.url ?? "" }
-              : {
-                  url: fields.url ?? "",
-                  ...(channel === "ntfy" ? { topic: fields.topic ?? "" } : {}),
-                  ...(fields.bearerToken
-                    ? { bearerToken: fields.bearerToken }
-                    : {}),
-                };
+      const credentials = channelCredentials(channel, fields);
       const result = await client.createSecret(
         createChannelSecretSchema.parse({ channel, name, credentials }),
       );
@@ -119,25 +135,12 @@ export function CredentialForm({
           >
             {pagingChannelSchema.options.map((value) => (
               <option key={value} value={value}>
-                {value === "email"
-                  ? t("settings.emailChannel")
-                  : value === "ntfy"
-                    ? value
-                    : value[0].toUpperCase() + value.slice(1)}
+                {channelLabel(value, t)}
               </option>
             ))}
           </select>
         </label>
-        {(channel === "email"
-          ? ["host", "username", "password", "from", "to"]
-          : channel === "pushover"
-            ? ["token", "user", "device"]
-            : channel === "ntfy"
-              ? ["url", "topic", "bearerToken"]
-              : channel === "webhook"
-                ? ["url", "bearerToken"]
-                : ["url"]
-        ).map((field) => (
+        {CHANNEL_FIELDS[channel].map((field) => (
           <label key={field} style={styles.label}>
             {t(
               `settings.credential.${channel === "ntfy" && field === "url" ? "serverUrl" : field}`,

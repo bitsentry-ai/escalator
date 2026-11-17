@@ -15,6 +15,7 @@ import type {
   WorkResult,
   DurableWorkStore,
 } from "../../src/application/jobs/ports.js";
+import { compareCodeUnits } from "../../src/contracts/ordering.js";
 export interface MemoryWork {
   workspaceId: WorkspaceId;
   queue: WorkQueue;
@@ -126,7 +127,7 @@ export function memoryClaim(
         ? (b.intent.priority ?? 0) - (a.intent.priority ?? 0)
         : 0) ||
       Date.parse(a.intent.dueAt) - Date.parse(b.intent.dueAt) ||
-      (a.intent.id < b.intent.id ? -1 : a.intent.id > b.intent.id ? 1 : 0),
+      compareCodeUnits(a.intent.id, b.intent.id),
   );
   const row = candidates[0];
   if (!row) return undefined;

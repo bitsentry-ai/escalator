@@ -62,7 +62,7 @@ export function RuleEvidence({
     setReport(null);
     onReviewRun("");
     setError(false);
-    setLoading(!!selectedRun);
+    setLoading(Boolean(selectedRun));
     if (!selectedRun) return;
     void client
       .replayResult({ id: selectedRun })

@@ -8,6 +8,16 @@ import {
 } from "../../contracts/replay-run.js";
 import type { WorkspaceId } from "../../contracts/identity.js";
 import { PersistenceError } from "../ports/persistence.js";
+const STORAGE_LIMITS = {
+  snapshot: 16777216,
+  run: 16384,
+  chunk: 262144,
+} as const;
+function parseReplayRow(kind: "snapshot" | "run" | "chunk", raw: unknown) {
+  if (kind === "snapshot") return storedRuleReplaySnapshotSchema.parse(raw);
+  if (kind === "run") return ruleReplayRunSchema.parse(raw);
+  return ruleReplayChunkSchema.parse(raw);
+}
 /** Storage removes the package tenant field throughout the strictly parsed
  * scalar projection. Each host restores it from its actual scoped SQL column. */
 export function encodeRuleReplayData(
@@ -15,12 +25,7 @@ export function encodeRuleReplayData(
   kind: "snapshot" | "run" | "chunk",
   raw: unknown,
 ): string {
-  const row =
-    kind === "snapshot"
-      ? storedRuleReplaySnapshotSchema.parse(raw)
-      : kind === "run"
-        ? ruleReplayRunSchema.parse(raw)
-        : ruleReplayChunkSchema.parse(raw);
+  const row = parseReplayRow(kind, raw);
   if (row.workspaceId !== scope) throw new PersistenceError("scope_violation");
   // Scope is validated before compacting. Repeating UUID selectors per sample
   // needlessly consumes the 30-day snapshot budget; decode supports old rows too.
@@ -61,9 +66,7 @@ export function encodeRuleReplayData(
   const encoded = JSON.stringify(compacted, (key, value: unknown) =>
     key === "workspaceId" ? undefined : value,
   );
-  const limit =
-    kind === "snapshot" ? 16777216 : kind === "run" ? 16384 : 262144;
-  if (new TextEncoder().encode(encoded).byteLength > limit)
+  if (new TextEncoder().encode(encoded).byteLength > STORAGE_LIMITS[kind])
     throw new RangeError("Replay storage limit exceeded");
   return encoded;
 }

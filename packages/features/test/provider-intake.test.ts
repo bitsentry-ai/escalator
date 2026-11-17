@@ -23,6 +23,14 @@ import type { SignalRepository } from "../src/application/signals/ports.js";
 import { MemorySignalRepository } from "./conformance/memory-signals.js";
 import { seedSignalFixture } from "./conformance/signals.js";
 import sample from "./intake/sentry-issue-alert.json";
+function providerFor(
+  mode: string,
+): "sentry" | "glitchtip" | "grafana-signed" | "grafana" {
+  if (mode === "sentry-hmac") return "sentry";
+  if (mode === "glitchtip") return "glitchtip";
+  if (mode === "grafana-hmac") return "grafana-signed";
+  return "grafana";
+}
 const secret = Buffer.from("test-provider-key");
 const bytes = (value: unknown) => Buffer.from(JSON.stringify(value));
 const sign = (body: Uint8Array) =>
@@ -64,14 +72,7 @@ async function fixture(intake: IntakeConfiguration = { mode: "sentry-hmac" }) {
     ? await management.issueReceiver(actor, { sourceId: source.id })
     : await management.issueToken(actor, { sourceId: source.id });
   const request: ProviderDelivery = {
-    provider:
-      intake.mode === "sentry-hmac"
-        ? "sentry"
-        : intake.mode === "glitchtip"
-          ? "glitchtip"
-          : intake.mode === "grafana-hmac"
-            ? "grafana-signed"
-            : "grafana",
+    provider: providerFor(intake.mode),
     reference: "receiverId" in grant ? grant.receiverId : source.id,
     authorization: "token" in grant ? `Bearer ${grant.token}` : undefined,
     body: bytes(sample),
@@ -163,8 +164,8 @@ test("grant revocation, expiry or source edits during secret resolution prevent 
       async withSecret(use, consume) {
         if (change === "revoke")
           await f.management.revokeToken(f.actor, { id: f.grant.id });
-        if (change === "expire") f.advance(31 * 86400_000);
-        if (change === "edit")
+        else if (change === "expire") f.advance(31 * 86400_000);
+        else if (change === "edit")
           await f.management.updateProvider(f.actor, {
             id: f.source.id,
             expectedVersion: 1,

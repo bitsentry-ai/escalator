@@ -13,6 +13,44 @@ export const investigationExecutionAvailabilitySchema = z.enum([
   "disabled",
   "integration_required",
 ]);
+type Scope = z.infer<typeof investigationScopeSchema>;
+const scopeKey = (scope: Scope) =>
+  JSON.stringify([
+    scope.workspaceId,
+    scope.serviceId,
+    scope.environmentId,
+    scope.incidentId,
+  ]);
+/** Every reported evidence item is retained once in scope, or listed missing once, and nothing else. */
+function checkEvidenceAccounting(
+  viewScope: Scope,
+  run: {
+    evidence: z.infer<typeof investigationEvidenceSchema>[];
+    missingEvidenceIds: string[];
+  },
+  report: z.infer<typeof investigationReportSchema>,
+  invalid: () => void,
+): void {
+  const references = new Map(report.evidence.map((item) => [item.id, item]));
+  const retained = new Set<string>();
+  for (const item of run.evidence) {
+    const expected = references.get(item.reference.id);
+    if (
+      scopeKey(item.scope) !== scopeKey(viewScope) ||
+      !expected ||
+      JSON.stringify(expected) !== JSON.stringify(item.reference) ||
+      retained.has(item.reference.id)
+    )
+      invalid();
+    retained.add(item.reference.id);
+  }
+  const missing = new Set(run.missingEvidenceIds);
+  if (missing.size !== run.missingEvidenceIds.length) invalid();
+  for (const id of missing)
+    if (!references.has(id) || retained.has(id)) invalid();
+  for (const id of references.keys())
+    if (!retained.has(id) && !missing.has(id)) invalid();
+}
 export const investigationViewSchema = z
   .strictObject({
     scope: investigationScopeSchema,
@@ -50,44 +88,19 @@ export const investigationViewSchema = z
       });
     if (Date.parse(run.updatedAt) < Date.parse(run.createdAt)) invalid();
     if ((run.state === "reported") !== (run.report !== null)) invalid();
-    const key = (scope: z.infer<typeof investigationScopeSchema>) =>
-      JSON.stringify([
-        scope.workspaceId,
-        scope.serviceId,
-        scope.environmentId,
-        scope.incidentId,
-      ]);
     const report = run.report;
     if (!report) {
       if (run.evidence.length || run.missingEvidenceIds.length) invalid();
       return;
     }
-    if (report.id !== run.id || key(report.scope) !== key(view.scope))
+    if (report.id !== run.id || scopeKey(report.scope) !== scopeKey(view.scope))
       invalid();
     if (
       report.destination &&
       JSON.stringify(report.destination) !== JSON.stringify(run.destination)
     )
       invalid();
-    const references = new Map(report.evidence.map((item) => [item.id, item]));
-    const retained = new Set<string>();
-    for (const item of run.evidence) {
-      const expected = references.get(item.reference.id);
-      if (
-        key(item.scope) !== key(view.scope) ||
-        !expected ||
-        JSON.stringify(expected) !== JSON.stringify(item.reference) ||
-        retained.has(item.reference.id)
-      )
-        invalid();
-      retained.add(item.reference.id);
-    }
-    const missing = new Set(run.missingEvidenceIds);
-    if (missing.size !== run.missingEvidenceIds.length) invalid();
-    for (const id of missing)
-      if (!references.has(id) || retained.has(id)) invalid();
-    for (const id of references.keys())
-      if (!retained.has(id) && !missing.has(id)) invalid();
+    checkEvidenceAccounting(view.scope, run, report, invalid);
   });
 export type InvestigationView = z.infer<typeof investigationViewSchema>;
 export type InvestigationExecutionAvailability = z.infer<
