@@ -48,6 +48,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Typecheck Escalator
         run: pnpm typecheck
+      - name: Lint Escalator
+        run: pnpm lint
       - name: Create disposable database roles
         run: |
           docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d escalator_test <<'SQL'
