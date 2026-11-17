@@ -40,6 +40,53 @@ export function metricWatchCriteria(
     absoluteIncrease: 0.01,
   });
 }
+/** A receipt counts only when its reading arrived on time inside its configuration segment and is usable. */
+function coverageReceipt(
+  window: WatchEvidenceWindow,
+  kind: WatchCriteria["kind"],
+  sample: WatchEvidenceWindow["samples"][number],
+) {
+  const { reading, ...receipt } = sample;
+  if (reading.kind !== kind)
+    throw new RangeError("Watch evidence kind differs");
+  const slot = Date.parse(sample.slotAt);
+  const segment = window.segments.find(
+    (value) =>
+      value.version === sample.version &&
+      slot >= Date.parse(value.startAt) &&
+      slot < Date.parse(value.endAt),
+  );
+  const observed = Date.parse(sample.observedAt);
+  const validTime =
+    segment !== undefined &&
+    observed >= slot &&
+    observed <
+      Math.min(slot + segment.stepSeconds * 1000, Date.parse(segment.endAt)) &&
+    sample.receivedAt !== null &&
+    Date.parse(sample.receivedAt) >= observed;
+  const usable =
+    sample.usable &&
+    validTime &&
+    (reading.kind === "probe"
+      ? reading.state !== "unknown"
+      : reading.quality === "complete");
+  return { ...receipt, usable };
+}
+/** A failed probe extends the streak unless a coverage gap separates it from the previous probe. */
+function extendFailureRun(
+  run: number,
+  previous: { slotAt: string } | undefined,
+  sample: { slotAt: string },
+  gaps: readonly { startAt: string; endAt: string }[],
+): number {
+  if (previous === undefined) return 1;
+  const interrupted = gaps.some(
+    (gap) =>
+      Date.parse(gap.startAt) < Date.parse(sample.slotAt) &&
+      Date.parse(gap.endAt) > Date.parse(previous.slotAt),
+  );
+  return interrupted ? 1 : run + 1;
+}
 function summarize(window: WatchEvidenceWindow, kind: WatchCriteria["kind"]) {
   const { samples } = window;
   if (
@@ -59,36 +106,7 @@ function summarize(window: WatchEvidenceWindow, kind: WatchCriteria["kind"]) {
     visibleAt: window.visibleAt,
     complete: window.complete,
     segments: window.segments,
-    samples: samples.map((sample) => {
-      const { reading, ...receipt } = sample;
-      if (reading.kind !== kind)
-        throw new RangeError("Watch evidence kind differs");
-      const slot = Date.parse(sample.slotAt);
-      const segment = window.segments.find(
-        (value) =>
-          value.version === sample.version &&
-          slot >= Date.parse(value.startAt) &&
-          slot < Date.parse(value.endAt),
-      );
-      const observed = Date.parse(sample.observedAt);
-      const validTime =
-        segment !== undefined &&
-        observed >= slot &&
-        observed <
-          Math.min(
-            slot + segment.stepSeconds * 1000,
-            Date.parse(segment.endAt),
-          ) &&
-        sample.receivedAt !== null &&
-        Date.parse(sample.receivedAt) >= observed;
-      const usable =
-        sample.usable &&
-        validTime &&
-        (reading.kind === "probe"
-          ? reading.state !== "unknown"
-          : reading.quality === "complete");
-      return { ...receipt, usable };
-    }),
+    samples: samples.map((sample) => coverageReceipt(window, kind, sample)),
   });
   let requests = 0,
     errors = 0,
@@ -110,15 +128,7 @@ function summarize(window: WatchEvidenceWindow, kind: WatchCriteria["kind"]) {
     } else {
       if (reading.state === "failed") {
         failedProbes++;
-        const prior = previous;
-        const interrupted =
-          prior !== undefined &&
-          selected.report.gaps.some(
-            (gap) =>
-              Date.parse(gap.startAt) < Date.parse(sample.slotAt) &&
-              Date.parse(gap.endAt) > Date.parse(prior.slotAt),
-          );
-        run = prior !== undefined && !interrupted ? run + 1 : 1;
+        run = extendFailureRun(run, previous, sample, selected.report.gaps);
         longestFailureRun = Math.max(longestFailureRun, run);
       } else run = 0;
       previous = sample;
@@ -142,16 +152,16 @@ function covered(summary: WatchEvidenceSummary, minimum: number) {
     summary.coverage.availableSlots === summary.coverage.expectedSlots
   );
 }
-/** Pure evaluation of one captured stream. Hosts persist baseline snapshots before
- * starting the deployment and fence evidence by these cutoffs. This function does
- * not read a provider, infer causality, create an incident or activate a watch.
- */
-export function evaluateWatchStream(
-  scope: WorkspaceId,
-  raw: WatchStreamEvidence,
-): WatchStreamEvaluation {
-  const value = watchStreamEvidenceSchema.parse(raw);
-  const { baseline, watch, criteria } = value;
+type Verdict = WatchStreamEvaluation["verdict"];
+type Reason = WatchStreamEvaluation["reason"];
+type WindowSummary = ReturnType<typeof summarize>;
+/** A stream either has its verdict already, or passes with an optional warning once the watch is final. */
+type StreamOutcome =
+  | { verdict: Verdict; reason: Reason }
+  | { warning: Reason | undefined };
+type ErrorRates = { baseline: number; watch: number; threshold: number };
+function assertWatchChronology(scope: WorkspaceId, value: WatchStreamEvidence) {
+  const { baseline, watch } = value;
   const at = Date.parse;
   const end = at(value.watchEndsAt),
     evaluated = at(value.evaluatedAt);
@@ -173,6 +183,97 @@ export function evaluateWatchStream(
     at(watch.visibleAt) !== Math.min(evaluated, cutoff)
   )
     throw new RangeError("Invalid deployment watch chronology");
+}
+/** True when one configuration version shows different settings in the baseline and the watch. */
+function configurationChanged(
+  baseline: WatchEvidenceWindow,
+  watch: WatchEvidenceWindow,
+): boolean {
+  const at = Date.parse;
+  const revisions = new Map<number, string>();
+  for (const segment of [...baseline.segments, ...watch.segments]) {
+    const signature = JSON.stringify([
+      segment.stepSeconds,
+      at(segment.anchorAt),
+      segment.recordedAt === null ? null : at(segment.recordedAt),
+      segment.enabled,
+    ]);
+    const previous = revisions.get(segment.version);
+    if (previous !== undefined && previous !== signature) return true;
+    revisions.set(segment.version, signature);
+  }
+  return false;
+}
+function probeOutcome(
+  criteria: Extract<WatchCriteria, { kind: "probe" }>,
+  before: WindowSummary,
+  after: WindowSummary,
+  complete: boolean,
+): StreamOutcome {
+  if (after.longestFailureRun >= criteria.failureThreshold)
+    return { verdict: "FAIL", reason: "threshold_met" };
+  if (!complete)
+    return { verdict: "INSUFFICIENT_DATA", reason: "watch_coverage" };
+  if ((after.summary.failedProbes ?? 0) > 0) return { warning: "degraded" };
+  if ((before.summary.failedProbes ?? 0) > 0)
+    return { warning: "baseline_unhealthy" };
+  return { warning: undefined };
+}
+function metricOutcome(
+  criteria: Extract<WatchCriteria, { kind: "metric" }>,
+  before: WindowSummary,
+  after: WindowSummary,
+  complete: boolean,
+): StreamOutcome & { rates?: ErrorRates } {
+  if (after.summary.evidence.length < criteria.watchMinimumSamples)
+    return { verdict: "INSUFFICIENT_DATA", reason: "watch_coverage" };
+  if (before.overflow || after.overflow)
+    return { verdict: "INSUFFICIENT_DATA", reason: "count_overflow" };
+  const baselineRequests = before.summary.requests ?? 0,
+    watchRequests = after.summary.requests ?? 0;
+  if (
+    baselineRequests < criteria.minimumRequests ||
+    watchRequests < criteria.minimumRequests
+  )
+    return {
+      verdict: "INSUFFICIENT_DATA",
+      reason: complete ? "insufficient_requests" : "watch_coverage",
+    };
+  const baselineRate = (before.summary.errors ?? 0) / baselineRequests,
+    watchRate = (after.summary.errors ?? 0) / watchRequests;
+  const threshold = Math.min(
+    1,
+    Math.max(
+      criteria.errorRateFloor,
+      baselineRate * criteria.relativeMultiplier,
+      baselineRate + criteria.absoluteIncrease,
+    ),
+  );
+  const rates = { baseline: baselineRate, watch: watchRate, threshold };
+  if (watchRate > baselineRate && watchRate >= threshold)
+    return { verdict: "FAIL", reason: "threshold_met", rates };
+  if (!complete)
+    return { verdict: "INSUFFICIENT_DATA", reason: "watch_coverage", rates };
+  if (watchRate > baselineRate) return { warning: "degraded", rates };
+  if (baselineRate >= criteria.errorRateFloor)
+    return { warning: "baseline_unhealthy", rates };
+  return { warning: undefined, rates };
+}
+/** Pure evaluation of one captured stream. Hosts persist baseline snapshots before
+ * starting the deployment and fence evidence by these cutoffs. This function does
+ * not read a provider, infer causality, create an incident or activate a watch.
+ */
+export function evaluateWatchStream(
+  scope: WorkspaceId,
+  raw: WatchStreamEvidence,
+): WatchStreamEvaluation {
+  const value = watchStreamEvidenceSchema.parse(raw);
+  const { baseline, watch, criteria } = value;
+  const at = Date.parse;
+  const end = at(value.watchEndsAt),
+    evaluated = at(value.evaluatedAt);
+  const cutoff = end + deploymentWatchReceiptGraceSeconds * 1000;
+  assertWatchChronology(scope, value);
   const before = summarize(baseline, criteria.kind),
     after = summarize(watch, criteria.kind);
   const result: WatchStreamEvaluation = {
@@ -195,22 +296,8 @@ export function evaluateWatchStream(
     verdict: WatchStreamEvaluation["verdict"],
     reason: WatchStreamEvaluation["reason"],
   ): WatchStreamEvaluation => ({ ...result, verdict, reason });
-  const revisions = new Map<number, string>();
-  let configurationConflict = false;
-  for (const segment of [...baseline.segments, ...watch.segments]) {
-    const signature = JSON.stringify([
-      segment.stepSeconds,
-      at(segment.anchorAt),
-      segment.recordedAt === null ? null : at(segment.recordedAt),
-      segment.enabled,
-    ]);
-    const previous = revisions.get(segment.version);
-    if (previous !== undefined && previous !== signature)
-      configurationConflict = true;
-    revisions.set(segment.version, signature);
-  }
   if (
-    configurationConflict ||
+    configurationChanged(baseline, watch) ||
     !baseline.configurationCompatible ||
     !watch.configurationCompatible
   )
@@ -224,49 +311,18 @@ export function evaluateWatchStream(
     after.summary,
     criteria.kind === "metric" ? criteria.watchMinimumSamples : 1,
   );
-  let warning: WatchStreamEvaluation["reason"] | undefined;
-  if (criteria.kind === "probe") {
-    if (after.longestFailureRun >= criteria.failureThreshold)
-      return finish("FAIL", "threshold_met");
-    if (!complete) return finish("INSUFFICIENT_DATA", "watch_coverage");
-    if ((after.summary.failedProbes ?? 0) > 0) warning = "degraded";
-    else if ((before.summary.failedProbes ?? 0) > 0)
-      warning = "baseline_unhealthy";
-  } else {
-    if (after.summary.evidence.length < criteria.watchMinimumSamples)
-      return finish("INSUFFICIENT_DATA", "watch_coverage");
-    if (before.overflow || after.overflow)
-      return finish("INSUFFICIENT_DATA", "count_overflow");
-    const baselineRequests = before.summary.requests ?? 0,
-      watchRequests = after.summary.requests ?? 0;
-    if (
-      baselineRequests < criteria.minimumRequests ||
-      watchRequests < criteria.minimumRequests
-    )
-      return finish(
-        "INSUFFICIENT_DATA",
-        complete ? "insufficient_requests" : "watch_coverage",
-      );
-    const baselineRate = (before.summary.errors ?? 0) / baselineRequests,
-      watchRate = (after.summary.errors ?? 0) / watchRequests;
-    const threshold = Math.min(
-      1,
-      Math.max(
-        criteria.errorRateFloor,
-        baselineRate * criteria.relativeMultiplier,
-        baselineRate + criteria.absoluteIncrease,
-      ),
-    );
-    result.baselineErrorRate = baselineRate;
-    result.watchErrorRate = watchRate;
-    result.effectiveErrorRateThreshold = threshold;
-    if (watchRate > baselineRate && watchRate >= threshold)
-      return finish("FAIL", "threshold_met");
-    if (!complete) return finish("INSUFFICIENT_DATA", "watch_coverage");
-    if (watchRate > baselineRate) warning = "degraded";
-    else if (baselineRate >= criteria.errorRateFloor)
-      warning = "baseline_unhealthy";
+  const outcome: StreamOutcome & { rates?: ErrorRates } =
+    criteria.kind === "probe"
+      ? probeOutcome(criteria, before, after, complete)
+      : metricOutcome(criteria, before, after, complete);
+  if (outcome.rates) {
+    result.baselineErrorRate = outcome.rates.baseline;
+    result.watchErrorRate = outcome.rates.watch;
+    result.effectiveErrorRateThreshold = outcome.rates.threshold;
   }
+  if ("verdict" in outcome) return finish(outcome.verdict, outcome.reason);
   if (!result.final) return finish("PENDING", "observing");
-  return warning ? finish("WARN", warning) : finish("PASS", "stable");
+  return outcome.warning
+    ? finish("WARN", outcome.warning)
+    : finish("PASS", "stable");
 }

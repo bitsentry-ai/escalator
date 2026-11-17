@@ -8,6 +8,51 @@ import {
 import type { InvestigationSettingsStore } from "@bitsentry-escalator/features/application";
 import { compareCodeUnits } from "@bitsentry-escalator/features/contracts";
 /** Fixed SQL primitives on the surrounding scoped transaction; no network calls. */
+const sourceTables = {
+  probe: "escalator_probe",
+  alert: "escalator_signal_source",
+  metric: "escalator_metric_monitor",
+  deployment: "escalator_deploy_target",
+} as const;
+/**
+ * Locks a native source in the profile's scope, and a probe's or metric monitor's signal source first. An alert
+ * source must be a supported provider.
+ */
+async function authorizeNativeSource(
+  db: PoolClient,
+  workspaceId: string,
+  scope: { serviceId: string; environmentId: string },
+  source: { kind: keyof typeof sourceTables; sourceId: string },
+): Promise<boolean> {
+  if (source.kind === "probe" || source.kind === "metric") {
+    const hint = await db.query<{ source_id: string }>(
+      `SELECT source_id FROM ${sourceTables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4`,
+      [workspaceId, source.sourceId, scope.serviceId, scope.environmentId],
+    );
+    if (!hint.rows[0]) return false;
+    const parent = await db.query(
+      "SELECT id FROM escalator_signal_source WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4 FOR UPDATE",
+      [
+        workspaceId,
+        hint.rows[0].source_id,
+        scope.serviceId,
+        scope.environmentId,
+      ],
+    );
+    if (!parent.rowCount) return false;
+  }
+  const result = await db.query<{ data: Record<string, unknown> }>(
+    `SELECT data FROM ${sourceTables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4 FOR UPDATE`,
+    [workspaceId, source.sourceId, scope.serviceId, scope.environmentId],
+  );
+  if (!result.rows[0]) return false;
+  return (
+    source.kind !== "alert" ||
+    ["sentry", "glitchtip", "grafana", "generic"].includes(
+      String(result.rows[0].data.kind),
+    )
+  );
+}
 export function postgresInvestigationSettingsStore(
   db: PoolClient,
   workspaceId: WorkspaceId,
@@ -69,12 +114,6 @@ export function postgresInvestigationSettingsStore(
         return compareCodeUnits(left, right);
       });
       for (const source of sorted) {
-        const tables = {
-          probe: "escalator_probe",
-          alert: "escalator_signal_source",
-          metric: "escalator_metric_monitor",
-          deployment: "escalator_deploy_target",
-        } as const;
         if (source.kind === "log") return false;
         if (source.kind === "git_diff") {
           if (
@@ -88,38 +127,11 @@ export function postgresInvestigationSettingsStore(
             return false;
           continue;
         }
-        if (source.kind === "probe" || source.kind === "metric") {
-          const hint = await db.query<{ source_id: string }>(
-            `SELECT source_id FROM ${tables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4`,
-            [
-              workspaceId,
-              source.sourceId,
-              scope.serviceId,
-              scope.environmentId,
-            ],
-          );
-          if (!hint.rows[0]) return false;
-          const parent = await db.query(
-            "SELECT id FROM escalator_signal_source WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4 FOR UPDATE",
-            [
-              workspaceId,
-              hint.rows[0].source_id,
-              scope.serviceId,
-              scope.environmentId,
-            ],
-          );
-          if (!parent.rowCount) return false;
-        }
-        const result = await db.query<{ data: Record<string, unknown> }>(
-          `SELECT data FROM ${tables[source.kind]} WHERE workspace_id=$1 AND id=$2 AND service_id=$3 AND environment_id=$4 FOR UPDATE`,
-          [workspaceId, source.sourceId, scope.serviceId, scope.environmentId],
-        );
-        if (!result.rows[0]) return false;
         if (
-          source.kind === "alert" &&
-          !["sentry", "glitchtip", "grafana", "generic"].includes(
-            String(result.rows[0].data.kind),
-          )
+          !(await authorizeNativeSource(db, workspaceId, scope, {
+            kind: source.kind,
+            sourceId: source.sourceId,
+          }))
         )
           return false;
       }
