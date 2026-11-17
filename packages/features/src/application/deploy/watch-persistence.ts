@@ -69,6 +69,35 @@ export interface DeploymentWatchRepository {
 }
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b);
+/** A watch accounts for exactly the baseline's captured streams, with unchanged sources and criteria. */
+function assertUpdateMatchesBaseline(
+  update: WatchEvaluationUpdate,
+  baseline: DeploymentBaseline | undefined,
+): void {
+  if (!baseline) {
+    if (update.streams.length !== 0 || update.inventoryComplete)
+      throw new RangeError("Missing baseline cannot produce watch evidence");
+    return;
+  }
+  if (!baseline.inventoryComplete && update.inventoryComplete)
+    throw new RangeError("Incomplete baseline inventory");
+  if (update.streams.length !== baseline.streams.length)
+    throw new RangeError("Watch must account for every captured stream");
+  for (const stream of update.streams) {
+    const captured = baseline.streams.find(
+      (row) => row.kind === stream.kind && row.id === stream.id,
+    );
+    if (
+      !captured ||
+      captured.sourceId !== stream.sourceId ||
+      !same(
+        captured.criteria,
+        watchCriteriaSchema.parse(stream.evaluation.criteria),
+      )
+    )
+      throw new PersistenceError("scope_violation");
+  }
+}
 export function withDeploymentWatches<Tx extends BaselineTransaction>(
   base: Tx,
   store: DeploymentWatchStore,
@@ -178,35 +207,7 @@ export function withDeploymentWatches<Tx extends BaselineTransaction>(
               "Watch evaluation must use this transaction's clock",
             );
           const baseline = await base.baselines.get(targetId, deploymentId);
-          if (
-            !baseline &&
-            (update.streams.length !== 0 || update.inventoryComplete)
-          )
-            throw new RangeError(
-              "Missing baseline cannot produce watch evidence",
-            );
-          if (baseline) {
-            if (!baseline.inventoryComplete && update.inventoryComplete)
-              throw new RangeError("Incomplete baseline inventory");
-            if (update.streams.length !== baseline.streams.length)
-              throw new RangeError(
-                "Watch must account for every captured stream",
-              );
-            for (const stream of update.streams) {
-              const captured = baseline.streams.find(
-                (row) => row.kind === stream.kind && row.id === stream.id,
-              );
-              if (
-                !captured ||
-                captured.sourceId !== stream.sourceId ||
-                !same(
-                  captured.criteria,
-                  watchCriteriaSchema.parse(stream.evaluation.criteria),
-                )
-              )
-                throw new PersistenceError("scope_violation");
-            }
-          }
+          assertUpdateMatchesBaseline(update, baseline);
           let value = advanceDeploymentWatch(current, update);
           if (incidentId !== undefined)
             value = linkWatchIncident(value, incidentId);

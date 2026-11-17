@@ -24,6 +24,45 @@ function matches(rule: DetectionRule, sample: RuleSample): boolean {
     sample.kind === rule.selector.kind
   );
 }
+/**
+ * A sample without a receipt time or periodic slot is retrospective; one received after the decision is late; one
+ * observed before its slot or received before it was observed is invalid.
+ */
+function sampleTiming(
+  sample: RuleWindow["samples"][number],
+  decisionAt: string,
+): "retrospective" | "late" | "invalid" | "visible" {
+  if (sample.kind !== "signal" && sample.slotAt === null)
+    return "retrospective";
+  if (sample.receivedAt === null) return "retrospective";
+  if (compareUtcTimestamps(sample.receivedAt, decisionAt) > 0) return "late";
+  if (
+    sample.kind !== "signal" &&
+    typeof sample.slotAt === "string" &&
+    (compareUtcTimestamps(sample.slotAt, sample.observedAt) > 0 ||
+      compareUtcTimestamps(sample.observedAt, sample.receivedAt) > 0)
+  )
+    return "invalid";
+  return "visible";
+}
+/** Every visible observation must have one identity and one step-aligned periodic slot. */
+function registerSample(
+  sample: RuleWindow["samples"][number],
+  slot: number,
+  seen: { ids: Set<string>; slots: Set<number> },
+  stepMs: number,
+): "conflicting_samples" | "unaligned_window" | undefined {
+  if (
+    seen.ids.has(sample.id) ||
+    (sample.kind !== "signal" && seen.slots.has(slot))
+  )
+    return "conflicting_samples";
+  seen.ids.add(sample.id);
+  seen.slots.add(slot);
+  if (sample.kind !== "signal" && slot % stepMs !== 0)
+    return "unaligned_window";
+  return undefined;
+}
 export function selectRuleSamples(
   rule: DetectionRule,
   window: RuleWindow,
@@ -44,36 +83,27 @@ export function selectRuleSamples(
     }
     const slot = ruleSampleTime(rule, sample);
     if (slot <= start || slot > end) continue;
-    if (sample.kind !== "signal" && sample.slotAt === null) {
+    const timing = sampleTiming(sample, window.decisionAt);
+    if (timing === "retrospective") {
       result.retrospectiveCount++;
       continue;
     }
-    if (sample.receivedAt === null) {
-      result.retrospectiveCount++;
-      continue;
-    }
-    if (compareUtcTimestamps(sample.receivedAt, window.decisionAt) > 0) {
+    if (timing === "late") {
       result.lateCount++;
       continue;
     }
-    if (
-      sample.kind !== "signal" &&
-      typeof sample.slotAt === "string" &&
-      (compareUtcTimestamps(sample.slotAt, sample.observedAt) > 0 ||
-        compareUtcTimestamps(sample.observedAt, sample.receivedAt) > 0)
-    ) {
+    if (timing === "invalid") {
       result.reason = "invalid_input";
       return result;
     }
-    // Every visible observation must have one identity and one periodic slot.
-    if (ids.has(sample.id) || (sample.kind !== "signal" && slots.has(slot))) {
-      result.reason = "conflicting_samples";
-      return result;
-    }
-    ids.add(sample.id);
-    slots.add(slot);
-    if (sample.kind !== "signal" && slot % (rule.stepSeconds * 1000) !== 0) {
-      result.reason = "unaligned_window";
+    const conflict = registerSample(
+      sample,
+      slot,
+      { ids, slots },
+      rule.stepSeconds * 1000,
+    );
+    if (conflict) {
+      result.reason = conflict;
       return result;
     }
     result.samples.push(sample);

@@ -23,6 +23,151 @@ const payloadSchema = z.strictObject({
   pageId: opaqueIdSchema,
   logicalStepId: opaqueIdSchema,
 });
+async function recordedSteps(
+  tx: DispatchTransaction,
+  pageId: string,
+): Promise<PageStep[]> {
+  const recorded: PageStep[] = [];
+  let after: string | undefined;
+  do {
+    const batch = await tx.steps.forPage(pageId, { limit: 100, after });
+    recorded.push(...batch.items);
+    after = batch.next ?? undefined;
+  } while (after);
+  return recorded;
+}
+async function recordSkippedSteps(
+  tx: DispatchTransaction,
+  page: OperationalPage,
+  skip: readonly string[],
+): Promise<void> {
+  const all = escalationSteps(page.policy, page.createdAt);
+  for (const id of skip) {
+    const skipped = expectDefined(
+      all.find((step) => step.id === id),
+      "skipped escalation step",
+    );
+    await tx.steps.insert({
+      id: pagingWorkId(tx.workspaceId, "step-record", page.id, id),
+      workspaceId: tx.workspaceId,
+      pageId: page.id,
+      logicalStepId: id,
+      dueAt: skipped.dueAt,
+      recordedAt: tx.now,
+      disposition: "skipped",
+      recipientIds: [],
+    });
+  }
+}
+/** Stops deliveries of earlier steps; a later escalation supersedes them. */
+async function cancelEarlierDeliveries(
+  tx: DispatchTransaction,
+  pageId: string,
+  recorded: readonly PageStep[],
+  dueAt: string,
+): Promise<void> {
+  const earlier = new Set(
+    recorded
+      .filter((entry) => Date.parse(entry.dueAt) < Date.parse(dueAt))
+      .map((entry) => entry.id),
+  );
+  let cursor: string | undefined;
+  do {
+    const batch = await tx.deliveries.forPage(pageId, {
+      limit: 100,
+      after: cursor,
+    });
+    await cancelDeliveryWork(
+      tx,
+      batch.items.filter((entry) => earlier.has(entry.stepId)),
+      false,
+    );
+    cursor = batch.next ?? undefined;
+  } while (cursor);
+}
+async function enqueueDelivery(
+  tx: DispatchTransaction,
+  pageId: string,
+  stepId: string,
+  route: { responderId: ResponderId; contact: PagingContact },
+): Promise<void> {
+  const deliveryId = pagingWorkId(
+    tx.workspaceId,
+    "delivery",
+    stepId,
+    route.responderId,
+  );
+  await tx.deliveries.insert({
+    id: deliveryId,
+    workspaceId: tx.workspaceId,
+    pageId,
+    stepId,
+    recipientId: route.responderId,
+    contactId: route.contact.id,
+    secretId: route.contact.secretId,
+    channel: route.contact.channel,
+    createdAt: tx.now,
+  });
+  const id = pagingWorkId(tx.workspaceId, "send", deliveryId);
+  await tx.work.enqueue("outbox", {
+    id,
+    kind: "paging.send",
+    idempotencyKey: id,
+    payload: {
+      pageId,
+      deliveryId,
+      secretId: route.contact.secretId,
+      approvedSecretIds: [route.contact.secretId],
+    },
+    dueAt: tx.now,
+  });
+}
+/**
+ * The responder's parsed, distinct contacts. A contact from another workspace or responder is corrupt data and fails
+ * the step; an unreadable or duplicate one is skipped with an audit record.
+ */
+async function validContacts(
+  tx: DispatchTransaction,
+  id: ResponderId,
+  stepWorkId: string,
+): Promise<PagingContact[]> {
+  const candidates: PagingContact[] = [];
+  const seen = new Set<string>();
+  let index = 0;
+  for (const raw of await tx.routing.contacts(id)) {
+    index++;
+    const parsed = pagingContactSchema.strip().safeParse(raw);
+    // A contact from another workspace or responder is corrupt data: fail the step loudly.
+    if (
+      parsed.success &&
+      (parsed.data.workspaceId !== tx.workspaceId ||
+        parsed.data.responderId !== id)
+    )
+      throw new Error("Invalid contact scope");
+    if (!parsed.success || seen.has(parsed.data.id)) {
+      await tx.audit.append({
+        id: pagingWorkId(
+          tx.workspaceId,
+          "invalid-contact",
+          stepWorkId,
+          id,
+          String(index),
+        ),
+        workspaceId: tx.workspaceId,
+        actor: { kind: "system", component: "paging" },
+        action: "paging.contact_skipped",
+        subjectType: "responder",
+        subjectId: id,
+        recordedAt: tx.now,
+        metadata: { reason: "invalid_contact" },
+      });
+      continue;
+    }
+    seen.add(parsed.data.id);
+    candidates.push(parsed.data);
+  }
+  return candidates;
+}
 /** Each scheduled deadline is independent of provider retries. */
 export class PageAdvancement {
   constructor(private readonly repository: DispatchRepository) {}
@@ -46,13 +191,7 @@ export class PageAdvancement {
           pagingWorkId(tx.workspaceId, "step", page.id, expected.id)
       )
         throw new Error("Invalid paging claim");
-      const recorded: PageStep[] = [];
-      let after: string | undefined;
-      do {
-        const batch = await tx.steps.forPage(page.id, { limit: 100, after });
-        recorded.push(...batch.items);
-        after = batch.next ?? undefined;
-      } while (after);
+      const recorded = await recordedSteps(tx, page.id);
       const decision = planEscalation({
         policy: page.policy,
         createdAt: page.createdAt,
@@ -61,104 +200,9 @@ export class PageAdvancement {
         recordedStepIds: recorded.map((step) => step.logicalStepId),
       });
       if (decision.kind === "cancel") return { state: "completed" };
-      const all = escalationSteps(page.policy, page.createdAt);
-      for (const id of decision.skip) {
-        const skipped = expectDefined(
-          all.find((step) => step.id === id),
-          "skipped escalation step",
-        );
-        await tx.steps.insert({
-          id: pagingWorkId(tx.workspaceId, "step-record", page.id, id),
-          workspaceId: tx.workspaceId,
-          pageId: page.id,
-          logicalStepId: id,
-          dueAt: skipped.dueAt,
-          recordedAt: tx.now,
-          disposition: "skipped",
-          recipientIds: [],
-        });
-      }
-      if (decision.kind === "dispatch") {
-        const step = decision.step;
-        const earlier = new Set(
-          recorded
-            .filter((entry) => Date.parse(entry.dueAt) < Date.parse(step.dueAt))
-            .map((entry) => entry.id),
-        );
-        let cursor: string | undefined;
-        do {
-          const batch = await tx.deliveries.forPage(page.id, {
-            limit: 100,
-            after: cursor,
-          });
-          await cancelDeliveryWork(
-            tx,
-            batch.items.filter((entry) => earlier.has(entry.stepId)),
-            false,
-          );
-          cursor = batch.next ?? undefined;
-        } while (cursor);
-        const ids = await this.recipients(tx, page, step.target, step.dueAt);
-        const requireAck =
-          "deployment" in page.policy && step.target !== "operator";
-        let routes = await this.routes(tx, ids, requireAck, lease.id);
-        // No usable mapped contact: do not wait for the independent fallback deadline.
-        if (step.target === "deployer" && routes.length === 0)
-          routes = await this.routes(
-            tx,
-            page.policy.fallbackResponderIds,
-            true,
-            `${lease.id}:fallback`,
-          );
-        const stepId = pagingWorkId(
-          tx.workspaceId,
-          "step-record",
-          page.id,
-          step.id,
-        );
-        await tx.steps.insert({
-          id: stepId,
-          workspaceId: tx.workspaceId,
-          pageId: page.id,
-          logicalStepId: step.id,
-          dueAt: step.dueAt,
-          recordedAt: tx.now,
-          disposition: routes.length ? "dispatch" : "uncovered",
-          recipientIds: routes.map((route) => route.responderId),
-        });
-        for (const route of routes) {
-          const deliveryId = pagingWorkId(
-            tx.workspaceId,
-            "delivery",
-            stepId,
-            route.responderId,
-          );
-          await tx.deliveries.insert({
-            id: deliveryId,
-            workspaceId: tx.workspaceId,
-            pageId: page.id,
-            stepId,
-            recipientId: route.responderId,
-            contactId: route.contact.id,
-            secretId: route.contact.secretId,
-            channel: route.contact.channel,
-            createdAt: tx.now,
-          });
-          const id = pagingWorkId(tx.workspaceId, "send", deliveryId);
-          await tx.work.enqueue("outbox", {
-            id,
-            kind: "paging.send",
-            idempotencyKey: id,
-            payload: {
-              pageId: page.id,
-              deliveryId,
-              secretId: route.contact.secretId,
-              approvedSecretIds: [route.contact.secretId],
-            },
-            dueAt: tx.now,
-          });
-        }
-      }
+      await recordSkippedSteps(tx, page, decision.skip);
+      if (decision.kind === "dispatch")
+        await this.dispatchStep(tx, page, decision.step, recorded, lease.id);
       if (
         decision.kind === "wait" &&
         !recorded.some((step) => step.logicalStepId === expected.id) &&
@@ -184,6 +228,46 @@ export class PageAdvancement {
       return { state: "completed" };
     });
   }
+  /** Records a dispatched step and queues one delivery per routable recipient. */
+  private async dispatchStep(
+    tx: DispatchTransaction,
+    page: OperationalPage,
+    step: EscalationStep,
+    recorded: readonly PageStep[],
+    leaseId: string,
+  ): Promise<void> {
+    await cancelEarlierDeliveries(tx, page.id, recorded, step.dueAt);
+    const ids = await this.recipients(tx, page, step.target, step.dueAt);
+    const requireAck =
+      "deployment" in page.policy && step.target !== "operator";
+    let routes = await this.routes(tx, ids, requireAck, leaseId);
+    // No usable mapped contact: do not wait for the independent fallback deadline.
+    if (step.target === "deployer" && routes.length === 0)
+      routes = await this.routes(
+        tx,
+        page.policy.fallbackResponderIds,
+        true,
+        `${leaseId}:fallback`,
+      );
+    const stepId = pagingWorkId(
+      tx.workspaceId,
+      "step-record",
+      page.id,
+      step.id,
+    );
+    await tx.steps.insert({
+      id: stepId,
+      workspaceId: tx.workspaceId,
+      pageId: page.id,
+      logicalStepId: step.id,
+      dueAt: step.dueAt,
+      recordedAt: tx.now,
+      disposition: routes.length ? "dispatch" : "uncovered",
+      recipientIds: routes.map((route) => route.responderId),
+    });
+    for (const route of routes)
+      await enqueueDelivery(tx, page.id, stepId, route);
+  }
   private async routes(
     tx: DispatchTransaction,
     ids: readonly ResponderId[],
@@ -196,41 +280,7 @@ export class PageAdvancement {
       if (!responder?.enabled) continue;
       if (requireAck && !hasCapability(responder.role, "incident:acknowledge"))
         continue;
-      const candidates: PagingContact[] = [];
-      const seen = new Set<string>();
-      let index = 0;
-      for (const raw of await tx.routing.contacts(id)) {
-        index++;
-        const parsed = pagingContactSchema.strip().safeParse(raw);
-        // A contact from another workspace or responder is corrupt data: fail the step loudly.
-        if (
-          parsed.success &&
-          (parsed.data.workspaceId !== tx.workspaceId ||
-            parsed.data.responderId !== id)
-        )
-          throw new Error("Invalid contact scope");
-        if (!parsed.success || seen.has(parsed.data.id)) {
-          await tx.audit.append({
-            id: pagingWorkId(
-              tx.workspaceId,
-              "invalid-contact",
-              stepWorkId,
-              id,
-              String(index),
-            ),
-            workspaceId: tx.workspaceId,
-            actor: { kind: "system", component: "paging" },
-            action: "paging.contact_skipped",
-            subjectType: "responder",
-            subjectId: id,
-            recordedAt: tx.now,
-            metadata: { reason: "invalid_contact" },
-          });
-          continue;
-        }
-        seen.add(parsed.data.id);
-        candidates.push(parsed.data);
-      }
+      const candidates = await validContacts(tx, id, stepWorkId);
       const contact = candidates
         .filter((entry) => entry.enabled)
         .sort((a, b) => a.priority - b.priority || (a.id < b.id ? -1 : 1))[0];
