@@ -53,7 +53,7 @@ export class RuleCatalogQueries {
       const items = rows.slice(0, input.limit);
       return {
         items,
-        next: rows.length > input.limit ? items.at(-1)!.id : null,
+        next: rows.length > input.limit ? items[items.length - 1].id : null,
       };
     });
   }
@@ -86,7 +86,10 @@ export class RuleCatalogQueries {
       const items = rows.slice(0, input.limit);
       return {
         items,
-        next: rows.length > input.limit ? items.at(-1)!.catalogRevision : null,
+        next:
+          rows.length > input.limit
+            ? items[items.length - 1].catalogRevision
+            : null,
       };
     });
   }

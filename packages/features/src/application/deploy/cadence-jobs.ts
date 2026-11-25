@@ -9,6 +9,7 @@ import type { WorkLease, WorkResult } from "../jobs/ports.js";
 import type { WorkHandlers } from "../jobs/scheduler.js";
 import type { WorkHandler } from "../jobs/runner.js";
 import { pagingWorkId } from "../paging/work-ids.js";
+import type { WorkspaceId } from "../../contracts/identity.js";
 import {
   assertProbeCapacity,
   ProbeCapacityError,
@@ -101,6 +102,80 @@ async function record(tx: WatchCadenceTransaction, value: WatchCadenceReceipt) {
     },
   });
 }
+type CadenceTransaction = Parameters<
+  Parameters<WatchCadenceRepository["transaction"]>[1]
+>[0];
+/** Reads capacity, then the target, then the source and probe, before the work fence. */
+async function loadCadenceProbe(
+  tx: CadenceTransaction,
+  hint: z.infer<typeof watchProbeCadencePayloadSchema>,
+) {
+  const previous = await tx.cadence.receipt(
+    hint.targetId,
+    hint.deploymentId,
+    hint.probeId,
+  );
+  const watch = await tx.watches.get(hint.targetId, hint.deploymentId);
+  const baseline = await tx.baselines.get(hint.targetId, hint.deploymentId);
+  const probe = await tx.probeContext.probes.lock(hint.probeId);
+  const captured = baseline?.streams.find(
+    (row) => row.kind === "probe" && row.id === hint.probeId,
+  );
+  if (!watch || !probe || !captured)
+    throw new Error("Cadence captured probe is missing");
+  const current = await tx.cadence.lease(hint.targetId, probe.id);
+  return { previous, watch, probe, captured, current };
+}
+async function removeSupersededLease(
+  tx: CadenceTransaction,
+  targetId: string,
+  probeId: string,
+  current: { generationId: string; revision: number },
+): Promise<void> {
+  if (
+    !(await tx.cadence.removeLease(
+      targetId,
+      probeId,
+      current.generationId,
+      current.revision,
+    ))
+  )
+    throw new Error("Locked cadence ownership changed");
+}
+function assertCadenceClaim(
+  workspaceId: WorkspaceId,
+  claimed: {
+    workspaceId: string;
+    queue: string;
+    kind: string;
+    id: string;
+    payload: unknown;
+  },
+  targetId: string,
+  watch: { deploymentId: string; startedAt: string },
+  probe: { id: string; sourceId: string },
+): void {
+  const payload = watchProbeCadencePayloadSchema.parse(claimed.payload);
+  if (
+    claimed.workspaceId !== workspaceId ||
+    claimed.queue !== "job" ||
+    claimed.kind !== "deployment.watch-probe-cadence" ||
+    claimed.id !==
+      pagingWorkId(
+        workspaceId,
+        "deployment.watch-probe-cadence",
+        targetId,
+        watch.deploymentId,
+        probe.id,
+      ) ||
+    payload.targetId !== targetId ||
+    payload.deploymentId !== watch.deploymentId ||
+    payload.startedAt !== watch.startedAt ||
+    payload.probeId !== probe.id ||
+    payload.sourceId !== probe.sourceId
+  )
+    throw new Error("Invalid probe cadence claim");
+}
 export class WatchProbeCadenceJobs {
   private readonly limits: ProbeLimits;
   constructor(
@@ -112,43 +187,11 @@ export class WatchProbeCadenceJobs {
   tighten(lease: WorkLease): Promise<WorkResult> {
     const hint = watchProbeCadencePayloadSchema.parse(lease.payload);
     return this.repository.transaction(lease.workspaceId, async (tx) => {
-      // This read acquires capacity -> target -> source/probe, before the work fence.
-      const previous = await tx.cadence.receipt(
-        hint.targetId,
-        hint.deploymentId,
-        hint.probeId,
-      );
-      const watch = await tx.watches.get(hint.targetId, hint.deploymentId);
-      const baseline = await tx.baselines.get(hint.targetId, hint.deploymentId);
-      const probe = await tx.probeContext.probes.lock(hint.probeId);
-      const captured = baseline?.streams.find(
-        (row) => row.kind === "probe" && row.id === hint.probeId,
-      );
-      if (!watch || !probe || !captured)
-        throw new Error("Cadence captured probe is missing");
-      const current = await tx.cadence.lease(hint.targetId, probe.id);
+      const { previous, watch, probe, captured, current } =
+        await loadCadenceProbe(tx, hint);
       const claimed = await tx.work.lockClaim(lease);
       if (!claimed) return { state: "completed" };
-      const payload = watchProbeCadencePayloadSchema.parse(claimed.payload);
-      if (
-        claimed.workspaceId !== tx.workspaceId ||
-        claimed.queue !== "job" ||
-        claimed.kind !== "deployment.watch-probe-cadence" ||
-        claimed.id !==
-          pagingWorkId(
-            tx.workspaceId,
-            "deployment.watch-probe-cadence",
-            hint.targetId,
-            watch.deploymentId,
-            probe.id,
-          ) ||
-        payload.targetId !== hint.targetId ||
-        payload.deploymentId !== watch.deploymentId ||
-        payload.startedAt !== watch.startedAt ||
-        payload.probeId !== probe.id ||
-        payload.sourceId !== probe.sourceId
-      )
-        throw new Error("Invalid probe cadence claim");
+      assertCadenceClaim(tx.workspaceId, claimed, hint.targetId, watch, probe);
       if (previous) return { state: "completed" };
       const receipt: WatchCadenceReceipt = {
         workspaceId: tx.workspaceId,
@@ -170,15 +213,7 @@ export class WatchProbeCadenceJobs {
       const plan = planWatchCadence(watch, captured, probe, current, tx.now);
       if (plan.state === "skip") {
         if (current && plan.decision === "superseded")
-          if (
-            !(await tx.cadence.removeLease(
-              watch.targetId,
-              probe.id,
-              current.generationId,
-              current.revision,
-            ))
-          )
-            throw new Error("Locked cadence ownership changed");
+          await removeSupersededLease(tx, watch.targetId, probe.id, current);
         await record(tx, { ...receipt, decision: plan.decision });
         return { state: "completed" };
       }

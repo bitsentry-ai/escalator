@@ -1,5 +1,11 @@
 import type { WorkspaceId } from "../../contracts/index.js";
 import type { WorkQueue } from "../jobs/ports.js";
+/** The work queue a secret-using job kind runs on; other kinds may not read secrets. */
+function secretQueue(kind: string): "outbox" | "job" | undefined {
+  if (kind === "paging.send") return "outbox";
+  if (["paging.receipt", "paging.cancel"].includes(kind)) return "job";
+  return undefined;
+}
 
 /** Host validates the persisted claim and approved bindings; caller payload is not authority. */
 export interface SecretUse {
@@ -70,12 +76,7 @@ export function approvedSecretIdsForWork(
     return [];
   const data = payload as Record<string, unknown>;
   if (!kind.startsWith("paging.")) return data.secretIds;
-  const expectedQueue =
-    kind === "paging.send"
-      ? "outbox"
-      : ["paging.receipt", "paging.cancel"].includes(kind)
-        ? "job"
-        : undefined;
+  const expectedQueue = secretQueue(kind);
   if (
     queue !== expectedQueue ||
     "secretIds" in data ||

@@ -13,21 +13,10 @@ import { ruleWindowBounds, ruleSampleTime } from "../../domain/rules/time.js";
 import { PersistenceError } from "../ports/persistence.js";
 import { selectPeriodicCoverage } from "../retention/coverage.js";
 import { replayCoverageSegments } from "../retention/reader.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 
-/** Hosts must bind the expected measurement hash to the reviewed rule revision.
- * A current configuration cannot retroactively certify an old measurement.
- * The same projection is used for a live decision and each simulated decision.
- */
-export function ruleWindowFromHistory(
-  rawRule: DetectionRule,
-  rawDecisionAt: string,
-  raw: RuleHistorySnapshot,
-  expectedMeasurementHash: string,
-): RuleWindow {
-  const rule = detectionRuleSchema.parse(rawRule);
-  const decisionAt = utcTimestampSchema.parse(rawDecisionAt);
-  const data = ruleHistorySnapshotSchema.parse(raw);
-  const expected = ruleMeasurementHashSchema.parse(expectedMeasurementHash);
+type HistoryData = ReturnType<typeof ruleHistorySnapshotSchema.parse>;
+function assertHistoryScope(data: HistoryData, rule: DetectionRule): void {
   if (
     data.workspaceId !== rule.workspaceId ||
     data.serviceId !== rule.serviceId ||
@@ -44,6 +33,67 @@ export function ruleWindowFromHistory(
     )
   )
     throw new PersistenceError("scope_violation");
+}
+/**
+ * Projects the receipts in (start, end] onto their configuration slots; undefined when a receipt lacks the slot or
+ * configuration needed to certify coverage.
+ */
+function collectHistorySamples(
+  data: HistoryData,
+  rule: DetectionRule,
+  configurations: Map<number, HistoryData["configurations"][number]>,
+  { start, end }: { start: number; end: number },
+) {
+  const ids = new Set<string>();
+  const samples = [];
+  const selectedReceipts = new Map<
+    string,
+    RuleHistorySnapshot["receipts"][number]
+  >();
+  for (const row of data.receipts) {
+    const sample = row.sample;
+    if (ids.has(sample.id)) throw new RangeError("Duplicate receipt identity");
+    ids.add(sample.id);
+    const bin = ruleSampleTime(rule, sample);
+    if (bin <= start || bin > end) continue;
+    if (sample.kind === "signal") throw new PersistenceError("scope_violation");
+    if (sample.slotAt == null || row.version === null) return undefined;
+    const config = configurations.get(row.version);
+    if (!config) return undefined;
+    const slot = Date.parse(sample.slotAt),
+      observed = Date.parse(sample.observedAt);
+    const chronological =
+      observed >= slot &&
+      (sample.receivedAt === null || observed <= Date.parse(sample.receivedAt));
+    const withinBucket =
+      sample.kind !== "probe" || observed < slot + config.stepSeconds * 1000;
+    samples.push({
+      id: sample.id,
+      version: row.version,
+      slotAt: sample.slotAt,
+      observedAt: sample.observedAt,
+      receivedAt: sample.receivedAt,
+      usable: sample.usable && chronological && withinBucket,
+    });
+    selectedReceipts.set(sample.id, row);
+  }
+  return { samples, selectedReceipts };
+}
+/** Hosts must bind the expected measurement hash to the reviewed rule revision.
+ * A current configuration cannot retroactively certify an old measurement.
+ * The same projection is used for a live decision and each simulated decision.
+ */
+export function ruleWindowFromHistory(
+  rawRule: DetectionRule,
+  rawDecisionAt: string,
+  raw: RuleHistorySnapshot,
+  expectedMeasurementHash: string,
+): RuleWindow {
+  const rule = detectionRuleSchema.parse(rawRule);
+  const decisionAt = utcTimestampSchema.parse(rawDecisionAt);
+  const data = ruleHistorySnapshotSchema.parse(raw);
+  const expected = ruleMeasurementHashSchema.parse(expectedMeasurementHash);
+  assertHistoryScope(data, rule);
   const { start, end, visibleAt } = ruleWindowBounds(rule, decisionAt);
   if (
     data.visibleAt !== decisionAt ||
@@ -85,39 +135,12 @@ export function ruleWindowFromHistory(
     )
   )
     return window;
-  const ids = new Set<string>();
-  const samples = [];
-  const selectedReceipts = new Map<
-    string,
-    RuleHistorySnapshot["receipts"][number]
-  >();
-  for (const row of data.receipts) {
-    const sample = row.sample;
-    if (ids.has(sample.id)) throw new RangeError("Duplicate receipt identity");
-    ids.add(sample.id);
-    const bin = ruleSampleTime(rule, sample);
-    if (bin <= start || bin > end) continue;
-    if (sample.kind === "signal") throw new PersistenceError("scope_violation");
-    if (sample.slotAt == null || row.version === null) return window;
-    const config = configurations.get(row.version);
-    if (!config) return window;
-    const slot = Date.parse(sample.slotAt),
-      observed = Date.parse(sample.observedAt);
-    const chronological =
-      observed >= slot &&
-      (sample.receivedAt === null || observed <= Date.parse(sample.receivedAt));
-    const withinBucket =
-      sample.kind !== "probe" || observed < slot + config.stepSeconds * 1000;
-    samples.push({
-      id: sample.id,
-      version: row.version,
-      slotAt: sample.slotAt,
-      observedAt: sample.observedAt,
-      receivedAt: sample.receivedAt,
-      usable: sample.usable && chronological && withinBucket,
-    });
-    selectedReceipts.set(sample.id, row);
-  }
+  const collected = collectHistorySamples(data, rule, configurations, {
+    start,
+    end,
+  });
+  if (!collected) return window;
+  const { samples, selectedReceipts } = collected;
   const selection = selectPeriodicCoverage(
     {
       workspaceId: rule.workspaceId,
@@ -131,15 +154,17 @@ export function ruleWindowFromHistory(
     },
     { endInclusive: true },
   );
-  window.coverage = selection.report.gaps.length
-    ? "gaps"
-    : selection.report.expectedSlots ===
-          rule.windowSeconds / rule.stepSeconds &&
-        selection.report.availableSlots === selection.report.expectedSlots
-      ? "complete"
-      : "unknown";
+  const { gaps, expectedSlots, availableSlots } = selection.report;
+  if (gaps.length) window.coverage = "gaps";
+  else if (
+    expectedSlots === rule.windowSeconds / rule.stepSeconds &&
+    availableSlots === expectedSlots
+  )
+    window.coverage = "complete";
+  else window.coverage = "unknown";
   window.samples = selection.samples.map(
-    (row) => selectedReceipts.get(row.id)!.sample,
+    (row) =>
+      expectDefined(selectedReceipts.get(row.id), "selected receipt").sample,
   );
   return window;
 }

@@ -9,6 +9,7 @@ import {
 } from "../../contracts/index.js";
 import type { PagingSettingsClient } from "../settings-client.js";
 import { styles } from "../incidents/styles.js";
+import { channelLabel } from "./channel-label.js";
 export function ContactEditor({
   initial,
   responders,
@@ -126,11 +127,7 @@ export function ContactEditor({
             >
               {pagingChannelSchema.options.map((channel) => (
                 <option key={channel} value={channel}>
-                  {channel === "email"
-                    ? t("settings.emailChannel")
-                    : channel === "ntfy"
-                      ? channel
-                      : channel[0].toUpperCase() + channel.slice(1)}
+                  {channelLabel(channel, t)}
                 </option>
               ))}
             </select>

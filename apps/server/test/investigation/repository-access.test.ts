@@ -190,9 +190,10 @@ for (const defect of [
     const f = fixture(true),
       record = f.snapshot().secret!;
     if (defect === "expired") record.claim.expiresAt = record.claim.databaseNow;
-    if (defect === "wrong_token") record.claim.token = "other";
-    if (defect === "wrong_id") record.claim.approvedSecretIds = ["model_key"];
-    if (defect === "disabled") record.disabled = true;
+    else if (defect === "wrong_token") record.claim.token = "other";
+    else if (defect === "wrong_id")
+      record.claim.approvedSecretIds = ["model_key"];
+    else if (defect === "disabled") record.disabled = true;
     await assert.rejects(
       f.access.use(f.claim.scope, f.query, f.context, async () =>
         assert.fail(),

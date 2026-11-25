@@ -100,6 +100,9 @@ export async function readNativeEvidence(
           targetId: query.sourceId,
           event: row.event,
         };
+      default:
+        // Unreachable: the query switch above returned for every other kind.
+        throw new Error(`Unsupported evidence kind ${query.kind}`);
     }
   });
   // Legacy rows without receipt/version metadata are excluded; explicitly mark gaps.

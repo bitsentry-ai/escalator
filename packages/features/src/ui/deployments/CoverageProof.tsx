@@ -14,11 +14,11 @@ export function CoverageProof({
   return (
     <section style={styles.card} aria-label={t("deployments.preflight")}>
       <h3>{t("deployments.preflight")}</h3>
-      {!linked ? (
-        <p>{t("deployments.trackingOnly")}</p>
-      ) : error || !proof ? (
+      {!linked && <p>{t("deployments.trackingOnly")}</p>}
+      {linked && (error || !proof) && (
         <p role="alert">{t("deployments.proofUnavailable")}</p>
-      ) : (
+      )}
+      {linked && !error && proof && (
         <>
           <p>{t("deployments.historicalProof")}</p>
           <dl>

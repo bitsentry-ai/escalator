@@ -322,12 +322,12 @@ export function deploymentConformance(
             if (change === "mapping")
               value.deployment.mappedDeployerId =
                 value.policy.fallbackResponderIds[0];
-            if (change === "policy") value.policy.terminal.maxReminders++;
-            if (change === "deadline")
+            else if (change === "policy") value.policy.terminal.maxReminders++;
+            else if (change === "deadline")
               value.deployment.timeoutAt = new Date(
                 Date.parse(value.deployment.timeoutAt) + 1000,
               ).toISOString();
-            if (change === "terminal")
+            else if (change === "terminal")
               value.deployment = changed(
                 finishDeployment(
                   value.deployment,

@@ -54,17 +54,15 @@ test("reader authorizes paging payloads from persisted rows before releasing byt
     "fixture-value",
   );
   let invoked = false;
+  const markInvoked = async () => {
+    invoked = true;
+  };
   for (const denied of [
     { secretIds: [identity.id] },
     { secretId: "other", approvedSecretIds: [identity.id] },
   ]) {
     payload = denied;
-    await assert.rejects(
-      store.withSecret(request, async () => {
-        invoked = true;
-      }),
-      /unavailable/,
-    );
+    await assert.rejects(store.withSecret(request, markInvoked), /unavailable/);
   }
   assert.equal(invoked, false);
 });

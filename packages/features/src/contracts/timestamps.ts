@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "./ordering.js";
 /** For schema-validated UTC ISO timestamps. Date.parse keeps only milliseconds;
  * retain the remaining decimal digits when ordering receipts or availability. */
 function milliseconds(value: string): number {
@@ -19,7 +20,7 @@ export function compareUtcTimestamps(left: string, right: string): number {
     size = Math.max(a.length, b.length);
   const paddedA = a.padEnd(size, "0"),
     paddedB = b.padEnd(size, "0");
-  return paddedA < paddedB ? -1 : paddedA > paddedB ? 1 : 0;
+  return compareCodeUnits(paddedA, paddedB);
 }
 /** Preserve right-closed membership when boundaries use integer milliseconds.
  * This is a comparison key only: never replace the retained evidence timestamp. */

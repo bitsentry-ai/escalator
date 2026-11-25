@@ -10,6 +10,7 @@ import type { PagingRepository, PagingTransaction } from "./persistence.js";
 import { pagingWorkId } from "./work-ids.js";
 
 import type { AcknowledgementResult } from "../../contracts/index.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 export type { AcknowledgementResult } from "../../contracts/index.js";
 
 /** The raw credential is transient. Only its SHA-256 digest enters persistence. */
@@ -100,7 +101,7 @@ export async function acknowledgePageInTransaction(
     action: "page.acknowledged",
     subjectType: "page",
     subjectId: page.id,
-    recordedAt: updated.acknowledgedAt!,
+    recordedAt: expectDefined(updated.acknowledgedAt, "acknowledgement time"),
     metadata: {},
   });
   return result(updated);

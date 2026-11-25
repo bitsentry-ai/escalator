@@ -11,6 +11,7 @@ import {
   SignalIngressError,
   signalTokenDigest,
 } from "../../application/signals/ingest.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
 const nativeAlert = z.object({
   text: z.string().max(4000),
   attachments: z
@@ -80,7 +81,11 @@ export function normalizeGlitchTipAlert(
     } catch {
       throw new SignalIngressError("invalid_input");
     }
-    const issueId = /\/issues?\/(\d{1,32})\/?$/.exec(link.pathname)![1];
+    // The link was checked against the same pattern above.
+    const issueId = expectDefined(
+      /\/issues?\/(\d{1,32})\/?$/.exec(link.pathname),
+      "issue link match",
+    )[1];
     const issue = createHash("sha256")
       .update(`${link.origin}${link.pathname.replace(/\/$/, "")}`)
       .digest("hex");

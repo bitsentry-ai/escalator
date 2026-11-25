@@ -2,6 +2,17 @@ import { createHash } from "node:crypto";
 import type { SignalEvent, SignalSource } from "../../contracts/index.js";
 import { alertStateSchema, type AlertState } from "../../contracts/alerts.js";
 import { utcTimestampSchema } from "../../contracts/entities.js";
+import { expectDefined } from "../../contracts/expect-defined.js";
+/** An inactive alert keeps the recovery it already recorded; a newly inactive one recovers now. */
+function recoveryTime(
+  active: boolean,
+  current: AlertState | undefined,
+  databaseNow: string,
+): string | null {
+  if (active) return null;
+  if (current && !current.active) return current.recoveredAt;
+  return databaseNow;
+}
 const hash = (parts: unknown[]) =>
   createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 type AlertIdentityFields = Pick<
@@ -101,11 +112,7 @@ export function transitionAlert(
       observedAt: signal.observedAt,
       receivedAt: signal.receivedAt,
       active,
-      recoveredAt: active
-        ? null
-        : current && !current.active
-          ? current.recoveredAt
-          : databaseNow,
+      recoveredAt: recoveryTime(active, current, databaseNow),
       recoveryHoldSeconds: source.recoveryHoldSeconds,
       incidentId: current?.incidentId ?? null,
     }),
@@ -137,7 +144,8 @@ export function incidentRecoveryDeadline(
     (latest, alert) =>
       Math.max(
         latest,
-        Date.parse(alert.recoveredAt!) + alert.recoveryHoldSeconds * 1000,
+        Date.parse(expectDefined(alert.recoveredAt, "recovery time")) +
+          alert.recoveryHoldSeconds * 1000,
       ),
     0,
   );

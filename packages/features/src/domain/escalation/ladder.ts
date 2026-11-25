@@ -40,7 +40,7 @@ export function escalationSteps(
     target: step.target,
     dueAt: new Date(created + step.offsetMs).toISOString(),
   }));
-  const end = policy.steps.at(-1)!.offsetMs;
+  const end = policy.steps[policy.steps.length - 1].offsetMs;
   for (let reminder = 1; reminder <= policy.terminal.maxReminders; reminder++)
     steps.push({
       id: `reminder:${reminder}`,

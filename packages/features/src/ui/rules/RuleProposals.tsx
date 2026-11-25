@@ -154,15 +154,13 @@ function ProposalRequest({
   return (
     <fieldset disabled={action.pending}>
       <legend>{t("rules.requestProposal")}</legend>
-      {loading ? (
-        <p role="status">{t("sources.loading")}</p>
-      ) : profile ? (
+      {loading && <p role="status">{t("sources.loading")}</p>}
+      {!loading && profile && (
         <p>
           {t("rules.model")}: {profile.name}
         </p>
-      ) : (
-        <p>{t("rules.configureModel")}</p>
       )}
+      {!loading && !profile && <p>{t("rules.configureModel")}</p>}
       {error && (
         <>
           <p role="alert">{t("rules.loadError")}</p>
@@ -217,6 +215,7 @@ export function ProposalCard({
   onAdopt?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(t("rules.proposalDraftTitle"));
+  const { fullRunId, heldOutRunId } = proposal;
   const action = useRuleAction();
   return (
     <article style={styles.card}>
@@ -227,13 +226,13 @@ export function ProposalCard({
       {proposal.candidate && (
         <RuleDefinition definition={proposal.candidate.definition} t={t} />
       )}
-      {proposal.fullRunId && (
-        <button type="button" onClick={() => onRun(proposal.fullRunId!)}>
+      {fullRunId && (
+        <button type="button" onClick={() => onRun(fullRunId)}>
           {t("rules.fullReport")}
         </button>
       )}
-      {proposal.heldOutRunId && (
-        <button type="button" onClick={() => onRun(proposal.heldOutRunId!)}>
+      {heldOutRunId && (
+        <button type="button" onClick={() => onRun(heldOutRunId)}>
           {t("rules.heldOutReport")}
         </button>
       )}
